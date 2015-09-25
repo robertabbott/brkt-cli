@@ -13,6 +13,7 @@
 # limitations under the License.
 from boto.ec2.keypair import KeyPair
 from boto.ec2.securitygroup import SecurityGroup
+from boto.exception import EC2ResponseError
 import brkt_cli
 import logging
 import os
@@ -26,6 +27,7 @@ from boto.ec2.instance import Instance, ConsoleOutput
 from boto.ec2.snapshot import Snapshot
 from boto.ec2.volume import Volume
 from brkt_cli import service, util, EncryptionError
+from brkt_cli.service import retry_boto
 
 brkt_cli.log = logging.getLogger(__name__)
 
@@ -439,3 +441,32 @@ class TestProgress(unittest.TestCase):
                 now=now,
             )
         )
+
+
+class TestRetry(unittest.TestCase):
+
+    def setUp(self):
+        self.num_calls = 0
+
+    @retry_boto(
+        error_code_regexp='InvalidInstanceID.*',
+        initial_sleep_seconds=0,
+        max_retries=5
+    )
+    def _fail_for_n_calls(self, n, error_code='InvalidInstanceID.NotFound'):
+        self.num_calls += 1
+        if self.num_calls <= n:
+            e = EC2ResponseError(None, None)
+            e.error_code = error_code
+            raise e
+
+    def test_five_failures(self):
+        self._fail_for_n_calls(5)
+
+    def test_six_failures(self):
+        with self.assertRaises(EC2ResponseError):
+            self._fail_for_n_calls(6)
+
+    def test_regexp_does_not_match(self):
+        with self.assertRaises(EC2ResponseError):
+            self._fail_for_n_calls(1, error_code='InvalidVolumeID.NotFound')

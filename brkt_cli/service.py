@@ -13,12 +13,14 @@
 # limitations under the License.
 
 import abc
+import re
 import boto
 import logging
 import json
 import urllib2
 
 from boto.exception import EC2ResponseError
+import time
 
 ENCRYPT_SUCCESSFUL = 'finished'
 ENCRYPT_FAILED = 'failed'
@@ -132,6 +134,44 @@ class BaseAWSService(object):
         pass
 
 
+def retry_boto(error_code_regexp, max_retries=5, initial_sleep_seconds=0.25):
+    """ Call a boto function repeatedly until it succeeds.  If the call
+    fails with the expected error code, sleep and retry up to max_retries
+    times.  If the error code does not match error_code_regexp, fail
+    immediately.  The sleep interval is doubled on each retry.  With the
+    default settings, the total maximum sleep time is 7.75 seconds
+    (.25 + .50 + 1 + 2 + 4).
+    """
+    def retry_decorator(func):
+        def func_wrapper(*args, **kwargs):
+            retries = 0
+            sleep_seconds = initial_sleep_seconds
+
+            while True:
+                try:
+                    return func(*args, **kwargs)
+                except EC2ResponseError as e:
+                    if retries >= max_retries:
+                        log.error(
+                            'Exceeded %d retries for %s',
+                            max_retries,
+                            func.__name__
+                        )
+                        raise
+
+                    m = re.match(error_code_regexp, e.error_code)
+                    if not m:
+                        raise
+
+                time.sleep(sleep_seconds)
+                retries += 1
+                sleep_seconds *= 2
+
+        return func_wrapper
+
+    return retry_decorator
+
+
 class AWSService(BaseAWSService):
 
     def __init__(
@@ -176,9 +216,11 @@ class AWSService(BaseAWSService):
             log.error('Unable to launch instance for %s', image_id)
             raise
 
+    @retry_boto(error_code_regexp='InvalidInstanceID.NotFound')
     def get_instance(self, instance_id):
         return self.conn.get_only_instances([instance_id])[0]
 
+    @retry_boto(error_code_regexp='.*NotFound')
     def create_tags(self, resource_id, name=None, description=None):
         tags = dict(self.default_tags)
         if name:
@@ -197,6 +239,7 @@ class AWSService(BaseAWSService):
         log.debug('Terminating instance %s', instance_id)
         self.conn.terminate_instances([instance_id])
 
+    @retry_boto(error_code_regexp='InvalidVolume.NotFound')
     def get_volume(self, volume_id):
         return self.conn.get_all_volumes(volume_ids=[volume_id])[0]
 
@@ -207,9 +250,11 @@ class AWSService(BaseAWSService):
 
         return self.conn.get_all_volumes(filters=filters)
 
+    @retry_boto(error_code_regexp='InvalidSnapshot.NotFound')
     def get_snapshots(self, *snapshot_ids):
         return self.conn.get_all_snapshots(snapshot_ids)
 
+    @retry_boto(error_code_regexp='InvalidSnapshot.NotFound')
     def get_snapshot(self, snapshot_id):
         return self.conn.get_all_snapshots([snapshot_id])[0]
 
@@ -277,6 +322,7 @@ class AWSService(BaseAWSService):
             virtualization_type='paravirtual'
         )
 
+    @retry_boto(error_code_regexp='InvalidAMIID.NotFound')
     def get_image(self, image_id):
         return self.conn.get_image(image_id)
 
@@ -287,6 +333,7 @@ class AWSService(BaseAWSService):
         sg = self.conn.create_security_group(name, description)
         return sg.id
 
+    @retry_boto(error_code_regexp='InvalidGroup.NotFound')
     def get_security_group(self, sg_id):
         return self.conn.get_all_security_groups(group_ids=[sg_id])[0]
 

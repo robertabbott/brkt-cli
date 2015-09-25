@@ -110,8 +110,6 @@ DEFAULT_DESCRIPTION_ENCRYPTED_IMAGE = \
 
 SLEEP_ENABLED = True
 
-EVENTUAL_CONSISTENCY_TIMEOUT = 10
-
 # Right now this is the STAGE bucket. We need to make this PROD
 BRACKET_ENVIRONMENT = "stage"
 ENCRYPTOR_AMIS_URL = "http://solo-brkt-%s-net.s3.amazonaws.com/amis.json"
@@ -136,25 +134,6 @@ def _sleep(seconds):
         time.sleep(seconds)
 
 
-def _safe_get_instance(aws_svc, instance_id):
-    """ Get the instance and handle AWS eventual consistency lag.
-    """
-    deadline = Deadline(EVENTUAL_CONSISTENCY_TIMEOUT)
-    instance = None
-    while instance is None:
-        try:
-            instance = aws_svc.get_instance(instance_id)
-        except EC2ResponseError as e:
-            if e.error_code == 'InvalidInstanceID.NotFound':
-                log.debug('Instance was not found.  Sleeping.')
-                _sleep(2)
-            else:
-                raise
-        if deadline.is_expired():
-            raise Exception('Invalid instance id: ' + instance_id)
-    return instance
-
-
 def _wait_for_instance(
         aws_svc, instance_id, timeout=300, state='running'):
     """ Wait for up to timeout seconds for an instance to be in the
@@ -166,10 +145,9 @@ def _wait_for_instance(
         'Waiting for %s, timeout=%d, state=%s',
         instance_id, timeout, state)
 
-    # Wait for AWS eventual consistency to catch up.
-    instance = _safe_get_instance(aws_svc, instance_id)
     deadline = Deadline(timeout)
     while not deadline.is_expired():
+        instance = aws_svc.get_instance(instance_id)
         log.debug('Instance %s state=%s', instance.id, instance.state)
         if instance.state == state:
             return instance
@@ -178,7 +156,6 @@ def _wait_for_instance(
                 'Instance %s is in an error state.  Cannot proceed.'
             )
         _sleep(2)
-        instance = aws_svc.get_instance(instance_id)
     raise Exception(
         'Timed out waiting for %s to be in the %s state' %
         (instance_id, state)
@@ -202,7 +179,7 @@ def _get_encryption_progress_message(start_time, percent_complete, now=None):
     msg = 'Encryption is %d%% complete' % percent_complete
     if percent_complete > 0:
         remaining = util.estimate_seconds_remaining(
-            start_time, percent_complete)
+            start_time, percent_complete, now=now)
         msg += (
             ', %s remaining' % datetime.timedelta(seconds=int(remaining))
         )
@@ -358,20 +335,6 @@ def _wait_for_snapshots(svc, *snapshot_ids):
         _sleep(5)
 
 
-def _wait_for_security_group(aws_svc, sg_id):
-    log.debug('Waiting for security group %s', sg_id)
-    deadline = Deadline(EVENTUAL_CONSISTENCY_TIMEOUT)
-    while not deadline.is_expired():
-        try:
-            return aws_svc.get_security_group(sg_id)
-        except EC2ResponseError as e:
-            if e.error_code == 'InvalidGroup.NotFound':
-                _sleep(2)
-            else:
-                raise
-    raise Exception('Timed out waiting for security group ' + sg_id)
-
-
 def create_encryptor_security_group(svc):
     sg_name = NAME_ENCRYPTOR_SECURITY_GROUP % {'nonce': make_nonce()}
     sg_desc = DESCRIPTION_ENCRYPTOR_SECURITY_GROUP
@@ -391,7 +354,6 @@ def create_encryptor_security_group(svc):
             log.warn('Failed deleting temporary security group: %s', e2)
         raise e
 
-    _wait_for_security_group(svc, sg_id)
     svc.create_tags(sg_id)
     return sg_id
 
@@ -419,8 +381,6 @@ def _run_encryptor_instance(aws_svc, encryptor_image_id, snapshot, root_size,
     instance = aws_svc.run_instance(encryptor_image_id,
                                     security_group_ids=[sg_id],
                                     block_device_map=bdm)
-    _safe_get_instance(aws_svc, instance.id)
-
     aws_svc.create_tags(
         instance.id,
         name=NAME_ENCRYPTOR,
@@ -448,7 +408,6 @@ def _run_snapshotter_instance(aws_svc, image_id):
     log.info(
         'Launching instance %s to snapshot root disk for %s',
         instance.id, image_id)
-    _safe_get_instance(aws_svc, instance.id)
     aws_svc.create_tags(
         instance.id,
         name=NAME_SNAPSHOT_CREATOR,
