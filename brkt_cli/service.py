@@ -216,11 +216,11 @@ class AWSService(BaseAWSService):
             log.error('Unable to launch instance for %s', image_id)
             raise
 
-    @retry_boto(error_code_regexp='InvalidInstanceID.NotFound')
+    @retry_boto(error_code_regexp=r'InvalidInstanceID\.NotFound')
     def get_instance(self, instance_id):
         return self.conn.get_only_instances([instance_id])[0]
 
-    @retry_boto(error_code_regexp='.*NotFound')
+    @retry_boto(error_code_regexp=r'.*\.NotFound')
     def create_tags(self, resource_id, name=None, description=None):
         tags = dict(self.default_tags)
         if name:
@@ -239,7 +239,7 @@ class AWSService(BaseAWSService):
         log.debug('Terminating instance %s', instance_id)
         self.conn.terminate_instances([instance_id])
 
-    @retry_boto(error_code_regexp='InvalidVolume.NotFound')
+    @retry_boto(error_code_regexp=r'InvalidVolume\.NotFound')
     def get_volume(self, volume_id):
         return self.conn.get_all_volumes(volume_ids=[volume_id])[0]
 
@@ -250,11 +250,11 @@ class AWSService(BaseAWSService):
 
         return self.conn.get_all_volumes(filters=filters)
 
-    @retry_boto(error_code_regexp='InvalidSnapshot.NotFound')
+    @retry_boto(error_code_regexp=r'InvalidSnapshot\.NotFound')
     def get_snapshots(self, *snapshot_ids):
         return self.conn.get_all_snapshots(snapshot_ids)
 
-    @retry_boto(error_code_regexp='InvalidSnapshot.NotFound')
+    @retry_boto(error_code_regexp=r'InvalidSnapshot\.NotFound')
     def get_snapshot(self, snapshot_id):
         return self.conn.get_all_snapshots([snapshot_id])[0]
 
@@ -322,7 +322,7 @@ class AWSService(BaseAWSService):
             virtualization_type='paravirtual'
         )
 
-    @retry_boto(error_code_regexp='InvalidAMIID.NotFound')
+    @retry_boto(error_code_regexp=r'InvalidAMIID\.NotFound')
     def get_image(self, image_id):
         return self.conn.get_image(image_id)
 
@@ -333,7 +333,7 @@ class AWSService(BaseAWSService):
         sg = self.conn.create_security_group(name, description)
         return sg.id
 
-    @retry_boto(error_code_regexp='InvalidGroup.NotFound')
+    @retry_boto(error_code_regexp=r'InvalidGroup\.NotFound')
     def get_security_group(self, sg_id):
         return self.conn.get_all_security_groups(group_ids=[sg_id])[0]
 
