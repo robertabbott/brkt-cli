@@ -68,7 +68,7 @@ Run **brkt encrypt-ami** to create a new encrypted AMI based on an existing
 image:
 
 ```
-~/brkt-cli$ ./brkt encrypt-ami --key my-aws-key --region us-east-1 ami-76e27e1e
+~/brkt-cli$ brkt encrypt-ami --key my-aws-key --region us-east-1 ami-76e27e1e
 15:28:37 Starting encryptor session 0ba2065fbeec48e08002c6db1ca5ba46
 15:28:38 Launching instance i-703f4c99 to snapshot root disk for ami-76e27e1e
 ...
