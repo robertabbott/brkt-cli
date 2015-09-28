@@ -14,23 +14,16 @@ more information.
 
 ## Installation
 
-Use pip to install boto and requests, if they're not already installed:
+The latest release of **brkt-cli** is 0.9.1.  Use pip to install **brkt-cli** and its dependencies:
 
 ```
-$ pip install boto
-$ pip install requests
+pip install git+ssh://git@github.com/brkt/brkt-cli.git@brkt-cli-0.9.1
 ```
 
-The latest release of **brkt-cli** is 0.9.1.  To install this release, run
+To install the most recent **brkt-cli** code from the tip of the master branch, run
 
 ```
-$ curl -L https://github.com/brkt/brkt-cli/archive/brkt-cli-0.9.1.tar.gz | tar xzv
-```
-
-This will download the **brkt-cli** source and extract it to a directory called *brkt-cli-brkt-cli-0.9.1*.  To download the most recent **brkt-cli** code, run
-
-```
-$ curl -L https://github.com/brkt/brkt-cli/archive/master.tar.gz | tar xzv
+pip install git+ssh://git@github.com/brkt/brkt-cli.git
 ```
 
 The master branch has the latest features and bug fixes, but is not as thoroughly tested as the official release.
