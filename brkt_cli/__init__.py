@@ -59,6 +59,8 @@ from boto.ec2.blockdevicemapping import (
 from brkt_cli import service
 from brkt_cli.util import Deadline, make_nonce
 
+VERSION = '0.9.1'
+
 # End user-visible terminology.  These are resource names and descriptions
 # that the user will see in his or her EC2 console.
 
@@ -732,6 +734,11 @@ def main():
         dest='verbose',
         action='store_true',
         help='Print status information to the console'
+    )
+    parser.add_argument(
+        '--version',
+        action='version',
+        version='brkt-cli version %s' % VERSION
     )
 
     subparsers = parser.add_subparsers()
