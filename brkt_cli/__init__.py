@@ -696,16 +696,27 @@ def run(aws_svc, enc_svc_cls, image_id, encryptor_ami):
                     'terminate: %s', e)
 
         # Delete any volumes that were unexpectedly orphaned by AWS.
+        volumes = []
         try:
             volumes = aws_svc.get_volumes(
                 tag_key=TAG_ENCRYPTOR_SESSION_ID,
                 tag_value=aws_svc.session_id
             )
-            for volume in volumes:
-                log.info('Deleting orphaned volume %s', volume.id)
-                aws_svc.delete_volume(volume.id)
         except Exception as e:
-            log.warn('Unable to delete volume: %s', e)
+            log.warn('Unable to clean up orphaned volumes: %s', e)
+
+        for volume in volumes:
+            log.info('Deleting orphaned volume %s', volume.id)
+            try:
+                aws_svc.delete_volume(volume.id)
+            except EC2ResponseError as e:
+                # Eventual consistency may cause get_volumes() to return
+                # volumes that were already deleted during instance
+                # termination.
+                if e.error_code != 'InvalidVolume.NotFound':
+                    log.warn('Unable to delete volume: %s', e)
+            except Exception as e:
+                log.warn('Unable to delete volume: %s', e)
 
         if sg_id:
             try:
