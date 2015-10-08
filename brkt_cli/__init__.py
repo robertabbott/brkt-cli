@@ -123,6 +123,10 @@ class SnapshotError(Exception):
     pass
 
 
+class InstanceError(Exception):
+    pass
+
+
 def _get_snapshot_progress_text(snapshots):
     elements = [
         '%s: %s' % (str(s.id), str(s.progress))
@@ -154,11 +158,16 @@ def _wait_for_instance(
         if instance.state == state:
             return instance
         if instance.state == 'error':
-            raise Exception(
-                'Instance %s is in an error state.  Cannot proceed.'
+            raise InstanceError(
+                'Instance %s is in an error state.  Cannot proceed.' %
+                instance_id
+            )
+        if state != 'terminated' and instance.state == 'terminated':
+            raise InstanceError(
+                'Instance %s was unexpectedly terminated.' % instance_id
             )
         _sleep(2)
-    raise Exception(
+    raise InstanceError(
         'Timed out waiting for %s to be in the %s state' %
         (instance_id, state)
     )
