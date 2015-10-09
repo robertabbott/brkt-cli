@@ -470,3 +470,44 @@ class TestRetry(unittest.TestCase):
     def test_regexp_does_not_match(self):
         with self.assertRaises(EC2ResponseError):
             self._fail_for_n_calls(1, error_code='InvalidVolumeID.NotFound')
+
+
+class TestInstance(unittest.TestCase):
+
+    def setUp(self):
+        brkt_cli.SLEEP_ENABLED = False
+
+    def test_wait_for_instance_terminated(self):
+        """ Test waiting for an instance to terminate.
+        """
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
+        instance = aws_svc.run_instance(guest_image.id)
+        aws_svc.terminate_instance(instance.id)
+        result = brkt_cli._wait_for_instance(
+            aws_svc, instance.id, state='terminated', timeout=100)
+        self.assertEquals(instance, result)
+
+    def test_instance_error_state(self):
+        """ Test that we raise an exception when an instance goes into
+            an error state while we're waiting for it.
+        """
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
+        instance = aws_svc.run_instance(guest_image.id)
+        instance._state.name = 'error'
+        try:
+            brkt_cli._wait_for_instance(aws_svc, instance.id, timeout=100)
+        except brkt_cli.InstanceError as e:
+            self.assertTrue('error state' in e.message)
+
+    def test_wait_for_instance_unexpectedly_terminated(self):
+        """ Test that we handle the edge case when an instance is
+            terminated on startup.
+        """
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
+        instance = aws_svc.run_instance(guest_image.id)
+        aws_svc.terminate_instance(instance.id)
+        try:
+            brkt_cli._wait_for_instance(
+                aws_svc, instance.id, state='running', timeout=100)
+        except brkt_cli.InstanceError as e:
+            self.assertTrue('unexpectedly terminated' in e.message)
