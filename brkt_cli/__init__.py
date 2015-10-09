@@ -557,9 +557,11 @@ def run(aws_svc, enc_svc_cls, image_id, encryptor_ami):
 
         bdm = encryptor_instance.block_device_mapping
 
-        # Create clean snapshots
+        # Stop the encryptor instance.  Wait for it to stop before
+        # taking snapshots.
         log.info('Stopping encryptor instance %s', encryptor_instance.id)
         aws_svc.stop_instance(encryptor_instance.id)
+        _wait_for_instance(aws_svc, encryptor_instance.id, state='stopped')
 
         description = DESCRIPTION_SNAPSHOT % {'image_id': image_id}
 
