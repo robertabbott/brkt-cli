@@ -923,6 +923,11 @@ def main():
             log.exception(e.message)
         else:
             log.error(e.message)
+    except KeyboardInterrupt:
+        if values.verbose:
+            log.exception('Interrupted by user')
+        else:
+            log.error('Interrupted by user')
     return 1
 
 if __name__ == '__main__':
