@@ -116,6 +116,8 @@ SLEEP_ENABLED = True
 BRACKET_ENVIRONMENT = "stage"
 ENCRYPTOR_AMIS_URL = "http://solo-brkt-%s-net.s3.amazonaws.com/amis.json"
 
+AMI_NAME_MAX_LENGTH = 128
+
 log = None
 
 
@@ -498,7 +500,8 @@ def _terminate_instance(aws_svc, id, name, terminated_instance_ids):
         log.warn('Could not terminate %s instance: %s', name, e)
 
 
-def run(aws_svc, enc_svc_cls, image_id, encryptor_ami):
+def run(aws_svc, enc_svc_cls, image_id, encryptor_ami,
+        encrypted_ami_name=None):
     encryptor_instance = None
     ami = None
     snapshot_id = None
@@ -648,8 +651,14 @@ def run(aws_svc, enc_svc_cls, image_id, encryptor_ami):
             raise BracketError("Can't find image %s" % encryptor_ami)
 
         # Register the new AMI.
-        name = _append_suffix(
-            image.name, _get_encrypted_suffix(), max_length=128)
+        if encrypted_ami_name:
+            name = encrypted_ami_name
+        else:
+            name = _append_suffix(
+                image.name,
+                _get_encrypted_suffix(),
+                max_length=AMI_NAME_MAX_LENGTH
+            )
         if image.description:
             suffix = SUFFIX_ENCRYPTED_IMAGE % {'image_id': image_id}
             description = _append_suffix(
@@ -777,6 +786,13 @@ def main():
         help='The AMI that will be encrypted'
     )
     encrypt_ami.add_argument(
+        '--encrypted-ami-name',
+        metavar='NAME',
+        dest='encrypted_ami_name',
+        help='Specify the name of the generated encrypted AMI',
+        required=False
+    )
+    encrypt_ami.add_argument(
         '--encryptor-ami',
         metavar='ID',
         dest='encryptor_ami',
@@ -828,6 +844,15 @@ def main():
     log = logging.getLogger(__name__)
     log.setLevel(log_level)
     service.log.setLevel(log_level)
+
+    if (values.encrypted_ami_name and
+            len(values.encrypted_ami_name) > AMI_NAME_MAX_LENGTH):
+        print(
+            'The encrypted AMI name cannot be longer than '
+            '%d characters' % AMI_NAME_MAX_LENGTH,
+            file=sys.stderr
+        )
+        return 1
 
     # Validate the region.
     regions = [str(r.name) for r in boto.vpc.regions()]
@@ -889,7 +914,8 @@ def main():
             aws_svc=aws_svc,
             enc_svc_cls=service.EncryptorService,
             image_id=values.ami,
-            encryptor_ami=encryptor_ami
+            encryptor_ami=encryptor_ami,
+            encrypted_ami_name=values.encrypted_ami_name
         )
         # Print the AMI ID to stdout, in case the caller wants to process
         # the output.  Log messages go to stderr.
