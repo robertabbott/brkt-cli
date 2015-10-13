@@ -119,11 +119,15 @@ ENCRYPTOR_AMIS_URL = "http://solo-brkt-%s-net.s3.amazonaws.com/amis.json"
 log = None
 
 
-class SnapshotError(Exception):
+class BracketError(Exception):
     pass
 
 
-class InstanceError(Exception):
+class SnapshotError(BracketError):
+    pass
+
+
+class InstanceError(BracketError):
     pass
 
 
@@ -183,7 +187,7 @@ def _wait_for_encryptor_up(enc_svc, deadline):
             )
             return
         _sleep(5)
-    raise Exception('Unable to contact %s' % enc_svc.hostname)
+    raise BracketError('Unable to contact %s' % enc_svc.hostname)
 
 
 def _get_encryption_progress_message(start_time, percent_complete, now=None):
@@ -269,14 +273,15 @@ def _get_encryptor_ami(region):
     bracket_env = os.getenv('BRACKET_ENVIRONMENT',
                             BRACKET_ENVIRONMENT)
     if not bracket_env:
-        raise Exception('No bracket environment found')
+        raise BracketError('No bracket environment found')
     bucket_url = ENCRYPTOR_AMIS_URL % (bracket_env)
     r = requests.get(bucket_url)
     if r.status_code not in (200, 201):
-        raise Exception('Getting %s gave response: %s', bucket_url, r.text)
+        raise BracketError(
+            'Getting %s gave response: %s' % (bucket_url, r.text))
     ami = r.json().get(region)
     if not ami:
-        raise Exception('No AMI for %s returned.' % region)
+        raise BracketError('No AMI for %s returned.' % region)
     return ami
 
 
@@ -301,9 +306,9 @@ def _wait_for_image(amazon_svc, image_id):
         if image.state == 'available':
             break
         if image.state == 'failed':
-            raise Exception('Image state became failed')
+            raise BracketError('Image state became failed')
     else:
-        raise Exception(
+        raise BracketError(
             'Image failed to become available (%s)' % (image.state,))
 
 
@@ -637,10 +642,10 @@ def run(aws_svc, enc_svc_cls, image_id, encryptor_ami):
         log.debug('Getting image %s', image_id)
         image = aws_svc.get_image(image_id)
         if image is None:
-            raise Exception("Can't find image %s" % image_id)
+            raise BracketError("Can't find image %s" % image_id)
         encryptor_image = aws_svc.get_image(encryptor_ami)
         if encryptor_image is None:
-            raise Exception("Can't find image %s" % encryptor_ami)
+            raise BracketError("Can't find image %s" % encryptor_ami)
 
         # Register the new AMI.
         name = _append_suffix(
@@ -913,6 +918,11 @@ def main():
             )
         else:
             raise
+    except BracketError as e:
+        if values.verbose:
+            log.exception(e.message)
+        else:
+            log.error(e.message)
     return 1
 
 if __name__ == '__main__':
