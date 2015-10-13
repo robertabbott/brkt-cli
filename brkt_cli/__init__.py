@@ -201,7 +201,7 @@ def _get_encryption_progress_message(start_time, percent_complete, now=None):
     return msg
 
 
-class EncryptionError(Exception):
+class EncryptionError(BracketError):
     def __init__(self, message):
         super(EncryptionError, self).__init__(message)
         self.console_output_file = None
