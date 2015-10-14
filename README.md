@@ -14,10 +14,10 @@ more information.
 
 ## Installation
 
-The latest release of **brkt-cli** is 0.9.1.  Use pip to install **brkt-cli** and its dependencies:
+The latest release of **brkt-cli** is 0.9.2.  Use pip to install **brkt-cli** and its dependencies:
 
 ```
-pip install git+https://github.com/brkt/brkt-cli.git@brkt-cli-0.9.1
+pip install git+https://github.com/brkt/brkt-cli.git@brkt-cli-0.9.2
 ```
 
 To install the most recent **brkt-cli** code from the tip of the master branch, run
