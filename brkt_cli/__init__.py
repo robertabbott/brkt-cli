@@ -112,8 +112,7 @@ DEFAULT_DESCRIPTION_ENCRYPTED_IMAGE = \
 
 SLEEP_ENABLED = True
 
-# Right now this is the STAGE bucket. We need to make this PROD
-BRACKET_ENVIRONMENT = "stage"
+BRACKET_ENVIRONMENT = "prod"
 ENCRYPTOR_AMIS_URL = "http://solo-brkt-%s-net.s3.amazonaws.com/amis.json"
 
 log = None
