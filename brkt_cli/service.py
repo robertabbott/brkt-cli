@@ -394,3 +394,26 @@ class EncryptorService(BaseEncryptorService):
             ratio = float(info['bytes_written']) / info['bytes_total']
             info['percent_complete'] = int(100 * ratio)
         return info
+
+
+class ImageNameError(Exception):
+    pass
+
+
+def validate_image_name(name):
+    """ Verify that the name is a valid EC2 image name.  Return the name
+        if it's valid.
+
+    :raises ImageNameError
+    """
+    if not (name and 3 <= len(name) <= 128):
+        raise ImageNameError(
+            'Image name must be between 3 and 128 characters long')
+
+    m = re.match(r'[A-Za-z0-9()\[\] ./\-\'@_]+$', name)
+    if not m:
+        raise ImageNameError(
+            "Image name may only contain letters, numbers, spaces, "
+            "and the following characters: ()[]./-'@_"
+        )
+    return name

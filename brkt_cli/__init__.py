@@ -845,14 +845,12 @@ def main():
     log.setLevel(log_level)
     service.log.setLevel(log_level)
 
-    if (values.encrypted_ami_name and
-            len(values.encrypted_ami_name) > AMI_NAME_MAX_LENGTH):
-        print(
-            'The encrypted AMI name cannot be longer than '
-            '%d characters' % AMI_NAME_MAX_LENGTH,
-            file=sys.stderr
-        )
-        return 1
+    if values.encrypted_ami_name:
+        try:
+            service.validate_image_name(values.encrypted_ami_name)
+        except service.ImageNameError as e:
+            print(e.message, file=sys.stderr)
+            return 1
 
     # Validate the region.
     regions = [str(r.name) for r in boto.vpc.regions()]

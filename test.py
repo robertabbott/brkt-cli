@@ -277,6 +277,19 @@ class TestEncryptedImageName(unittest.TestCase):
         self.assertEqual(128, len(encrypted_name))
         self.assertTrue(encrypted_name.startswith('Boogie nights'))
 
+    def test_name_validation(self):
+        name = 'Test123 ()[]./-\'@_'
+        self.assertEquals(name, service.validate_image_name(name))
+        with self.assertRaises(service.ImageNameError):
+            service.validate_image_name(None)
+        with self.assertRaises(service.ImageNameError):
+            service.validate_image_name('ab')
+        with self.assertRaises(service.ImageNameError):
+            service.validate_image_name('a' * 129)
+        for c in '?!#$%^&*~`{}\|"<>':
+            with self.assertRaises(service.ImageNameError):
+                service.validate_image_name('test' + c)
+
 
 def _build_aws_service():
     aws_svc = DummyAWSService()
