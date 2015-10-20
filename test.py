@@ -277,6 +277,19 @@ class TestEncryptedImageName(unittest.TestCase):
         self.assertEqual(128, len(encrypted_name))
         self.assertTrue(encrypted_name.startswith('Boogie nights'))
 
+    def test_name_validation(self):
+        name = 'Test123 ()[]./-\'@_'
+        self.assertEquals(name, service.validate_image_name(name))
+        with self.assertRaises(service.ImageNameError):
+            service.validate_image_name(None)
+        with self.assertRaises(service.ImageNameError):
+            service.validate_image_name('ab')
+        with self.assertRaises(service.ImageNameError):
+            service.validate_image_name('a' * 129)
+        for c in '?!#$%^&*~`{}\|"<>':
+            with self.assertRaises(service.ImageNameError):
+                service.validate_image_name('test' + c)
+
 
 def _build_aws_service():
     aws_svc = DummyAWSService()
@@ -383,6 +396,23 @@ class TestRun(unittest.TestCase):
 
         # Verify that the volume was deleted.
         self.assertIsNone(aws_svc.get_volume(volume.id))
+
+    def test_encrypted_ami_name(self):
+        """ Test that the name is set on the encrypted AMI when specified.
+        """
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
+        brkt_cli.SLEEP_ENABLED = False
+
+        name = 'Am I an AMI?'
+        image_id = brkt_cli.run(
+            aws_svc=aws_svc,
+            enc_svc_cls=DummyEncryptorService,
+            image_id=guest_image.id,
+            encryptor_ami=encryptor_image.id,
+            encrypted_ami_name=name
+        )
+        ami = aws_svc.get_image(image_id)
+        self.assertEqual(name, ami.name)
 
 
 class ExpiredDeadline(object):
