@@ -189,7 +189,8 @@ def _wait_for_encryptor_up(enc_svc, deadline):
             )
             return
         _sleep(5)
-    raise BracketError('Unable to contact %s' % enc_svc.hostname)
+    raise BracketError(
+        'Unable to contact encryptor instance at %s' % enc_svc.hostname)
 
 
 def _get_encryption_progress_message(start_time, percent_complete, now=None):
