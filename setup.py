@@ -16,7 +16,7 @@ from setuptools import setup
 
 setup(
     name='brkt-cli',
-    version='0.9a1',
+    version='0.9.3',
     description='Bracket Computing command line interface',
     url='http://brkt.com',
     license='Apache 2.0',
