@@ -12,11 +12,20 @@
 # License for the specific language governing permissions and
 # limitations under the License.
 
+import re
 from setuptools import setup
+
+version = ''
+with open('brkt_cli/__init__.py', 'r') as fd:
+    version = re.search(r'^VERSION\s*=\s*[\'"]([^\'"]*)[\'"]',
+                        fd.read(), re.MULTILINE).group(1)
+
+if not version:
+    raise RuntimeError('Cannot find version information')
 
 setup(
     name='brkt-cli',
-    version='0.9.3',
+    version=version,
     description='Bracket Computing command line interface',
     url='http://brkt.com',
     license='Apache 2.0',
