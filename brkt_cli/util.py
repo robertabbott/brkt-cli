@@ -15,6 +15,10 @@ import time
 import uuid
 
 
+class BracketError(Exception):
+    pass
+
+
 def make_nonce():
     """Returns a 32bit nonce in hex encoding"""
     return str(uuid.uuid4()).split('-')[0]

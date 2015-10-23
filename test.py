@@ -26,7 +26,7 @@ from boto.ec2.image import Image
 from boto.ec2.instance import Instance, ConsoleOutput
 from boto.ec2.snapshot import Snapshot
 from boto.ec2.volume import Volume
-from brkt_cli import service, util, EncryptionError
+from brkt_cli import service, util, encrypt_ami
 from brkt_cli.service import retry_boto
 
 brkt_cli.log = logging.getLogger(__name__)
@@ -239,7 +239,7 @@ class TestSnapshotProgress(unittest.TestCase):
         s1.progress = u'25%'
         self.assertEqual(
             '1: 25%',
-            brkt_cli._get_snapshot_progress_text([s1])
+            encrypt_ami._get_snapshot_progress_text([s1])
         )
 
         # Two snapshots.
@@ -249,7 +249,7 @@ class TestSnapshotProgress(unittest.TestCase):
 
         self.assertEqual(
             '1: 25%, 2: 50%',
-            brkt_cli._get_snapshot_progress_text([s1, s2])
+            encrypt_ami._get_snapshot_progress_text([s1, s2])
         )
 
 
@@ -258,8 +258,8 @@ class TestEncryptedImageName(unittest.TestCase):
     def test_encrypted_image_suffix(self):
         """ Test that generated suffixes are unique.
         """
-        s1 = brkt_cli._get_encrypted_suffix()
-        s2 = brkt_cli._get_encrypted_suffix()
+        s1 = encrypt_ami._get_encrypted_suffix()
+        s2 = encrypt_ami._get_encrypted_suffix()
         self.assertNotEqual(s1, s2)
 
     def test_append_suffix(self):
@@ -267,13 +267,15 @@ class TestEncryptedImageName(unittest.TestCase):
         """
         name = 'Boogie nights are always the best in town'
         suffix = ' (except Tuesday)'
-        encrypted_name = brkt_cli._append_suffix(name, suffix, max_length=128)
+        encrypted_name = encrypt_ami._append_suffix(
+            name, suffix, max_length=128)
         self.assertTrue(encrypted_name.startswith(name))
         self.assertTrue(encrypted_name.endswith(suffix))
 
         # Make sure we truncate the original name when it's too long.
         name += ('X' * 100)
-        encrypted_name = brkt_cli._append_suffix(name, suffix, max_length=128)
+        encrypted_name = encrypt_ami._append_suffix(
+            name, suffix, max_length=128)
         self.assertEqual(128, len(encrypted_name))
         self.assertTrue(encrypted_name.startswith('Boogie nights'))
 
@@ -319,8 +321,8 @@ class TestRun(unittest.TestCase):
         """ Run the entire process and test that nothing obvious is broken.
         """
         aws_svc, encryptor_image, guest_image = _build_aws_service()
-        brkt_cli.SLEEP_ENABLED = False
-        encrypted_ami_id = brkt_cli.run(
+        encrypt_ami.SLEEP_ENABLED = False
+        encrypted_ami_id = encrypt_ami.encrypt(
             aws_svc=aws_svc,
             enc_svc_cls=DummyEncryptorService,
             image_id=guest_image.id,
@@ -333,16 +335,16 @@ class TestRun(unittest.TestCase):
         console log to a temp file.
         """
         aws_svc, encryptor_image, guest_image = _build_aws_service()
-        brkt_cli.SLEEP_ENABLED = False
+        encrypt_ami.SLEEP_ENABLED = False
         try:
-            brkt_cli.run(
+            encrypt_ami.encrypt(
                 aws_svc=aws_svc,
                 enc_svc_cls=FailedEncryptionService,
                 image_id=guest_image.id,
                 encryptor_ami=encryptor_image.id
             )
             self.fail('Encryption should have failed')
-        except EncryptionError as e:
+        except encrypt_ami.EncryptionError as e:
             with open(e.console_output_file.name) as f:
                 content = f.read()
                 self.assertEquals(CONSOLE_OUTPUT_TEXT, content)
@@ -353,25 +355,25 @@ class TestRun(unittest.TestCase):
         output is not available.
         """
         aws_svc, encryptor_image, guest_image = _build_aws_service()
-        brkt_cli.SLEEP_ENABLED = False
+        encrypt_ami.SLEEP_ENABLED = False
         aws_svc.console_output_text = None
 
         try:
-            brkt_cli.run(
+            encrypt_ami.encrypt(
                 aws_svc=aws_svc,
                 enc_svc_cls=FailedEncryptionService,
                 image_id=guest_image.id,
                 encryptor_ami=encryptor_image.id
             )
             self.fail('Encryption should have failed')
-        except EncryptionError as e:
+        except encrypt_ami.EncryptionError as e:
             self.assertIsNone(e.console_output_file)
 
     def test_delete_orphaned_volumes(self):
         """ Test that we clean up instance volumes that are orphaned by AWS.
         """
         aws_svc, encryptor_image, guest_image = _build_aws_service()
-        brkt_cli.SLEEP_ENABLED = False
+        encrypt_ami.SLEEP_ENABLED = False
 
         # Simulate a tagged orphaned volume.
         volume = Volume()
@@ -379,15 +381,15 @@ class TestRun(unittest.TestCase):
         aws_svc.volumes[volume.id] = volume
         aws_svc.tagged_volumes.append(volume)
 
-        # Verify that lookup succeeds before run().
+        # Verify that lookup succeeds before encrypt().
         self.assertEqual(volume, aws_svc.get_volume(volume.id))
         self.assertEqual(
             [volume],
             aws_svc.get_volumes(
-                tag_key=brkt_cli.TAG_ENCRYPTOR_SESSION_ID, tag_value='123')
+                tag_key=encrypt_ami.TAG_ENCRYPTOR_SESSION_ID, tag_value='123')
         )
 
-        brkt_cli.run(
+        encrypt_ami.encrypt(
             aws_svc=aws_svc,
             enc_svc_cls=DummyEncryptorService,
             image_id=guest_image.id,
@@ -401,10 +403,10 @@ class TestRun(unittest.TestCase):
         """ Test that the name is set on the encrypted AMI when specified.
         """
         aws_svc, encryptor_image, guest_image = _build_aws_service()
-        brkt_cli.SLEEP_ENABLED = False
+        encrypt_ami.SLEEP_ENABLED = False
 
         name = 'Am I an AMI?'
-        image_id = brkt_cli.run(
+        image_id = encrypt_ami.encrypt(
             aws_svc=aws_svc,
             enc_svc_cls=DummyEncryptorService,
             image_id=guest_image.id,
@@ -436,12 +438,13 @@ class TestEncryptionService(unittest.TestCase):
         svc = DummyEncryptorService()
         deadline = ExpiredDeadline()
         with self.assertRaisesRegexp(Exception, 'Unable to contact'):
-            brkt_cli._wait_for_encryptor_up(svc, deadline)
+            encrypt_ami._wait_for_encryptor_up(svc, deadline)
 
     def test_encryption_fails(self):
         svc = FailedEncryptionService('192.168.1.1')
-        with self.assertRaisesRegexp(EncryptionError, 'Encryption failed'):
-            brkt_cli._wait_for_encryption(svc)
+        with self.assertRaisesRegexp(
+                encrypt_ami.EncryptionError, 'Encryption failed'):
+            encrypt_ami._wait_for_encryption(svc)
 
 
 class TestProgress(unittest.TestCase):
@@ -460,12 +463,12 @@ class TestProgress(unittest.TestCase):
         now = time.time()
         self.assertEquals(
             'Encryption is 0% complete',
-            brkt_cli._get_encryption_progress_message(now, 0)
+            encrypt_ami._get_encryption_progress_message(now, 0)
         )
 
         self.assertEquals(
             'Encryption is 5% complete, 0:03:10 remaining',
-            brkt_cli._get_encryption_progress_message(
+            encrypt_ami._get_encryption_progress_message(
                 start_time=now - 10,
                 percent_complete=5,
                 now=now,
@@ -505,7 +508,7 @@ class TestRetry(unittest.TestCase):
 class TestInstance(unittest.TestCase):
 
     def setUp(self):
-        brkt_cli.SLEEP_ENABLED = False
+        encrypt_ami.SLEEP_ENABLED = False
 
     def test_wait_for_instance_terminated(self):
         """ Test waiting for an instance to terminate.
@@ -513,7 +516,7 @@ class TestInstance(unittest.TestCase):
         aws_svc, encryptor_image, guest_image = _build_aws_service()
         instance = aws_svc.run_instance(guest_image.id)
         aws_svc.terminate_instance(instance.id)
-        result = brkt_cli._wait_for_instance(
+        result = encrypt_ami._wait_for_instance(
             aws_svc, instance.id, state='terminated', timeout=100)
         self.assertEquals(instance, result)
 
@@ -525,8 +528,8 @@ class TestInstance(unittest.TestCase):
         instance = aws_svc.run_instance(guest_image.id)
         instance._state.name = 'error'
         try:
-            brkt_cli._wait_for_instance(aws_svc, instance.id, timeout=100)
-        except brkt_cli.InstanceError as e:
+            encrypt_ami._wait_for_instance(aws_svc, instance.id, timeout=100)
+        except encrypt_ami.InstanceError as e:
             self.assertTrue('error state' in e.message)
 
     def test_wait_for_instance_unexpectedly_terminated(self):
@@ -537,7 +540,7 @@ class TestInstance(unittest.TestCase):
         instance = aws_svc.run_instance(guest_image.id)
         aws_svc.terminate_instance(instance.id)
         try:
-            brkt_cli._wait_for_instance(
+            encrypt_ami._wait_for_instance(
                 aws_svc, instance.id, state='running', timeout=100)
-        except brkt_cli.InstanceError as e:
+        except encrypt_ami.InstanceError as e:
             self.assertTrue('unexpectedly terminated' in e.message)
