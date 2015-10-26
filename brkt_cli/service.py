@@ -26,6 +26,7 @@ import time
 ENCRYPT_SUCCESSFUL = 'finished'
 ENCRYPT_FAILED = 'failed'
 ENCRYPTOR_STATUS_PORT = 8000
+FAILURE_CODE_UNSUPPORTED_GUEST = 'unsupported_guest'
 
 PLATFORM_WINDOWS = 'windows'
 

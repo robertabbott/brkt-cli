@@ -446,6 +446,24 @@ class TestEncryptionService(unittest.TestCase):
                 encrypt_ami.EncryptionError, 'Encryption failed'):
             encrypt_ami._wait_for_encryption(svc)
 
+    def test_unsupported_guest(self):
+        class UnsupportedGuestService(service.BaseEncryptorService):
+            def __init__(self):
+                super(UnsupportedGuestService, self).__init__('localhost', 80)
+
+            def is_encryptor_up(self):
+                return True
+
+            def get_status(self):
+                return {
+                    'state': service.ENCRYPT_FAILED,
+                    'failure_code': service.FAILURE_CODE_UNSUPPORTED_GUEST,
+                    'percent_complete': 0
+                }
+
+        with self.assertRaises(encrypt_ami.UnsupportedGuestError):
+            encrypt_ami._wait_for_encryption(UnsupportedGuestService())
+
 
 class TestProgress(unittest.TestCase):
 
