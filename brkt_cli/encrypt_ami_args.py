@@ -1,3 +1,6 @@
+import argparse
+
+
 def setup_encrypt_ami_args(parser):
     parser.add_argument(
         'ami',
@@ -10,20 +13,6 @@ def setup_encrypt_ami_args(parser):
         dest='encrypted_ami_name',
         help='Specify the name of the generated encrypted AMI',
         required=False
-    )
-    parser.add_argument(
-        '--encryptor-ami',
-        metavar='ID',
-        dest='encryptor_ami',
-        help='Bracket Encryptor AMI',
-        required=False
-    )
-    parser.add_argument(
-        '--key',
-        metavar='NAME',
-        help='EC2 SSH Key Pair name',
-        dest='key_name',
-        required=True
     )
     parser.add_argument(
         '--validate-ami',
@@ -44,3 +33,23 @@ def setup_encrypt_ami_args(parser):
         dest='region',
         required=True
     )
+
+    # Optional AMI ID that's used to launch the encryptor instance.  This
+    # argument is hidden because it's only used for development.
+    parser.add_argument(
+        '--encryptor-ami',
+        metavar='ID',
+        dest='encryptor_ami',
+        help=argparse.SUPPRESS
+    )
+
+    # Optional EC2 SSH key pair name to use for launching the snapshotter
+    # and encryptor instances.  This argument is hidden because it's only
+    # used for development.
+    parser.add_argument(
+        '--key',
+        metavar='NAME',
+        help=argparse.SUPPRESS,
+        dest='key_name'
+    )
+
