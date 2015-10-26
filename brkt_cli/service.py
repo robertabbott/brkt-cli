@@ -231,7 +231,14 @@ class AWSService(BaseAWSService):
 
     @retry_boto(error_code_regexp=r'InvalidInstanceID\.NotFound')
     def get_instance(self, instance_id):
-        return self.conn.get_only_instances([instance_id])[0]
+        instances = self.conn.get_only_instances([instance_id])
+        if not instances:
+            # Handle the AWS API incorrectly returning an empty response.
+            raise EC2ResponseError(
+                'InvalidInstanceID.NotFound',
+                'AWS API returned an empty response'
+            )
+        return instances[0]
 
     @retry_boto(error_code_regexp=r'.*\.NotFound')
     def create_tags(self, resource_id, name=None, description=None):
@@ -254,7 +261,14 @@ class AWSService(BaseAWSService):
 
     @retry_boto(error_code_regexp=r'InvalidVolume\.NotFound')
     def get_volume(self, volume_id):
-        return self.conn.get_all_volumes(volume_ids=[volume_id])[0]
+        volumes = self.conn.get_all_volumes(volume_ids=[volume_id])
+        if not volumes:
+            # Handle the AWS API incorrectly returning an empty response.
+            raise EC2ResponseError(
+                'InvalidVolume.NotFound',
+                'AWS API returned an empty response'
+            )
+        return volumes[0]
 
     def get_volumes(self, tag_key=None, tag_value=None):
         filters = {}
@@ -269,7 +283,14 @@ class AWSService(BaseAWSService):
 
     @retry_boto(error_code_regexp=r'InvalidSnapshot\.NotFound')
     def get_snapshot(self, snapshot_id):
-        return self.conn.get_all_snapshots([snapshot_id])[0]
+        snapshots = self.conn.get_all_snapshots([snapshot_id])
+        if not snapshots:
+            # Handle the AWS API incorrectly returning an empty response.
+            raise EC2ResponseError(
+                'InvalidSnapshot.NotFound',
+                'AWS API returned an empty response'
+            )
+        return snapshots[0]
 
     def create_snapshot(self, volume_id, name=None, description=None):
         log.debug('Creating snapshot of %s', volume_id)
@@ -348,7 +369,14 @@ class AWSService(BaseAWSService):
 
     @retry_boto(error_code_regexp=r'InvalidGroup\.NotFound')
     def get_security_group(self, sg_id):
-        return self.conn.get_all_security_groups(group_ids=[sg_id])[0]
+        groups = self.conn.get_all_security_groups(group_ids=[sg_id])
+        if not groups:
+            # Handle the AWS API incorrectly returning an empty response.
+            raise EC2ResponseError(
+                'InvalidGroup.NotFound',
+                'AWS API returned an empty response'
+            )
+        return groups[0]
 
     def add_security_group_rule(self, sg_id, **kwargs):
         kwargs['group_id'] = sg_id
@@ -362,7 +390,14 @@ class AWSService(BaseAWSService):
             raise Exception('Unknown error while deleting security group')
 
     def get_key_pair(self, keyname):
-        return self.conn.get_all_key_pairs(keynames=[keyname])[0]
+        key_pairs = self.conn.get_all_key_pairs(keynames=[keyname])
+        if not key_pairs:
+            # Handle the AWS API incorrectly returning an empty response.
+            raise EC2ResponseError(
+                'InvalidKeyPair.NotFound',
+                'AWS API returned an empty response'
+            )
+        return key_pairs[0]
 
     def get_console_output(self, instance_id):
         return self.conn.get_console_output(instance_id)
