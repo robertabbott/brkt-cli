@@ -34,7 +34,6 @@ AWS_SECRET_ACCESS_KEY environment variables, like you would when
 running the AWS command line utility.
 """
 
-import datetime
 import os
 import logging
 import re
@@ -54,7 +53,6 @@ from brkt_cli import service
 from brkt_cli.util import (
     BracketError,
     Deadline,
-    estimate_seconds_remaining,
     make_nonce,
 )
 
@@ -193,17 +191,6 @@ def _wait_for_encryptor_up(enc_svc, deadline):
     raise BracketError('Unable to contact %s' % enc_svc.hostname)
 
 
-def _get_encryption_progress_message(start_time, percent_complete, now=None):
-    msg = 'Encryption is %d%% complete' % percent_complete
-    if percent_complete > 0:
-        remaining = estimate_seconds_remaining(
-            start_time, percent_complete, now=now)
-        msg += (
-            ', %s remaining' % datetime.timedelta(seconds=int(remaining))
-        )
-    return msg
-
-
 class EncryptionError(BracketError):
     def __init__(self, message):
         super(EncryptionError, self).__init__(message)
@@ -237,9 +224,7 @@ def _wait_for_encryption(enc_svc):
         # Log progress once a minute.
         now = time.time()
         if now - last_progress_log >= 60:
-            msg = _get_encryption_progress_message(
-                start_time, percent_complete)
-            log.info(msg)
+            log.info('Encryption is %d%% complete', percent_complete)
             last_progress_log = now
 
         if state == service.ENCRYPT_SUCCESSFUL:
