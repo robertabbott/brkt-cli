@@ -210,6 +210,10 @@ class EncryptionError(BracketError):
         self.console_output_file = None
 
 
+class UnsupportedGuestError(BracketError):
+    pass
+
+
 def _wait_for_encryption(enc_svc):
     err_count = 0
     max_errs = 10
@@ -242,6 +246,11 @@ def _wait_for_encryption(enc_svc):
             log.info('Encrypted root drive created.')
             return
         elif state == service.ENCRYPT_FAILED:
+            failure_code = status.get('failure_code')
+            log.debug('failure_code=%s', failure_code)
+            if failure_code == service.FAILURE_CODE_UNSUPPORTED_GUEST:
+                raise UnsupportedGuestError(
+                    'The specified AMI uses an unsupported operating system')
             raise EncryptionError('Encryption failed')
 
         _sleep(10)
