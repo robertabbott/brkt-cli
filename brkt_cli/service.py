@@ -174,6 +174,19 @@ def retry_boto(error_code_regexp, max_retries=5, initial_sleep_seconds=0.25):
     return retry_decorator
 
 
+def _get_first_element(list, error_status):
+    """ Return the first element in the list.  If the list is empty, raise
+    an EC2ResponseError with the given error status.  This is a workaround
+    for the case where the AWS API erroneously returns an empty list instead
+    of an error.
+    """
+    if list:
+        return list[0]
+    else:
+        raise EC2ResponseError(
+            error_status, 'AWS API returned an empty response')
+
+
 class AWSService(BaseAWSService):
 
     def __init__(
@@ -232,13 +245,7 @@ class AWSService(BaseAWSService):
     @retry_boto(error_code_regexp=r'InvalidInstanceID\.NotFound')
     def get_instance(self, instance_id):
         instances = self.conn.get_only_instances([instance_id])
-        if not instances:
-            # Handle the AWS API incorrectly returning an empty response.
-            raise EC2ResponseError(
-                'InvalidInstanceID.NotFound',
-                'AWS API returned an empty response'
-            )
-        return instances[0]
+        return _get_first_element(instances, 'InvalidInstanceID.NotFound')
 
     @retry_boto(error_code_regexp=r'.*\.NotFound')
     def create_tags(self, resource_id, name=None, description=None):
@@ -262,13 +269,7 @@ class AWSService(BaseAWSService):
     @retry_boto(error_code_regexp=r'InvalidVolume\.NotFound')
     def get_volume(self, volume_id):
         volumes = self.conn.get_all_volumes(volume_ids=[volume_id])
-        if not volumes:
-            # Handle the AWS API incorrectly returning an empty response.
-            raise EC2ResponseError(
-                'InvalidVolume.NotFound',
-                'AWS API returned an empty response'
-            )
-        return volumes[0]
+        return _get_first_element(volumes, 'InvalidVolume.NotFound')
 
     def get_volumes(self, tag_key=None, tag_value=None):
         filters = {}
@@ -284,13 +285,7 @@ class AWSService(BaseAWSService):
     @retry_boto(error_code_regexp=r'InvalidSnapshot\.NotFound')
     def get_snapshot(self, snapshot_id):
         snapshots = self.conn.get_all_snapshots([snapshot_id])
-        if not snapshots:
-            # Handle the AWS API incorrectly returning an empty response.
-            raise EC2ResponseError(
-                'InvalidSnapshot.NotFound',
-                'AWS API returned an empty response'
-            )
-        return snapshots[0]
+        return _get_first_element(snapshots, 'InvalidSnapshot.NotFound')
 
     def create_snapshot(self, volume_id, name=None, description=None):
         log.debug('Creating snapshot of %s', volume_id)
@@ -370,13 +365,7 @@ class AWSService(BaseAWSService):
     @retry_boto(error_code_regexp=r'InvalidGroup\.NotFound')
     def get_security_group(self, sg_id):
         groups = self.conn.get_all_security_groups(group_ids=[sg_id])
-        if not groups:
-            # Handle the AWS API incorrectly returning an empty response.
-            raise EC2ResponseError(
-                'InvalidGroup.NotFound',
-                'AWS API returned an empty response'
-            )
-        return groups[0]
+        return _get_first_element(groups, 'InvalidGroup.NotFound')
 
     def add_security_group_rule(self, sg_id, **kwargs):
         kwargs['group_id'] = sg_id
@@ -391,13 +380,7 @@ class AWSService(BaseAWSService):
 
     def get_key_pair(self, keyname):
         key_pairs = self.conn.get_all_key_pairs(keynames=[keyname])
-        if not key_pairs:
-            # Handle the AWS API incorrectly returning an empty response.
-            raise EC2ResponseError(
-                'InvalidKeyPair.NotFound',
-                'AWS API returned an empty response'
-            )
-        return key_pairs[0]
+        return _get_first_element(key_pairs, 'InvalidKeyPair.NotFound')
 
     def get_console_output(self, instance_id):
         return self.conn.get_console_output(instance_id)
