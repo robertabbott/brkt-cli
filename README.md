@@ -31,20 +31,20 @@ The master branch has the latest features and bug fixes, but is not as thoroughl
 ## Usage
 ```
 $ brkt encrypt-ami -h
-usage: brkt encrypt-ami [-h] [--encryptor-ami ID] --key NAME [--validate-ami]
+usage: brkt encrypt-ami [-h] [--encrypted-ami-name NAME] [--validate-ami]
                         [--no-validate-ami] --region NAME
                         AMI_ID
 
 positional arguments:
-  AMI_ID              The AMI that will be encrypted
+  AMI_ID                The AMI that will be encrypted
 
 optional arguments:
-  -h, --help          show this help message and exit
-  --encryptor-ami ID  Bracket Encryptor AMI
-  --key NAME          EC2 SSH Key Pair name
-  --validate-ami      Validate AMI properties (default)
-  --no-validate-ami   Don't validate AMI properties
-  --region NAME       AWS region (e.g. us-west-2)
+  -h, --help            show this help message and exit
+  --encrypted-ami-name NAME
+                        Specify the name of the generated encrypted AMI
+  --validate-ami        Validate AMI properties (default)
+  --no-validate-ami     Don't validate AMI properties
+  --region NAME         AWS region (e.g. us-west-2)
 ```
 
 ## Configuration
