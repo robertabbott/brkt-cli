@@ -45,7 +45,6 @@ import requests
 from boto.exception import EC2ResponseError
 from boto.ec2.blockdevicemapping import (
     BlockDeviceMapping,
-    BlockDeviceType,
     EBSBlockDeviceType,
 )
 
@@ -628,19 +627,20 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
         new_bdm['/dev/sda3'] = dev_log
         new_bdm['/dev/sda5'] = dev_guest_root
 
-        i = 0
-        # Just attach 4 ephemeral drives
-        # XXX Should get ephemeral drives from guest AMI (e.g. Centos 6.6)
-        for drive in ['/dev/sdb', '/dev/sdc', '/dev/sdd', '/dev/sde']:
-            t = BlockDeviceType()
-            t.ephemeral_name = 'ephemeral%d' % (i,)
-            i += 1
-            new_bdm[drive] = t
-
         log.debug('Getting image %s', image_id)
         image = aws_svc.get_image(image_id)
         if image is None:
             raise BracketError("Can't find image %s" % image_id)
+
+        # Propagate any ephemeral drive mappings to the soloized image
+        guest_bdm = image.block_device_mapping
+        for key in guest_bdm.keys():
+            guest_vol = guest_bdm[key]
+            if guest_vol.ephemeral_name:
+                log.info('Propagating block device mapping for %s at %s' %
+                         (guest_vol.ephemeral_name, key))
+                new_bdm[key] = guest_vol
+
         encryptor_image = aws_svc.get_image(encryptor_ami)
         if encryptor_image is None:
             raise BracketError("Can't find image %s" % encryptor_ami)
