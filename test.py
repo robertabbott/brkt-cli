@@ -25,8 +25,8 @@ from boto.ec2.image import Image
 from boto.ec2.instance import Instance, ConsoleOutput
 from boto.ec2.snapshot import Snapshot
 from boto.ec2.volume import Volume
-from brkt_cli import service, encrypt_ami
-from brkt_cli.service import retry_boto
+from brkt_cli import encryptor_service, encrypt_ami
+from brkt_cli import aws_service
 
 brkt_cli.log = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ def _new_id():
     return uuid.uuid4().hex[:6]
 
 
-class DummyEncryptorService(service.BaseEncryptorService):
+class DummyEncryptorService(encryptor_service.BaseEncryptorService):
 
     def __init__(self, hostname='test-host', port=8000):
         super(DummyEncryptorService, self).__init__(hostname, port)
@@ -69,7 +69,7 @@ class DummyEncryptorService(service.BaseEncryptorService):
         return ret_val
 
 
-class DummyAWSService(service.BaseAWSService):
+class DummyAWSService(aws_service.BaseAWSService):
 
     def __init__(self):
         super(DummyAWSService, self).__init__(_new_id())
@@ -280,16 +280,16 @@ class TestEncryptedImageName(unittest.TestCase):
 
     def test_name_validation(self):
         name = 'Test123 ()[]./-\'@_'
-        self.assertEquals(name, service.validate_image_name(name))
-        with self.assertRaises(service.ImageNameError):
-            service.validate_image_name(None)
-        with self.assertRaises(service.ImageNameError):
-            service.validate_image_name('ab')
-        with self.assertRaises(service.ImageNameError):
-            service.validate_image_name('a' * 129)
+        self.assertEquals(name, aws_service.validate_image_name(name))
+        with self.assertRaises(aws_service.ImageNameError):
+            aws_service.validate_image_name(None)
+        with self.assertRaises(aws_service.ImageNameError):
+            aws_service.validate_image_name('ab')
+        with self.assertRaises(aws_service.ImageNameError):
+            aws_service.validate_image_name('a' * 129)
         for c in '?!#$%^&*~`{}\|"<>':
-            with self.assertRaises(service.ImageNameError):
-                service.validate_image_name('test' + c)
+            with self.assertRaises(aws_service.ImageNameError):
+                aws_service.validate_image_name('test' + c)
 
 
 def _build_aws_service():
@@ -421,13 +421,13 @@ class ExpiredDeadline(object):
         return True
 
 
-class FailedEncryptionService(service.BaseEncryptorService):
+class FailedEncryptionService(encryptor_service.BaseEncryptorService):
     def is_encryptor_up(self):
         return True
 
     def get_status(self):
         return {
-            'state': service.ENCRYPT_FAILED,
+            'state': encryptor_service.ENCRYPT_FAILED,
             'percent_complete': 50,
         }
 
@@ -446,7 +446,7 @@ class TestEncryptionService(unittest.TestCase):
             encrypt_ami._wait_for_encryption(svc)
 
     def test_unsupported_guest(self):
-        class UnsupportedGuestService(service.BaseEncryptorService):
+        class UnsupportedGuestService(encryptor_service.BaseEncryptorService):
             def __init__(self):
                 super(UnsupportedGuestService, self).__init__('localhost', 80)
 
@@ -455,8 +455,8 @@ class TestEncryptionService(unittest.TestCase):
 
             def get_status(self):
                 return {
-                    'state': service.ENCRYPT_FAILED,
-                    'failure_code': service.FAILURE_CODE_UNSUPPORTED_GUEST,
+                    'state': encryptor_service.ENCRYPT_FAILED,
+                    'failure_code': encryptor_service.FAILURE_CODE_UNSUPPORTED_GUEST,
                     'percent_complete': 0
                 }
 
@@ -469,7 +469,7 @@ class TestRetry(unittest.TestCase):
     def setUp(self):
         self.num_calls = 0
 
-    @retry_boto(
+    @aws_service.retry_boto(
         error_code_regexp='InvalidInstanceID.*',
         initial_sleep_seconds=0,
         max_retries=5
