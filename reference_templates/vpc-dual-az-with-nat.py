@@ -217,7 +217,8 @@ public_egress_acl_entries = [
     ('PublicAllowHTTPOut', 110, 6, 80, '0.0.0.0/0'),
     ('PublicAllowTCPResponsesOut', 120, 6, (1024, 65535), '0.0.0.0/0'),
     ('PublicAllowSSHToPrivateInstances', 130, 6, 22, vpc_cidr),
-    ('PublicAllowNTPOut', 140, 17, 123, '0.0.0.0/0')
+    ('PublicAllowNTPOut', 140, 17, 123, '0.0.0.0/0'),
+    ('PublicAllowBrktOut', 150, 6, (7001, 7002), '0.0.0.0/0')
 ]
 for entry in public_egress_acl_entries:
     add_public_egress_acl_entry(*entry)
@@ -228,6 +229,7 @@ public_ingress_acl_entries = [
     ('PublicAllowHTTPSThrough', 120, 6, 443, vpc_cidr),
     ('PublicAllowHTTPThrough', 130, 6, 80, vpc_cidr),
     ('PublicAllowNTPResponsesIn', 140, 17, 123, '0.0.0.0/0'),
+    ('PublicAllowBrktIn', 150, 6, (7001, 7002), '0.0.0.0/0')
 ]
 for entry in public_ingress_acl_entries:
     add_public_ingress_acl_entry(*entry)
@@ -238,6 +240,7 @@ private_egress_acl_entries = [
     ('PrivateAllowHTTPOut', 110, 6, 80, '0.0.0.0/0'),
     ('PrivateAllowTCPResponsesOut', 120, 6, (1024, 65535), vpc_cidr),
     ('PrivateAllowNTPOut', 130, 17, 123, '0.0.0.0/0'),
+    ('PrivateAllowBrktOut', 140, 6, (7001, 7002), '0.0.0.0/0')
 ]
 for entry in private_egress_acl_entries:
     add_private_egress_acl_entry(*entry)
@@ -331,6 +334,13 @@ internet_client_rules = [
         IpProtocol="tcp",
         FromPort="443",
         ToPort="443",
+        SourceSecurityGroupId=Ref(internet_client_sg),
+    ),
+    # tcp/7001 tcp/7002 (brkt traffic)
+    SecurityGroupRule(
+        IpProtocol="tcp",
+        FromPort="7001",
+        ToPort="7002",
         SourceSecurityGroupId=Ref(internet_client_sg),
     ),
     # A rule to allow the use of udp/123 (NTP)
