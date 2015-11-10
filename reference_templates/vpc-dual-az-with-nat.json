@@ -234,6 +234,14 @@
                         "ToPort": "443"
                     },
                     {
+                        "FromPort": "7001",
+                        "IpProtocol": "tcp",
+                        "SourceSecurityGroupId": {
+                            "Ref": "InternetClientSG"
+                        },
+                        "ToPort": "7002"
+                    },
+                    {
                         "FromPort": "123",
                         "IpProtocol": "udp",
                         "SourceSecurityGroupId": {
@@ -323,6 +331,23 @@
                 ]
             },
             "Type": "AWS::EC2::Instance"
+        },
+        "PrivateAllowBrktOut": {
+            "Properties": {
+                "CidrBlock": "0.0.0.0/0",
+                "Egress": "true",
+                "NetworkAclId": {
+                    "Ref": "PrivateNetworkAcl"
+                },
+                "PortRange": {
+                    "From": "7001",
+                    "To": "7002"
+                },
+                "Protocol": "6",
+                "RuleAction": "allow",
+                "RuleNumber": "140"
+            },
+            "Type": "AWS::EC2::NetworkAclEntry"
         },
         "PrivateAllowHTTPOut": {
             "Properties": {
@@ -666,6 +691,40 @@
                 }
             },
             "Type": "AWS::EC2::SubnetRouteTableAssociation"
+        },
+        "PublicAllowBrktIn": {
+            "Properties": {
+                "CidrBlock": "0.0.0.0/0",
+                "Egress": "false",
+                "NetworkAclId": {
+                    "Ref": "PublicNetworkAcl"
+                },
+                "PortRange": {
+                    "From": "7001",
+                    "To": "7002"
+                },
+                "Protocol": "6",
+                "RuleAction": "allow",
+                "RuleNumber": "150"
+            },
+            "Type": "AWS::EC2::NetworkAclEntry"
+        },
+        "PublicAllowBrktOut": {
+            "Properties": {
+                "CidrBlock": "0.0.0.0/0",
+                "Egress": "true",
+                "NetworkAclId": {
+                    "Ref": "PublicNetworkAcl"
+                },
+                "PortRange": {
+                    "From": "7001",
+                    "To": "7002"
+                },
+                "Protocol": "6",
+                "RuleAction": "allow",
+                "RuleNumber": "150"
+            },
+            "Type": "AWS::EC2::NetworkAclEntry"
         },
         "PublicAllowHTTPOut": {
             "Properties": {
