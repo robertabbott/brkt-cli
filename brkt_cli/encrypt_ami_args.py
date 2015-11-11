@@ -52,4 +52,3 @@ def setup_encrypt_ami_args(parser):
         help=argparse.SUPPRESS,
         dest='key_name'
     )
-

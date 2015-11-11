@@ -23,9 +23,10 @@ import sys
 
 from boto.exception import EC2ResponseError, NoAuthHandlerFound
 
+from brkt_cli import aws_service
 from brkt_cli import encrypt_ami
 from brkt_cli import encrypt_ami_args
-from brkt_cli import service
+from brkt_cli import encryptor_service
 from brkt_cli import util
 
 VERSION = '0.9.4'
@@ -66,16 +67,21 @@ def main():
         # Boto logs auth errors and 401s at ERROR level by default.
         boto.log.setLevel(logging.FATAL)
         log_level = logging.INFO
+
+    # Set the log level of our modules explicitly.  We can't set the
+    # default log level to INFO because we would see INFO messages from
+    # boto and other 3rd party libraries in the command output.
     logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%H:%M:%S')
     global log
     log = logging.getLogger(__name__)
     log.setLevel(log_level)
-    service.log.setLevel(log_level)
+    aws_service.log.setLevel(log_level)
+    encryptor_service.log.setLevel(log_level)
 
     if values.encrypted_ami_name:
         try:
-            service.validate_image_name(values.encrypted_ami_name)
-        except service.ImageNameError as e:
+            aws_service.validate_image_name(values.encrypted_ami_name)
+        except aws_service.ImageNameError as e:
             print(e.message, file=sys.stderr)
             return 1
 
@@ -102,7 +108,7 @@ def main():
 
     try:
         # Connect to AWS.
-        aws_svc = service.AWSService(
+        aws_svc = aws_service.AWSService(
             session_id, encryptor_ami, default_tags=default_tags)
         aws_svc.connect(region, key_name=values.key_name)
     except NoAuthHandlerFound:
@@ -136,7 +142,7 @@ def main():
 
         encrypted_image_id = encrypt_ami.encrypt(
             aws_svc=aws_svc,
-            enc_svc_cls=service.EncryptorService,
+            enc_svc_cls=encryptor_service.EncryptorService,
             image_id=values.ami,
             encryptor_ami=encryptor_ami,
             encrypted_ami_name=values.encrypted_ami_name

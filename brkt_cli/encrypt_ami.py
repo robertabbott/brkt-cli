@@ -48,7 +48,7 @@ from boto.ec2.blockdevicemapping import (
     EBSBlockDeviceType,
 )
 
-from brkt_cli import service
+from brkt_cli import encryptor_service
 from brkt_cli.util import (
     BracketError,
     Deadline,
@@ -226,13 +226,13 @@ def _wait_for_encryption(enc_svc):
             log.info('Encryption is %d%% complete', percent_complete)
             last_progress_log = now
 
-        if state == service.ENCRYPT_SUCCESSFUL:
+        if state == encryptor_service.ENCRYPT_SUCCESSFUL:
             log.info('Encrypted root drive created.')
             return
-        elif state == service.ENCRYPT_FAILED:
+        elif state == encryptor_service.ENCRYPT_FAILED:
             failure_code = status.get('failure_code')
             log.debug('failure_code=%s', failure_code)
-            if failure_code == service.FAILURE_CODE_UNSUPPORTED_GUEST:
+            if failure_code == encryptor_service.FAILURE_CODE_UNSUPPORTED_GUEST:
                 raise UnsupportedGuestError(
                     'The specified AMI uses an unsupported operating system')
             raise EncryptionError('Encryption failed')
@@ -353,10 +353,11 @@ def create_encryptor_security_group(svc):
     sg_id = svc.create_security_group(sg_name, sg_desc)
     log.info('Created temporary security group with id %s', sg_id)
     try:
-        svc.add_security_group_rule(sg_id, ip_protocol='tcp',
-                                    from_port=service.ENCRYPTOR_STATUS_PORT,
-                                    to_port=service.ENCRYPTOR_STATUS_PORT,
-                                    cidr_ip='0.0.0.0/0')
+        svc.add_security_group_rule(
+            sg_id, ip_protocol='tcp',
+            from_port=encryptor_service.ENCRYPTOR_STATUS_PORT,
+            to_port=encryptor_service.ENCRYPTOR_STATUS_PORT,
+            cidr_ip='0.0.0.0/0')
     except Exception as e:
         log.error('Failed adding security group rule to %s: %s', sg_id, e)
         try:
