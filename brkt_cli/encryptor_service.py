@@ -18,11 +18,14 @@ import logging
 import re
 import urllib2
 
+ENCRYPT_DOWNLOADING = 'downloading'
+ENCRYPT_RUNNING = 'encrypting'
 ENCRYPT_SUCCESSFUL = 'finished'
 ENCRYPT_FAILED = 'failed'
 ENCRYPT_ENCRYPTING = 'encrypting'
 ENCRYPTOR_STATUS_PORT = 8000
 FAILURE_CODE_UNSUPPORTED_GUEST = 'unsupported_guest'
+FAILURE_CODE_AWS_PERMISSIONS = 'insufficient_aws_permissions'
 
 log = logging.getLogger(__name__)
 
@@ -48,13 +51,14 @@ class EncryptorService(BaseEncryptorService):
     def is_encryptor_up(self):
         try:
             self.get_status()
+            log.debug("Successfully got encryptor status")
             return True
         except Exception as e:
             log.debug("Couldn't get encryptor status: %s", e)
             return False
 
     def get_status(self, timeout_secs=2):
-        url = 'http://%s:%d/encryption_status' % (self.hostname, self.port)
+        url = 'http://%s:%d' % (self.hostname, self.port)
         r = urllib2.urlopen(url, timeout=timeout_secs)
         data = r.read()
         info = json.loads(data)

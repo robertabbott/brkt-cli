@@ -281,8 +281,8 @@ class TestEncryptedImageName(unittest.TestCase):
     def test_encrypted_image_suffix(self):
         """ Test that generated suffixes are unique.
         """
-        s1 = encrypt_ami._get_encrypted_suffix()
-        s2 = encrypt_ami._get_encrypted_suffix()
+        s1 = encrypt_ami.get_encrypted_suffix()
+        s2 = encrypt_ami.get_encrypted_suffix()
         self.assertNotEqual(s1, s2)
 
     def test_append_suffix(self):
@@ -290,14 +290,14 @@ class TestEncryptedImageName(unittest.TestCase):
         """
         name = 'Boogie nights are always the best in town'
         suffix = ' (except Tuesday)'
-        encrypted_name = encrypt_ami._append_suffix(
+        encrypted_name = encrypt_ami.append_suffix(
             name, suffix, max_length=128)
         self.assertTrue(encrypted_name.startswith(name))
         self.assertTrue(encrypted_name.endswith(suffix))
 
         # Make sure we truncate the original name when it's too long.
         name += ('X' * 100)
-        encrypted_name = encrypt_ami._append_suffix(
+        encrypted_name = encrypt_ami.append_suffix(
             name, suffix, max_length=128)
         self.assertEqual(128, len(encrypted_name))
         self.assertTrue(encrypted_name.startswith('Boogie nights'))
@@ -611,7 +611,7 @@ class TestInstance(unittest.TestCase):
         aws_svc, encryptor_image, guest_image = _build_aws_service()
         instance = aws_svc.run_instance(guest_image.id)
         aws_svc.terminate_instance(instance.id)
-        result = encrypt_ami._wait_for_instance(
+        result = encrypt_ami.wait_for_instance(
             aws_svc, instance.id, state='terminated', timeout=100)
         self.assertEquals(instance, result)
 
@@ -623,7 +623,7 @@ class TestInstance(unittest.TestCase):
         instance = aws_svc.run_instance(guest_image.id)
         instance._state.name = 'error'
         try:
-            encrypt_ami._wait_for_instance(aws_svc, instance.id, timeout=100)
+            encrypt_ami.wait_for_instance(aws_svc, instance.id, timeout=100)
         except encrypt_ami.InstanceError as e:
             self.assertTrue('error state' in e.message)
 
@@ -635,7 +635,7 @@ class TestInstance(unittest.TestCase):
         instance = aws_svc.run_instance(guest_image.id)
         aws_svc.terminate_instance(instance.id)
         try:
-            encrypt_ami._wait_for_instance(
+            encrypt_ami.wait_for_instance(
                 aws_svc, instance.id, state='running', timeout=100)
         except encrypt_ami.InstanceError as e:
             self.assertTrue('unexpectedly terminated' in e.message)

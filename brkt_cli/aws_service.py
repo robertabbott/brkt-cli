@@ -41,9 +41,11 @@ class BaseAWSService(object):
     def run_instance(self,
                      image_id,
                      security_group_ids=None,
-                     instance_type='m3.medium',
+                     instance_type='c3.xlarge',
                      block_device_map=None,
-                     subnet_id=None):
+                     subnet_id=None,
+                     user_data=None,
+                     instance_profile_name=None):
         pass
 
     @abc.abstractmethod
@@ -234,9 +236,11 @@ class AWSService(BaseAWSService):
     def run_instance(self,
                      image_id,
                      security_group_ids=None,
-                     instance_type='m3.medium',
+                     instance_type='c3.xlarge',
                      block_device_map=None,
-                     subnet_id=None):
+                     subnet_id=None,
+                     user_data=None,
+                     instance_profile_name=None):
         if security_group_ids is None:
             security_group_ids = []
         log.debug('Starting a new instance based on %s', image_id)
@@ -253,12 +257,14 @@ class AWSService(BaseAWSService):
                 instance_type=instance_type,
                 block_device_map=block_device_map,
                 security_group_ids=security_group_ids,
-                subnet_id=subnet_id
+                subnet_id=subnet_id,
+                ebs_optimized=True,
+                user_data=user_data,
+                instance_profile_name=instance_profile_name
             )
             return reservation.instances[0]
-        except EC2ResponseError:
-            # Log the failed operation, so that the user has context.
-            log.error('Unable to launch instance for %s', image_id)
+        except EC2ResponseError as e:
+            log.debug('Failed to launch instance for %s', image_id)
             raise
 
     @retry_boto(error_code_regexp=r'InvalidInstanceID\.NotFound')
