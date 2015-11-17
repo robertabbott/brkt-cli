@@ -29,7 +29,7 @@ from brkt_cli import encrypt_ami_args
 from brkt_cli import encryptor_service
 from brkt_cli import util
 
-VERSION = '0.9.4'
+VERSION = '0.9.5'
 
 log = None
 
