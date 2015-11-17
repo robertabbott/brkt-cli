@@ -107,8 +107,7 @@ DEFAULT_DESCRIPTION_ENCRYPTED_IMAGE = \
 SLEEP_ENABLED = True
 AMI_NAME_MAX_LENGTH = 128
 
-# Right now this is the STAGE bucket. We need to make this PROD
-BRACKET_ENVIRONMENT = "stage"
+BRACKET_ENVIRONMENT = "prod"
 ENCRYPTOR_AMIS_URL = "http://solo-brkt-%s-net.s3.amazonaws.com/amis.json"
 
 log = logging.getLogger(__name__)
@@ -271,6 +270,7 @@ def get_encryptor_ami(region):
     if not bracket_env:
         raise BracketError('No bracket environment found')
     bucket_url = ENCRYPTOR_AMIS_URL % (bracket_env)
+    log.debug('Getting encryptor AMI list from %s', bucket_url)
     r = requests.get(bucket_url)
     if r.status_code not in (200, 201):
         raise BracketError(
