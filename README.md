@@ -53,8 +53,8 @@ Before running the **brkt** command, make sure that you've set the AWS
 environment variables:
 
 ```
-$ export AWS_SECRET_ACCESS_KEY=<access key>
-$ export AWS_ACCESS_KEY_ID=<key id>
+$ export AWS_ACCESS_KEY_ID=<access key>
+$ export AWS_SECRET_ACCESS_KEY=<secret key>
 ```
 
 You'll also need to make sure that your AWS account has the required
