@@ -15,81 +15,27 @@
 from __future__ import print_function
 
 import argparse
-import getpass
-import os
-
 import boto
 import boto.ec2
 import boto.vpc
 import logging
 import sys
-import warnings
 
 from boto.exception import EC2ResponseError, NoAuthHandlerFound
-from requests.packages import urllib3
 
 from brkt_cli import aws_service
 from brkt_cli import encrypt_ami
 from brkt_cli import encrypt_ami_args
 from brkt_cli import encryptor_service
 from brkt_cli import util
-from brkt_cli.bracket_service import BracketService, BracketAuthError
 
-PROD_API_ROOT = 'https://api.mgmt.brkt.com'
-STAGE_API_ROOT = 'https://api.stage.mgmt.brkt.com'
 VERSION = '0.9.5'
 
 log = None
 
-EULA_CONFIRMATION_TEXT = \
-    """Please take a moment to review the terms of the Bracket
-Computing, Inc. Evaluation Agreement, which govern the access
-to and use of the Bracket Service. You can find it at
-
-    https://brkt.com/license.html
-
-You must accept these terms to access the Bracket Service. Type
-"YES" to accept the terms of the Bracket Computing, Inc. Evaluation
-Agreement: """
-
-
-def _check_eula(api_root, username, password, verify_cert=True):
-    """ Authenticate with the Bracket service, and ask the user to accept
-        the EULA if necessary.
-    :return: True if the EULA was accepted
-    :raise IOEError if the connection fails
-    :raise BracketAuthError if auth fails
-    """
-    # Authenticate and verify that the user has registered and signed the
-    # EULA.
-    brkt_svc = BracketService(
-        api_root, username, password, verify_cert=verify_cert)
-    brkt_svc.authenticate()
-
-    if not brkt_svc.is_eula_accepted():
-        sys.stdout.write(EULA_CONFIRMATION_TEXT)
-        accepted = raw_input()
-        if accepted.strip().lower() != 'yes':
-            return False
-        brkt_svc.accept_eula()
-    return True
-
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '-u', '--username',
-        metavar='EMAIL',
-        dest='username',
-        help='Bracket service user email address',
-        required=True
-    )
-    parser.add_argument(
-        '-p', '--password',
-        metavar='PASSWORD',
-        dest='password',
-        help='Bracket service password'
-    )
     parser.add_argument(
         '-v',
         '--verbose',
@@ -102,24 +48,7 @@ def main():
         action='version',
         version='brkt-cli version %s' % VERSION
     )
-    # Tell the HTTP client to accept self-signed certs.  This option is
-    # hidden because it's only used for development.
-    parser.add_argument(
-        '--no-verify-cert',
-        action='store_false',
-        dest='verify_cert',
-        default=True,
-        help=argparse.SUPPRESS
-    )
 
-    # Optional Bracket server API root.  This argument is hidden because
-    # it's only used for development.
-    parser.add_argument(
-        '--api-root',
-        metavar='URL',
-        help=argparse.SUPPRESS,
-        dest='api_root'
-    )
     subparsers = parser.add_subparsers()
 
     encrypt_ami_parser = subparsers.add_parser('encrypt-ami')
@@ -148,49 +77,13 @@ def main():
     log.setLevel(log_level)
     aws_service.log.setLevel(log_level)
     encryptor_service.log.setLevel(log_level)
-    bracket_service.log.setLevel(log_level)
 
-    if not values.verify_cert:
-        warnings.filterwarnings(
-            'ignore',
-            category=urllib3.exceptions.InsecureRequestWarning
-        )
-
-    # Validate the AMI name.
     if values.encrypted_ami_name:
         try:
             aws_service.validate_image_name(values.encrypted_ami_name)
         except aws_service.ImageNameError as e:
             print(e.message, file=sys.stderr)
             return 1
-
-    password = values.password or getpass.getpass('Password:')
-    if values.api_root:
-        api_root = values.api_root
-    else:
-        if os.getenv('BRACKET_ENVIRONMENT') == 'stage':
-            api_root = STAGE_API_ROOT
-        else:
-            api_root = PROD_API_ROOT
-
-    try:
-        eula_accepted = _check_eula(
-            api_root,
-            values.username,
-            password,
-            verify_cert=values.verify_cert
-        )
-        if not eula_accepted:
-            return 1
-    except BracketAuthError:
-        print('Invalid username or password', file=sys.stderr)
-        return 1
-    except IOError as e:
-        if values.verbose:
-            log.exception('Unable to connect to the Bracket Service')
-        else:
-            print('Unable to connect to the Bracket Service: %s' % e)
-        return 1
 
     # Validate the region.
     regions = [str(r.name) for r in boto.vpc.regions()]
