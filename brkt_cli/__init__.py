@@ -35,6 +35,17 @@ log = None
 
 
 def main():
+    # Check Python version.
+    version = '%d.%d' % (sys.version_info.major, sys.version_info.minor)
+    if version != '2.7':
+        print(
+            'brkt-cli requires Python 2.7.  Version',
+            version,
+            'is not supported.',
+            file=sys.stderr
+        )
+        return 1
+
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '-v',
