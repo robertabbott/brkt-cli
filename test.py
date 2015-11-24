@@ -59,7 +59,7 @@ class DummyEncryptorService(encryptor_service.BaseEncryptorService):
         """ Return progress in increments of 20% for each call.
         """
         ret_val = {
-            'state': 'encrypting',
+            'state': encryptor_service.ENCRYPT_ENCRYPTING,
             'percent_complete': self.progress,
         }
         if self.progress < 100:
@@ -433,6 +433,10 @@ class FailedEncryptionService(encryptor_service.BaseEncryptorService):
 
 
 class TestEncryptionService(unittest.TestCase):
+
+    def setUp(self):
+        encrypt_ami.SLEEP_ENABLED = False
+
     def test_service_fails_to_come_up(self):
         svc = DummyEncryptorService()
         deadline = ExpiredDeadline()
@@ -462,6 +466,26 @@ class TestEncryptionService(unittest.TestCase):
 
         with self.assertRaises(encrypt_ami.UnsupportedGuestError):
             encrypt_ami._wait_for_encryption(UnsupportedGuestService())
+
+    def test_encryption_progress_timeout(self):
+        class NoProgressService(encryptor_service.BaseEncryptorService):
+            def __init__(self):
+                super(NoProgressService, self).__init__('localhost', 80)
+
+            def is_encryptor_up(self):
+                return True
+
+            def get_status(self):
+                return {
+                    'state': encryptor_service.ENCRYPT_ENCRYPTING,
+                    'percent_complete': 0
+                }
+
+        with self.assertRaises(encrypt_ami.EncryptionError):
+            encrypt_ami._wait_for_encryption(
+                NoProgressService(),
+                progress_timeout=0.100
+            )
 
 
 class TestRetry(unittest.TestCase):

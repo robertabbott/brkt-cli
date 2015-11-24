@@ -109,6 +109,7 @@ AMI_NAME_MAX_LENGTH = 128
 
 BRACKET_ENVIRONMENT = "prod"
 ENCRYPTOR_AMIS_URL = "http://solo-brkt-%s-net.s3.amazonaws.com/amis.json"
+ENCRYPTION_PROGRESS_TIMEOUT = 10 * 60  # 10 minutes
 
 log = logging.getLogger(__name__)
 
@@ -199,11 +200,14 @@ class UnsupportedGuestError(BracketError):
     pass
 
 
-def _wait_for_encryption(enc_svc):
+def _wait_for_encryption(enc_svc,
+                         progress_timeout=ENCRYPTION_PROGRESS_TIMEOUT):
     err_count = 0
     max_errs = 10
     start_time = time.time()
-    last_progress_log = start_time
+    last_log_time = start_time
+    progress_deadline = Deadline(progress_timeout)
+    last_progress = 0
 
     while err_count < max_errs:
         try:
@@ -219,11 +223,21 @@ def _wait_for_encryption(enc_svc):
         percent_complete = status['percent_complete']
         log.debug('state=%s, percent_complete=%d', state, percent_complete)
 
+        # Make sure that encryption progress hasn't stalled.
+        if progress_deadline.is_expired():
+            raise EncryptionError(
+                'Waited for encryption progress for longer than %s seconds' %
+                progress_timeout
+            )
+        if percent_complete > last_progress:
+            last_progress = percent_complete
+            progress_deadline = Deadline(progress_timeout)
+
         # Log progress once a minute.
         now = time.time()
-        if now - last_progress_log >= 60:
+        if now - last_log_time >= 60:
             log.info('Encryption is %d%% complete', percent_complete)
-            last_progress_log = now
+            last_log_time = now
 
         if state == encryptor_service.ENCRYPT_SUCCESSFUL:
             log.info('Encrypted root drive created.')
