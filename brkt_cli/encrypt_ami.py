@@ -149,6 +149,8 @@ def _wait_for_instance(
     """ Wait for up to timeout seconds for an instance to be in the
         'running' state.  Sleep for 2 seconds between checks.
     :return: The Instance object, or None if a timeout occurred
+    :raises InstanceError if a timeout occurs or the instance unexpectedly
+        goes into an error or terminated state
     """
 
     log.debug(
@@ -509,6 +511,69 @@ def _terminate_instance(aws_svc, id, name, terminated_instance_ids):
         log.warn('Could not terminate %s instance: %s', name, e)
 
 
+def _clean_up(aws_svc, instance_ids=None, volume_ids=None,
+              snapshot_ids=None, security_group_ids=None):
+    """ Clean up any resources that were created by the encryption process.
+    Handle and log exceptions, to ensure that the script doesn't exit during
+    cleanup.
+    """
+    # Delete instances and snapshots.
+    terminated_instance_ids = set()
+    for instance_id in instance_ids:
+        try:
+            log.info('Terminating instance %s', instance_id)
+            aws_svc.terminate_instance(instance_id)
+            terminated_instance_ids.add(instance_id)
+        except EC2ResponseError as e:
+            log.warn('Unable to terminate instance %s: %s', instance_id, e)
+        except:
+            log.exception('Unable to terminate instance %s', instance_id)
+
+    for snapshot_id in snapshot_ids:
+        try:
+            log.info('Deleting snapshot %s', snapshot_id)
+            aws_svc.delete_snapshot(snapshot_id)
+        except EC2ResponseError as e:
+            log.warn('Unable to delete snapshot %s: %s', snapshot_id, e)
+        except:
+            log.exception('Unable to delete snapshot %s', snapshot_id)
+
+    # Wait for instances to terminate before deleting security groups and
+    # volumes, to avoid dependency errors.
+    for id in terminated_instance_ids:
+        log.info('Waiting for instance %s to terminate.', id)
+        try:
+            _wait_for_instance(aws_svc, id, state='terminated')
+        except (EC2ResponseError, InstanceError) as e:
+            log.warn(
+                'An error occurred while waiting for instance to '
+                'terminate: %s', e)
+        except:
+            log.exception(
+                'An error occurred while waiting for instance '
+                'to terminate'
+            )
+
+    # Delete volumes and security groups.
+    for volume_id in volume_ids:
+        try:
+            log.info('Deleting volume %s', volume_id)
+            aws_svc.delete_volume(volume_id)
+        except EC2ResponseError as e:
+            log.warn('Unable to delete volume %s: %s', volume_id, e)
+        except:
+            log.exception('Unable to delete volume %s', volume_id)
+
+    for sg_id in security_group_ids:
+        try:
+            log.info('Deleting security group %s', sg_id)
+            aws_svc.delete_security_group(sg_id)
+        except EC2ResponseError as e:
+            log.warn('Unable to delete security group %s: %s', sg_id, e)
+        except:
+            log.exception('Unable to delete security group %s', sg_id)
+
+
 def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
             encrypted_ami_name=None):
     encryptor_instance = None
@@ -569,8 +634,6 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
                     encryptor_instance.id
                 )
             raise e
-
-        log.info('Encrypted root drive is ready.')
 
         bdm = encryptor_instance.block_device_mapping
 
@@ -706,67 +769,41 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
         aws_svc.create_tags(ami)
         log.info('Created encrypted AMI %s based on %s', ami, image_id)
     finally:
+        instance_ids = []
         if snapshotter_instance:
-            _terminate_instance(
-                aws_svc,
-                id=snapshotter_instance.id,
-                name='snapshotter',
-                terminated_instance_ids=terminated_instance_ids
-            )
+            instance_ids.append(snapshotter_instance.id)
         if encryptor_instance:
-            _terminate_instance(
-                aws_svc,
-                id=encryptor_instance.id,
-                name='encryptor',
-                terminated_instance_ids=terminated_instance_ids
-            )
-        if terminated_instance_ids:
-            log.info('Waiting for instances to terminate.')
-            try:
-                for id in terminated_instance_ids:
-                    _wait_for_instance(aws_svc, id, state='terminated')
-            except Exception as e:
-                log.warn(
-                    'An error occurred while waiting for instances to '
-                    'terminate: %s', e)
+            instance_ids.append(encryptor_instance.id)
 
-        # Delete any volumes that were unexpectedly orphaned by AWS.
-        volumes = []
+        # Delete volumes explicitly.  They should get cleaned up during
+        # instance deletion, but we've gotten reports that occasionally
+        # volumes can get orphaned.
+        volume_ids = None
         try:
             volumes = aws_svc.get_volumes(
                 tag_key=TAG_ENCRYPTOR_SESSION_ID,
                 tag_value=aws_svc.session_id
             )
-        except Exception as e:
+            volume_ids = [v.id for v in volumes]
+        except EC2ResponseError as e:
             log.warn('Unable to clean up orphaned volumes: %s', e)
+        except Exception as e:
+            log.exception('Unable to clean up orphaned volumes')
 
-        for volume in volumes:
-            log.info('Deleting orphaned volume %s', volume.id)
-            try:
-                aws_svc.delete_volume(volume.id)
-            except EC2ResponseError as e:
-                # Eventual consistency may cause get_volumes() to return
-                # volumes that were already deleted during instance
-                # termination.
-                if e.error_code != 'InvalidVolume.NotFound':
-                    log.warn('Unable to delete volume: %s', e)
-            except Exception as e:
-                log.warn('Unable to delete volume: %s', e)
-
+        sg_ids = []
         if sg_id:
-            try:
-                log.info('Deleting temporary security group %s', sg_id)
-                aws_svc.delete_security_group(sg_id)
-            except Exception as e:
-                log.warn('Failed deleting security group %s: %s', sg_id, e)
-
+            sg_ids.append(sg_id)
+        snapshot_ids = []
         if snapshot_id:
-            try:
-                log.info('Deleting snapshot copy of original root volume %s',
-                         snapshot_id)
-                aws_svc.delete_snapshot(snapshot_id)
-            except Exception as e:
-                log.warn('Could not delete snapshot %s: %s', snapshot_id, e)
+            snapshot_ids.append(snapshot_id)
+
+        _clean_up(
+            aws_svc,
+            instance_ids=instance_ids,
+            volume_ids=volume_ids,
+            snapshot_ids=snapshot_ids,
+            security_group_ids=sg_ids
+        )
 
     log.info('Done.')
     return ami

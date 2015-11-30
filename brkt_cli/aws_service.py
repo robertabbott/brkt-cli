@@ -78,6 +78,10 @@ class BaseAWSService(object):
 
     @abc.abstractmethod
     def delete_volume(self, volume_id):
+        """ Delete the given volume.
+        :return: True if the volume was deleted
+        :raise: EC2ResponseError if an error occurred
+        """
         pass
 
     @abc.abstractmethod
@@ -288,7 +292,12 @@ class AWSService(BaseAWSService):
 
     def delete_volume(self, volume_id):
         log.debug('Deleting volume %s', volume_id)
-        return self.conn.delete_volume(volume_id)
+        try:
+            self.conn.delete_volume(volume_id)
+        except EC2ResponseError as e:
+            if e.error_code != 'InvalidVolume.NotFound':
+                raise
+        return True
 
     def validate_guest_ami(self, ami_id):
         try:
