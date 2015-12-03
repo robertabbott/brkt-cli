@@ -11,17 +11,14 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
+import boto
+import sys
 import time
 import uuid
 
 
 class BracketError(Exception):
     pass
-
-
-def make_nonce():
-    """Returns a 32bit nonce in hex encoding"""
-    return str(uuid.uuid4()).split('-')[0]
 
 
 class Deadline(object):
@@ -38,3 +35,8 @@ class Deadline(object):
             True if the deadline has passed. False otherwise.
         """
         return self.clock.time() >= self.deadline
+
+
+def make_nonce():
+    """Returns a 32bit nonce in hex encoding"""
+    return str(uuid.uuid4()).split('-')[0]

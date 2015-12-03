@@ -17,9 +17,14 @@ import re
 import boto
 import boto.sts
 import logging
-
 from boto.exception import EC2ResponseError
 import time
+
+from encrypt_ami import (
+    TAG_ENCRYPTOR,
+    TAG_ENCRYPTOR_SESSION_ID,
+    TAG_ENCRYPTOR_AMI
+)
 
 PLATFORM_WINDOWS = 'windows'
 
@@ -189,17 +194,21 @@ class AWSService(BaseAWSService):
     def __init__(
             self,
             encryptor_session_id,
-            encryptor_ami,
             default_tags=None):
         super(AWSService, self).__init__(encryptor_session_id)
 
-        self.encryptor_ami = encryptor_ami
         self.default_tags = default_tags or {}
 
         # These will be initialized by connect().
         self.key_name = None
         self.region = None
         self.conn = None
+
+    def validate_region(self, region):
+        regions = [str(r.name) for r in boto.vpc.regions()]
+        if region not in regions:
+            return False
+        return True
 
     def connect(self, region, key_name=None):
         self.region = region
@@ -310,7 +319,6 @@ class AWSService(BaseAWSService):
         if len(images) == 0:
             return '%s is no longer available' % ami_id
         image = images[0]
-
         # Amazon's API only returns 'windows' or nothing.  We're not currently
         # able to detect individual Linux distros.
         if image.platform == PLATFORM_WINDOWS:
@@ -322,6 +330,22 @@ class AWSService(BaseAWSService):
         if image.hypervisor != 'xen':
             return '%s uses hypervisor %s.  Only xen is supported' % (
                 ami_id, image.hypervisor)
+        return None
+
+    def validate_guest_encrypted_ami(self, ami_id):
+        # Is this the right type of AMI?
+        error = self.validate_guest_ami(ami_id)
+        if error:
+            return error
+        # Is this encrypted by Bracket?
+        image = self.conn.get_all_images([ami_id])[0]
+        tags = image.tags
+        expected_tags = (TAG_ENCRYPTOR,
+                         TAG_ENCRYPTOR_SESSION_ID,
+                         TAG_ENCRYPTOR_AMI)
+        missing_tags = set(expected_tags) - set(tags.keys())
+        if missing_tags:
+            return 'Missing tags %s' % str(missing_tags)
         return None
 
     def validate_encryptor_ami(self, ami_id):

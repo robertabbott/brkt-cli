@@ -1,6 +1,7 @@
 **brkt-cli** is a command-line interface to the [Bracket Computing](http://www.brkt.com)
 service.  It produces an encrypted version of an Amazon Machine Image, which can then be
-launched in EC2.
+launched in EC2. It can also update an already encrypted version of an Amazon Machine Image,
+which can then be launched in EC2.
 
 ## Requirements
 
@@ -47,6 +48,25 @@ optional arguments:
   --no-validate-ami     Don't validate AMI properties
   --region NAME         AWS region (e.g. us-west-2)
 ```
+```
+$ python brkt update-encrypted-ami --help
+usage: brkt update-encrypted-ami [-h] --updater-ami UPDATER_AMI_ID --region
+                                 REGION [--encrypted-ami-name NAME]
+                                 [--no-validate-ami]
+                                 AMI_ID
+
+positional arguments:
+  AMI_ID                The AMI that will be encrypted
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --updater-ami UPDATER_AMI_ID
+                        The metavisor updater AMI that will be used
+  --region REGION       AWS region (e.g. us-west-2)
+  --encrypted-ami-name NAME
+                        Specify the name of the generated encrypted AMI
+  --no-validate-ami     Don't validate encrypted AMI properties
+```
 
 ## Configuration
 
@@ -78,6 +98,30 @@ $ brkt encrypt-ami --key my-aws-key --region us-east-1 ami-76e27e1e
 15:57:12 Deleting snapshot copy of original root volume snap-847da3e1
 15:57:12 Done.
 ami-07c2a262
+```
+
+When the process completes, the new AMI id is written to stdout.  All log
+messages are written to stderr.
+
+## Updating an encrypted AMI
+
+Run **brkt update-encrypted-ami** to update an encrypted AMI based on an existing
+encrypted image:
+
+```
+$ brkt update-encrypted-ami --region us-east-1 --updater-ami ami-32430158 ami-72094e18
+13:38:14 Using zone us-east-1a
+13:38:15 Updating ami-72094e18
+13:38:15 Creating guest volume snapshot
+...
+13:39:25 Encrypted root drive created.
+...
+13:39:28 waiting for snapshot ready
+13:39:48 metavisor updater snapshots ready
+...
+13:39:54 Created encrypted AMI ami-63733e09 based on ami-72094e18
+13:39:54 Done.
+ami-63733e09
 ```
 
 When the process completes, the new AMI id is written to stdout.  All log

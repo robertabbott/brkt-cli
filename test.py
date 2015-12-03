@@ -25,7 +25,11 @@ from boto.ec2.image import Image
 from boto.ec2.instance import Instance, ConsoleOutput
 from boto.ec2.snapshot import Snapshot
 from boto.ec2.volume import Volume
-from brkt_cli import encryptor_service, encrypt_ami
+from brkt_cli import (
+    encrypt_ami,
+    encryptor_service,
+    update_encrypted_ami
+)
 from brkt_cli import aws_service
 
 brkt_cli.log = logging.getLogger(__name__)
@@ -441,13 +445,13 @@ class TestEncryptionService(unittest.TestCase):
         svc = DummyEncryptorService()
         deadline = ExpiredDeadline()
         with self.assertRaisesRegexp(Exception, 'Unable to contact'):
-            encrypt_ami._wait_for_encryptor_up(svc, deadline)
+            encrypt_ami.wait_for_encryptor_up(svc, deadline)
 
     def test_encryption_fails(self):
         svc = FailedEncryptionService('192.168.1.1')
         with self.assertRaisesRegexp(
                 encrypt_ami.EncryptionError, 'Encryption failed'):
-            encrypt_ami._wait_for_encryption(svc)
+            encrypt_ami.wait_for_encryption(svc)
 
     def test_unsupported_guest(self):
         class UnsupportedGuestService(encryptor_service.BaseEncryptorService):
@@ -465,7 +469,7 @@ class TestEncryptionService(unittest.TestCase):
                 }
 
         with self.assertRaises(encrypt_ami.UnsupportedGuestError):
-            encrypt_ami._wait_for_encryption(UnsupportedGuestService())
+            encrypt_ami.wait_for_encryption(UnsupportedGuestService())
 
     def test_encryption_progress_timeout(self):
         class NoProgressService(encryptor_service.BaseEncryptorService):
@@ -482,7 +486,7 @@ class TestEncryptionService(unittest.TestCase):
                 }
 
         with self.assertRaises(encrypt_ami.EncryptionError):
-            encrypt_ami._wait_for_encryption(
+            encrypt_ami.wait_for_encryption(
                 NoProgressService(),
                 progress_timeout=0.100
             )
