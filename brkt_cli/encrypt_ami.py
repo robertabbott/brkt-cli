@@ -35,9 +35,8 @@ running the AWS command line utility.
 """
 
 import json
-import logging
-import math
 import os
+import logging
 import re
 import string
 import tempfile
@@ -440,9 +439,11 @@ def tag_encryptor_volumes(aws_svc, instance, update_ami=False):
 
 
 def run_encryptor_instance(aws_svc, encryptor_image_id, snapshot, root_size,
-                           guest_image_id, security_group_ids=None,
+                           guest_image_id, brkt_env='prod', security_group_ids=None,
                            subnet_id=None, update_ami=False):
     bdm = BlockDeviceMapping()
+    user_data = {}
+    user_data['brkt'] = {'yeti_endpoints':brkt_env}
     guest_unencrypted_root = EBSBlockDeviceType(
         volume_type='gp2',
         snapshot_id=snapshot,
@@ -472,6 +473,7 @@ def run_encryptor_instance(aws_svc, encryptor_image_id, snapshot, root_size,
     instance = aws_svc.run_instance(
         encryptor_image_id,
         security_group_ids=security_group_ids,
+        user_data=json.dumps(user_data),
         block_device_map=bdm,
         subnet_id=subnet_id)
     aws_svc.create_tags(
@@ -840,7 +842,7 @@ def make_encrypted_ami(aws_svc, enc_svc_cls, encryptor_instance, encryptor_ami,
     return ami_info
 
 
-def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
+def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env='prod',
             encrypted_ami_name=None, subnet_id=None,
             security_group_ids=None):
     encryptor_instance = None
@@ -879,9 +881,9 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
             snapshot=snapshot_id,
             root_size=size,
             guest_image_id=image_id,
+            brkt_env=brkt_env,
             security_group_ids=security_group_ids,
-            subnet_id=subnet_id
-        )
+            subnet_id=subnet_id)
 
         log.debug('Getting image %s', image_id)
         image = aws_svc.get_image(image_id)

@@ -12,7 +12,8 @@ def snapshot_updater_ami_block_devices(aws_service,
                                        guest_encrypted_image,
                                        mv_updater_ami,
                                        guest_snapshot,
-                                       volume_size):
+                                       volume_size,
+                                       brkt_env):
     # Retrieves the most recent updater AMI, launches it, snapshots
     # its volumes, returns the snapshots
     sg_id = encrypt_ami.create_encryptor_security_group(aws_service).id
@@ -22,6 +23,7 @@ def snapshot_updater_ami_block_devices(aws_service,
         guest_snapshot,
         volume_size,
         guest_encrypted_image,
+        brkt_env,
         security_group_ids=[sg_id],
         update_ami=True)
     host_ip = mv_instance.ip_address

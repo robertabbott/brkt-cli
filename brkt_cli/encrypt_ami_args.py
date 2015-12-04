@@ -50,6 +50,14 @@ def setup_encrypt_ami_args(parser):
         help='Launch instances in this subnet'
     )
 
+    # Optional yeti endpoints. Hidden because it's only used for development
+    parser.add_argument(
+        '--brkt-env',
+        default='prod',
+        dest='brkt_env',
+        help=argparse.SUPPRESS
+    )
+
     # Optional AMI ID that's used to launch the encryptor instance.  This
     # argument is hidden because it's only used for development.
     parser.add_argument(

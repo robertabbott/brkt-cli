@@ -35,6 +35,15 @@ def setup_update_encrypted_ami(parser):
         action='store_true',
         help="Don't validate encrypted AMI properties"
     )
+
+    # Optional yeti endpoints. Hidden because it's only used for development
+    parser.add_argument(
+        '--brkt-env',
+        default='prod',
+        dest='brkt_env',
+        action='store_true',
+        help=argparse.SUPPRESS
+    )
     # Optional EC2 SSH key pair name to use for launching the snapshotter
     # and encryptor instances.  This argument is hidden because it's only
     # used for development.
