@@ -27,8 +27,7 @@ from boto.ec2.snapshot import Snapshot
 from boto.ec2.volume import Volume
 from brkt_cli import (
     encrypt_ami,
-    encryptor_service,
-    update_encrypted_ami
+    encryptor_service
 )
 from brkt_cli import aws_service
 
@@ -85,12 +84,14 @@ class DummyAWSService(aws_service.BaseAWSService):
         self.images = {}
         self.console_output_text = CONSOLE_OUTPUT_TEXT
         self.tagged_volumes = []
+        self.run_instance_callback = None
 
     def run_instance(self,
                      image_id,
                      security_group_ids=None,
                      instance_type='m3.medium',
-                     block_device_map=None):
+                     block_device_map=None,
+                     subnet_id=None):
         instance = Instance()
         instance.id = _new_id()
         instance.root_device_name = '/dev/sda1'
@@ -112,6 +113,9 @@ class DummyAWSService(aws_service.BaseAWSService):
 
         instance.block_device_mapping = instance_bdm
         self.instances[instance.id] = instance
+
+        if self.run_instance_callback:
+            self.run_instance_callback(security_group_ids, subnet_id)
 
         return instance
 
@@ -231,6 +235,9 @@ class DummyAWSService(aws_service.BaseAWSService):
         console_output = ConsoleOutput()
         console_output.output = self.console_output_text
         return console_output
+
+    def get_subnet(self, subnet_id):
+        return None
 
 
 class TestSnapshotProgress(unittest.TestCase):
@@ -418,6 +425,36 @@ class TestRun(unittest.TestCase):
         )
         ami = aws_svc.get_image(image_id)
         self.assertEqual(name, ami.name)
+
+    def test_subnet_and_security_groups(self):
+        """ Test that the subnet and security groups are passed to the
+        calls to AWSService.run_instance().
+        """
+        self.call_count = 0
+
+        def run_instance_callback(security_group_ids, subnet_id):
+            self.call_count += 1
+            self.assertEqual('subnet-1', subnet_id)
+            if self.call_count == 1:
+                # Snapshotter.
+                self.assertIsNone(security_group_ids)
+            elif self.call_count == 2:
+                # Encryptor.
+                self.assertEqual(['sg-1', 'sg-2'], security_group_ids)
+            else:
+                self.fail('Unexpected number of calls to run_instance()')
+
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
+        aws_svc.run_instance_callback = run_instance_callback
+        encrypt_ami.SLEEP_ENABLED = False
+        encrypt_ami.encrypt(
+            aws_svc=aws_svc,
+            enc_svc_cls=DummyEncryptorService,
+            image_id=guest_image.id,
+            encryptor_ami=encryptor_image.id,
+            subnet_id='subnet-1',
+            security_group_ids=['sg-1','sg-2']
+        )
 
 
 class ExpiredDeadline(object):

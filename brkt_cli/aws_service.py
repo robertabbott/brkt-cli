@@ -42,7 +42,8 @@ class BaseAWSService(object):
                      image_id,
                      security_group_ids=None,
                      instance_type='m3.medium',
-                     block_device_map=None):
+                     block_device_map=None,
+                     subnet_id=None):
         pass
 
     @abc.abstractmethod
@@ -135,6 +136,10 @@ class BaseAWSService(object):
 
     @abc.abstractmethod
     def get_console_output(self, instance_id):
+        pass
+
+    @abc.abstractmethod
+    def get_subnet(self, subnet_id):
         pass
 
 
@@ -230,17 +235,25 @@ class AWSService(BaseAWSService):
                      image_id,
                      security_group_ids=None,
                      instance_type='m3.medium',
-                     block_device_map=None):
+                     block_device_map=None,
+                     subnet_id=None):
         if security_group_ids is None:
             security_group_ids = []
         log.debug('Starting a new instance based on %s', image_id)
+        if security_group_ids:
+            log.debug(
+                'Using security groups %s', ', '.join(security_group_ids))
+        if subnet_id:
+            log.debug('Running instance in %s', subnet_id)
+
         try:
             reservation = self.conn.run_instances(
                 image_id=image_id,
                 key_name=self.key_name,
                 instance_type=instance_type,
                 block_device_map=block_device_map,
-                security_group_ids=security_group_ids
+                security_group_ids=security_group_ids,
+                subnet_id=subnet_id
             )
             return reservation.instances[0]
         except EC2ResponseError:
@@ -388,10 +401,17 @@ class AWSService(BaseAWSService):
         sg = self.conn.create_security_group(name, description)
         return sg.id
 
-    @retry_boto(error_code_regexp=r'InvalidGroup\.NotFound')
-    def get_security_group(self, sg_id):
-        groups = self.conn.get_all_security_groups(group_ids=[sg_id])
-        return _get_first_element(groups, 'InvalidGroup.NotFound')
+    def get_security_group(self, sg_id, retry=True):
+        if retry:
+            @retry_boto(error_code_regexp=r'InvalidGroup\.NotFound')
+            def get_with_retry(sg_id):
+                groups = self.conn.get_all_security_groups(group_ids=[sg_id])
+                return _get_first_element(groups, 'InvalidGroup.NotFound')
+
+            get_with_retry(sg_id)
+        else:
+            groups = self.conn.get_all_security_groups(group_ids=[sg_id])
+            return _get_first_element(groups, 'InvalidGroup.NotFound')
 
     def add_security_group_rule(self, sg_id, **kwargs):
         kwargs['group_id'] = sg_id
@@ -410,6 +430,10 @@ class AWSService(BaseAWSService):
 
     def get_console_output(self, instance_id):
         return self.conn.get_console_output(instance_id)
+
+    def get_subnet(self, subnet_id):
+        subnets = self.conn.get_all_subnets(subnet_ids=[subnet_id])
+        return _get_first_element(subnets, 'InvalidSubnetID.NotFound')
 
 
 class ImageNameError(Exception):

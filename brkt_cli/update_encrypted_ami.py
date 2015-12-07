@@ -1,12 +1,8 @@
-import boto
 import logging
-import sys
-import time
-from boto.exception import EC2ResponseError
 from brkt_cli import (
     encrypt_ami,
-    encryptor_service,
-    util)
+    encryptor_service
+)
 from brkt_cli.util import Deadline
 
 log = logging.getLogger(__name__)
@@ -26,7 +22,7 @@ def snapshot_updater_ami_block_devices(aws_service,
         guest_snapshot,
         volume_size,
         guest_encrypted_image,
-        sg_id,
+        security_group_ids=[sg_id],
         update_ami=True)
     host_ip = mv_instance.ip_address
     enc_svc = encryptor_service.EncryptorService(host_ip)
@@ -35,7 +31,7 @@ def snapshot_updater_ami_block_devices(aws_service,
     encrypt_ami.wait_for_encryptor_up(enc_svc, Deadline(600))
     try:
         encrypt_ami.wait_for_encryption(enc_svc)
-    except EncryptionError as e:
+    except encrypt_ami.EncryptionError as e:
         log.error(
             'Update failed.  Check console output of instance %s '
             'for details.',
