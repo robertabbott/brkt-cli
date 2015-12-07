@@ -240,8 +240,12 @@ class AWSService(BaseAWSService):
         if security_group_ids is None:
             security_group_ids = []
         log.debug('Starting a new instance based on %s', image_id)
-        log.debug('Using security groups %s, subnet %s',
-                  security_group_ids, subnet_id)
+        if security_group_ids:
+            log.debug(
+                'Using security groups %s', ', '.join(security_group_ids))
+        if subnet_id:
+            log.debug('Running instance in %s', subnet_id)
+
         try:
             reservation = self.conn.run_instances(
                 image_id=image_id,
