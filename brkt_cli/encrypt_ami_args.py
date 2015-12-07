@@ -4,7 +4,7 @@ import argparse
 def setup_encrypt_ami_args(parser):
     parser.add_argument(
         'ami',
-        metavar='AMI_ID',
+        metavar='ID',
         help='The AMI that will be encrypted'
     )
     parser.add_argument(
@@ -32,6 +32,22 @@ def setup_encrypt_ami_args(parser):
         help='AWS region (e.g. us-west-2)',
         dest='region',
         required=True
+    )
+    parser.add_argument(
+        '--security-group',
+        metavar='ID',
+        dest='security_group_ids',
+        action='append',
+        help=(
+            'Use this security group when running the encryptor instance. '
+            'May be specified multiple times.'
+        )
+    )
+    parser.add_argument(
+        '--subnet',
+        metavar='ID',
+        dest='subnet_id',
+        help='Launch instances in this subnet'
     )
 
     # Optional AMI ID that's used to launch the encryptor instance.  This

@@ -389,7 +389,8 @@ def create_encryptor_security_group(svc):
 
 
 def run_encryptor_instance(aws_svc, encryptor_image_id, snapshot, root_size,
-                           guest_image_id, sg_id, update_ami=False):
+                           guest_image_id, security_group_ids=None,
+                           subnet_id=None, update_ami=False):
     bdm = BlockDeviceMapping()
     guest_unencrypted_root = EBSBlockDeviceType(
         volume_type='gp2',
@@ -417,9 +418,11 @@ def run_encryptor_instance(aws_svc, encryptor_image_id, snapshot, root_size,
         guest_encrypted_root.size = root_size
         bdm['/dev/sda5'] = guest_encrypted_root
 
-    instance = aws_svc.run_instance(encryptor_image_id,
-                                    security_group_ids=[sg_id],
-                                    block_device_map=bdm)
+    instance = aws_svc.run_instance(
+        encryptor_image_id,
+        security_group_ids=security_group_ids,
+        block_device_map=bdm,
+        subnet_id=subnet_id)
     aws_svc.create_tags(
         instance.id,
         name=NAME_ENCRYPTOR,
@@ -441,8 +444,8 @@ def run_encryptor_instance(aws_svc, encryptor_image_id, snapshot, root_size,
     return instance
 
 
-def run_snapshotter_instance(aws_svc, image_id, updater=False):
-    instance = aws_svc.run_instance(image_id)
+def run_snapshotter_instance(aws_svc, image_id, subnet_id=None, updater=False):
+    instance = aws_svc.run_instance(image_id, subnet_id=subnet_id)
     if not updater:
         log.info(
             'Launching instance %s to snapshot root disk for %s',
@@ -692,16 +695,18 @@ def register_new_ami(aws_svc,
 
 
 def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
-            encrypted_ami_name=None):
+            encrypted_ami_name=None, subnet_id=None,
+            security_group_ids=None):
     encryptor_instance = None
     ami = None
     snapshot_id = None
-    sg_id = None
+    temp_sg_id = None
     snapshotter_instance = None
     terminated_instance_ids = set()
 
     try:
-        snapshotter_instance = run_snapshotter_instance(aws_svc, image_id)
+        snapshotter_instance = run_snapshotter_instance(
+            aws_svc, image_id, subnet_id=subnet_id)
         snapshot_id, root_dev, size, vol_type, iops = _snapshot_root_volume(
             aws_svc, snapshotter_instance, image_id
         )
@@ -713,13 +718,24 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
         )
         snapshotter_instance = None
 
-        sg_id = create_encryptor_security_group(aws_svc)
+        if not security_group_ids:
+            temp_sg_id = create_encryptor_security_group(aws_svc)
+            security_group_ids = [temp_sg_id]
 
         encryptor_instance = run_encryptor_instance(
-            aws_svc, encryptor_ami, snapshot_id, size, image_id, sg_id
+            aws_svc=aws_svc,
+            encryptor_image_id=encryptor_ami,
+            snapshot=snapshot_id,
+            root_size=size,
+            guest_image_id=image_id,
+            security_group_ids=security_group_ids,
+            subnet_id=subnet_id
         )
 
-        host_ip = encryptor_instance.ip_address
+        host_ip = (
+            encryptor_instance.ip_address or
+            encryptor_instance.private_ip_address
+        )
         enc_svc = enc_svc_cls(host_ip)
         log.info('Waiting for encryption service on %s at %s',
                  encryptor_instance.id, host_ip)
@@ -832,8 +848,8 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
             log.exception('Unable to clean up orphaned volumes')
 
         sg_ids = []
-        if sg_id:
-            sg_ids.append(sg_id)
+        if temp_sg_id:
+            sg_ids.append(temp_sg_id)
         snapshot_ids = []
         if snapshot_id:
             snapshot_ids.append(snapshot_id)

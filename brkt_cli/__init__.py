@@ -98,6 +98,15 @@ def command_encrypt_ami(values, log):
             # Validate the key pair name.
             aws_svc.get_key_pair(values.key_name)
 
+        if values.subnet_id:
+            # Validate the subnet.
+            aws_svc.get_subnet(values.subnet_id)
+
+        if values.security_group_ids:
+            # Validate the security groups.
+            for id in values.security_group_ids:
+                aws_svc.get_security_group(id, retry=False)
+
         if not values.no_validate_ami:
             error = aws_svc.validate_guest_ami(values.ami)
             if error:
@@ -116,7 +125,9 @@ def command_encrypt_ami(values, log):
             enc_svc_cls=encryptor_service.EncryptorService,
             image_id=values.ami,
             encryptor_ami=encryptor_ami,
-            encrypted_ami_name=values.encrypted_ami_name
+            encrypted_ami_name=values.encrypted_ami_name,
+            subnet_id=values.subnet_id,
+            security_group_ids=values.security_group_ids
         )
         # Print the AMI ID to stdout, in case the caller wants to process
         # the output.  Log messages go to stderr.
@@ -129,7 +140,10 @@ def command_encrypt_ami(values, log):
                 log.exception(msg)
             else:
                 log.error(msg + ': ' + e.error_message)
-        elif e.error_code == 'InvalidKeyPair.NotFound':
+        elif e.error_code in (
+                'InvalidKeyPair.NotFound',
+                'InvalidSubnetID.NotFound',
+                'InvalidGroup.NotFound'):
             if values.verbose:
                 log.exception(e.error_message)
             else:
@@ -250,7 +264,7 @@ def main():
         version='brkt-cli version %s' % VERSION
     )
 
-    subparsers = parser.add_subparsers()
+    subparsers = parser.add_subparsers(dest='subparser_name')
 
     encrypt_ami_parser = subparsers.add_parser('encrypt-ami')
     encrypt_ami_args.setup_encrypt_ami_args(encrypt_ami_parser)
@@ -280,10 +294,9 @@ def main():
     log.setLevel(log_level)
     aws_service.log.setLevel(log_level)
     encryptor_service.log.setLevel(log_level)
-    if argv[0] == 'encrypt-ami':
+    if values.subparser_name == 'encrypt-ami':
         return command_encrypt_ami(values, log)
-
-    if argv[0] == 'update-encrypted-ami':
+    if values.subparser_name == 'update-encrypted-ami':
         return command_update_encrypted_ami(values, log)
 
 
