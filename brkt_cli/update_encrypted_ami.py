@@ -15,7 +15,7 @@ def snapshot_updater_ami_block_devices(aws_service,
                                        volume_size):
     # Retrieves the most recent updater AMI, launches it, snapshots
     # its volumes, returns the snapshots
-    sg_id = encrypt_ami.create_encryptor_security_group(aws_service)
+    sg_id = encrypt_ami.create_encryptor_security_group(aws_service).id
     mv_instance = encrypt_ami.run_encryptor_instance(
         aws_service,
         mv_updater_ami,

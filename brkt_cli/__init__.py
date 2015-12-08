@@ -36,18 +36,32 @@ VERSION = '0.9.6'
 log = None
 
 
+def _validate_subnet_and_security_groups(aws_svc,
+                                         subnet_id=None,
+                                         security_group_ids=None):
+    """ Verify that the given subnet and security groups all exist and are
+    in the same subnet.
+
+    :return True if all of the ids are valid and in the same VPC
+    :raise EC2ResponseError if any of the ids are invalid
+    """
+    vpc_ids = set()
+    if subnet_id:
+        # Validate the subnet.
+        subnet = aws_svc.get_subnet(subnet_id)
+        vpc_ids.add(subnet.vpc_id)
+
+    if security_group_ids:
+        # Validate the security groups.
+        for id in security_group_ids:
+            sg = aws_svc.get_security_group(id, retry=False)
+            vpc_ids.add(sg.vpc_id)
+
+    return len(vpc_ids) <= 1
+
+
 def command_encrypt_ami(values, log):
     region = values.region
-
-    # Initialize logging.  Log messages are written to stderr and are
-    # prefixed with a compact timestamp, so that the user knows how long
-    # each operation took.
-    if values.verbose:
-        log_level = logging.DEBUG
-    else:
-        # Boto logs auth errors and 401s at ERROR level by default.
-        boto.log.setLevel(logging.FATAL)
-        log_level = logging.INFO
 
     if values.encrypted_ami_name:
         try:
@@ -98,14 +112,13 @@ def command_encrypt_ami(values, log):
             # Validate the key pair name.
             aws_svc.get_key_pair(values.key_name)
 
-        if values.subnet_id:
-            # Validate the subnet.
-            aws_svc.get_subnet(values.subnet_id)
-
-        if values.security_group_ids:
-            # Validate the security groups.
-            for id in values.security_group_ids:
-                aws_svc.get_security_group(id, retry=False)
+        if not _validate_subnet_and_security_groups(
+            aws_svc,
+            subnet_id=values.subnet_id,
+            security_group_ids=values.security_group_ids
+        ):
+            log.error('Subnet and security groups must be in the same VPC.')
+            return 1
 
         if not values.no_validate_ami:
             error = aws_svc.validate_guest_ami(values.ami)
