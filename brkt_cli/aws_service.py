@@ -115,11 +115,11 @@ class BaseAWSService(object):
         pass
 
     @abc.abstractmethod
-    def create_security_group(self, name, description):
+    def create_security_group(self, name, description, vpc_id=None):
         pass
 
     @abc.abstractmethod
-    def get_security_group(self, sg_id):
+    def get_security_group(self, sg_id, retry=False):
         pass
 
     @abc.abstractmethod
@@ -397,9 +397,15 @@ class AWSService(BaseAWSService):
     def delete_snapshot(self, snapshot_id):
         return self.conn.delete_snapshot(snapshot_id)
 
-    def create_security_group(self, name, description):
-        sg = self.conn.create_security_group(name, description)
-        return sg.id
+    def create_security_group(self, name, description, vpc_id=None):
+        log.debug(
+            'Creating security group: name=%s, description=%s',
+            name, description
+        )
+        if vpc_id:
+            log.debug('Using %s', vpc_id)
+
+        return self.conn.create_security_group(name, description, vpc_id=vpc_id)
 
     def get_security_group(self, sg_id, retry=True):
         if retry:

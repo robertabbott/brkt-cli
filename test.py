@@ -14,6 +14,8 @@
 from boto.ec2.keypair import KeyPair
 from boto.ec2.securitygroup import SecurityGroup
 from boto.exception import EC2ResponseError
+from boto.vpc import Subnet
+
 import brkt_cli
 import logging
 import os
@@ -84,7 +86,12 @@ class DummyAWSService(aws_service.BaseAWSService):
         self.images = {}
         self.console_output_text = CONSOLE_OUTPUT_TEXT
         self.tagged_volumes = []
+        self.subnets = {}
+        self.security_groups = {}
+
+        # Callbacks.
         self.run_instance_callback = None
+        self.create_security_group_callback = None
 
     def run_instance(self,
                      image_id,
@@ -214,11 +221,17 @@ class DummyAWSService(aws_service.BaseAWSService):
     def delete_snapshot(self, snapshot_id):
         del(self.snapshots[snapshot_id])
 
-    def create_security_group(self, name, description):
-        return 'sg-%s' % (_new_id(),)
+    def create_security_group(self, name, description, vpc_id=None):
+        if self.create_security_group_callback:
+            self.create_security_group_callback(vpc_id)
+        sg = SecurityGroup()
+        sg.id = 'sg-%s' % _new_id()
+        sg.vpc_id = vpc_id
+        self.security_groups[sg.id] = sg
+        return sg
 
-    def get_security_group(self, sg_id):
-        return SecurityGroup(id=sg_id)
+    def get_security_group(self, sg_id, retry=False):
+        return self.security_groups[sg_id]
 
     def add_security_group_rule(self, sg_id, **kwargs):
         pass
@@ -237,7 +250,7 @@ class DummyAWSService(aws_service.BaseAWSService):
         return console_output
 
     def get_subnet(self, subnet_id):
-        return None
+        return self.subnets[subnet_id]
 
 
 class TestSnapshotProgress(unittest.TestCase):
@@ -426,7 +439,7 @@ class TestRun(unittest.TestCase):
         ami = aws_svc.get_image(image_id)
         self.assertEqual(name, ami.name)
 
-    def test_subnet_and_security_groups(self):
+    def test_subnet_with_security_groups(self):
         """ Test that the subnet and security groups are passed to the
         calls to AWSService.run_instance().
         """
@@ -453,8 +466,37 @@ class TestRun(unittest.TestCase):
             image_id=guest_image.id,
             encryptor_ami=encryptor_image.id,
             subnet_id='subnet-1',
-            security_group_ids=['sg-1','sg-2']
+            security_group_ids=['sg-1', 'sg-2']
         )
+
+    def test_subnet_without_security_groups(self):
+        """ Test that we create the temporary security group in the subnet
+        that the user specified.
+        """
+        self.security_group_was_created = False
+
+        def create_security_group_callback(vpc_id):
+            self.security_group_was_created = True
+            self.assertEqual('vpc-1', vpc_id)
+
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
+        aws_svc.create_security_group_callback = \
+            create_security_group_callback
+        encrypt_ami.SLEEP_ENABLED = False
+
+        subnet = Subnet()
+        subnet.id = 'subnet-1'
+        subnet.vpc_id = 'vpc-1'
+        aws_svc.subnets = {subnet.id: subnet}
+
+        encrypt_ami.encrypt(
+            aws_svc=aws_svc,
+            enc_svc_cls=DummyEncryptorService,
+            image_id=guest_image.id,
+            encryptor_ami=encryptor_image.id,
+            subnet_id='subnet-1'
+        )
+        self.assertTrue(self.security_group_was_created)
 
 
 class ExpiredDeadline(object):
@@ -597,3 +639,36 @@ class TestInstance(unittest.TestCase):
                 aws_svc, instance.id, state='running', timeout=100)
         except encrypt_ami.InstanceError as e:
             self.assertTrue('unexpectedly terminated' in e.message)
+
+
+class TestEncryptCommand(unittest.TestCase):
+
+    def test_validate_subnet_and_security_groups(self):
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
+
+        # Subnet, no security groups.
+        subnet = Subnet()
+        subnet.id = 'subnet-1'
+        subnet.vpc_id = 'vpc-1'
+        aws_svc.subnets[subnet.id] = subnet
+
+        self.assertTrue(brkt_cli._validate_subnet_and_security_groups(
+            aws_svc, subnet_id=subnet.id))
+
+        # Security groups, no subnet.
+        sg1 = aws_svc.create_security_group('test1', 'test', vpc_id='vpc-1')
+        sg2 = aws_svc.create_security_group('test2', 'test', vpc_id='vpc-1')
+        self.assertTrue(brkt_cli._validate_subnet_and_security_groups(
+            aws_svc, security_group_ids=[sg1.id, sg2.id]
+        ))
+
+        # Security groups in different VPCs.
+        sg3 = aws_svc.create_security_group('test3', 'test', vpc_id='vpc-2')
+        self.assertFalse(brkt_cli._validate_subnet_and_security_groups(
+            aws_svc, security_group_ids=[sg1.id, sg2.id, sg3.id]
+        ))
+
+        # Security group and subnet in different VPCs.
+        self.assertFalse(brkt_cli._validate_subnet_and_security_groups(
+            aws_svc, subnet_id=subnet.id, security_group_ids=[sg3.id]
+        ))

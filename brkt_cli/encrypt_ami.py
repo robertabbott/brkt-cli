@@ -364,28 +364,28 @@ def wait_for_snapshots(svc, *snapshot_ids):
         sleep(5)
 
 
-def create_encryptor_security_group(svc):
+def create_encryptor_security_group(aws_svc, vpc_id=None):
     sg_name = NAME_ENCRYPTOR_SECURITY_GROUP % {'nonce': make_nonce()}
     sg_desc = DESCRIPTION_ENCRYPTOR_SECURITY_GROUP
-    sg_id = svc.create_security_group(sg_name, sg_desc)
-    log.info('Created temporary security group with id %s', sg_id)
+    sg = aws_svc.create_security_group(sg_name, sg_desc, vpc_id=vpc_id)
+    log.info('Created temporary security group with id %s', sg.id)
     try:
-        svc.add_security_group_rule(
-            sg_id, ip_protocol='tcp',
+        aws_svc.add_security_group_rule(
+            sg.id, ip_protocol='tcp',
             from_port=encryptor_service.ENCRYPTOR_STATUS_PORT,
             to_port=encryptor_service.ENCRYPTOR_STATUS_PORT,
             cidr_ip='0.0.0.0/0')
     except Exception as e:
-        log.error('Failed adding security group rule to %s: %s', sg_id, e)
+        log.error('Failed adding security group rule to %s: %s', sg.id, e)
         try:
-            log.info('Cleaning up temporary security group %s', sg_id)
-            svc.delete_security_group(sg_id)
+            log.info('Cleaning up temporary security group %s', sg.id)
+            aws_svc.delete_security_group(sg.id)
         except Exception as e2:
             log.warn('Failed deleting temporary security group: %s', e2)
         raise e
 
-    svc.create_tags(sg_id)
-    return sg_id
+    aws_svc.create_tags(sg.id)
+    return sg
 
 
 def run_encryptor_instance(aws_svc, encryptor_image_id, snapshot, root_size,
@@ -719,7 +719,12 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
         snapshotter_instance = None
 
         if not security_group_ids:
-            temp_sg_id = create_encryptor_security_group(aws_svc)
+            vpc_id = None
+            if subnet_id:
+                subnet = aws_svc.get_subnet(subnet_id)
+                vpc_id = subnet.vpc_id
+            temp_sg_id = create_encryptor_security_group(
+                aws_svc, vpc_id=vpc_id).id
             security_group_ids = [temp_sg_id]
 
         encryptor_instance = run_encryptor_instance(
