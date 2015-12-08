@@ -34,14 +34,16 @@ AWS_SECRET_ACCESS_KEY environment variables, like you would when
 running the AWS command line utility.
 """
 
-import os
+import json
 import logging
+import math
+import os
 import re
 import string
 import tempfile
 import time
+import urllib2
 
-import requests
 from boto.exception import EC2ResponseError
 from boto.ec2.blockdevicemapping import (
     BlockDeviceMapping,
@@ -144,7 +146,7 @@ def sleep(seconds):
         time.sleep(seconds)
 
 
-def _wait_for_instance(
+def wait_for_instance(
         aws_svc, instance_id, timeout=300, state='running'):
     """ Wait for up to timeout seconds for an instance to be in the
         'running' state.  Sleep for 2 seconds between checks.
@@ -202,6 +204,10 @@ class UnsupportedGuestError(BracketError):
     pass
 
 
+class AWSPermissionsError(BracketError):
+    pass
+
+
 def wait_for_encryption(enc_svc,
                         progress_timeout=ENCRYPTION_PROGRESS_TIMEOUT):
     err_count = 0
@@ -210,6 +216,7 @@ def wait_for_encryption(enc_svc,
     last_log_time = start_time
     progress_deadline = Deadline(progress_timeout)
     last_progress = 0
+    last_state = ''
 
     while err_count < max_errs:
         try:
@@ -217,6 +224,7 @@ def wait_for_encryption(enc_svc,
             err_count = 0
         except Exception as e:
             log.warn("Failed getting encryption status: %s", e)
+            log.warn("Retrying. . .")
             err_count += 1
             sleep(10)
             continue
@@ -231,14 +239,18 @@ def wait_for_encryption(enc_svc,
                 'Waited for encryption progress for longer than %s seconds' %
                 progress_timeout
             )
-        if percent_complete > last_progress:
+        if percent_complete > last_progress or state != last_state:
             last_progress = percent_complete
+            last_state = state
             progress_deadline = Deadline(progress_timeout)
 
         # Log progress once a minute.
         now = time.time()
         if now - last_log_time >= 60:
-            log.info('Encryption is %d%% complete', percent_complete)
+            state_display = 'Encryption'
+            if state == encryptor_service.ENCRYPT_DOWNLOADING:
+                state_display = 'Download from S3'
+            log.info('%s is %d%% complete', state_display, percent_complete)
             last_log_time = now
 
         if state == encryptor_service.ENCRYPT_SUCCESSFUL:
@@ -251,6 +263,9 @@ def wait_for_encryption(enc_svc,
                     encryptor_service.FAILURE_CODE_UNSUPPORTED_GUEST:
                 raise UnsupportedGuestError(
                     'The specified AMI uses an unsupported operating system')
+            if failure_code == encryptor_service.FAILURE_CODE_AWS_PERMISSIONS:
+                raise AWSPermissionsError(
+                    'The specified IAM profile has insufficient permissions')
             raise EncryptionError('Encryption failed')
 
         sleep(10)
@@ -259,7 +274,7 @@ def wait_for_encryption(enc_svc,
     raise EncryptionError('Encryption service unavailable')
 
 
-def _get_encrypted_suffix():
+def get_encrypted_suffix():
     """ Return a suffix that will be appended to the encrypted image name.
     The suffix is in the format "(encrypted 787ace7a)".  The nonce portion of
     the suffix is necessary because Amazon requires image names to be unique.
@@ -267,7 +282,7 @@ def _get_encrypted_suffix():
     return NAME_ENCRYPTED_IMAGE_SUFFIX % {'nonce': make_nonce()}
 
 
-def _append_suffix(name, suffix, max_length=None):
+def append_suffix(name, suffix, max_length=None):
     """ Append the suffix to the given name.  If the appended length exceeds
     max_length, truncate the name to make room for the suffix.
 
@@ -288,14 +303,36 @@ def get_encryptor_ami(region):
         raise BracketError('No bracket environment found')
     bucket_url = ENCRYPTOR_AMIS_URL % (bracket_env)
     log.debug('Getting encryptor AMI list from %s', bucket_url)
-    r = requests.get(bucket_url)
-    if r.status_code not in (200, 201):
+    r = urllib2.urlopen(bucket_url)
+    if r.getcode() not in (200, 201):
         raise BracketError(
             'Getting %s gave response: %s' % (bucket_url, r.text))
-    ami = r.json().get(region)
+    resp_json = json.loads(r.read())
+    ami = resp_json.get(region)
     if not ami:
         raise BracketError('No AMI for %s returned.' % region)
     return ami
+
+
+def get_name_from_image(image):
+    name = append_suffix(
+        image.name,
+        get_encrypted_suffix(),
+        max_length=AMI_NAME_MAX_LENGTH
+    )
+    return name
+
+
+def get_description_from_image(image):
+    if image.description:
+        suffix = SUFFIX_ENCRYPTED_IMAGE % {'image_id': image.id}
+        description = append_suffix(
+            image.description, suffix, max_length=255)
+    else:
+        description = DEFAULT_DESCRIPTION_ENCRYPTED_IMAGE % {
+            'image_id': image.id
+        }
+    return description
 
 
 def _wait_for_image(amazon_svc, image_id):
@@ -388,6 +425,20 @@ def create_encryptor_security_group(aws_svc, vpc_id=None):
     return sg
 
 
+def tag_encryptor_volumes(aws_svc, instance, update_ami=False):
+    # Tag volumes.
+    bdm = instance.block_device_mapping
+    if not update_ami:
+        aws_svc.create_tags(
+            bdm['/dev/sda5'].volume_id, name=NAME_ENCRYPTED_ROOT_VOLUME)
+    aws_svc.create_tags(
+        bdm['/dev/sda2'].volume_id, name=NAME_METAVISOR_ROOT_VOLUME)
+    aws_svc.create_tags(
+        bdm['/dev/sda1'].volume_id, name=NAME_METAVISOR_GRUB_VOLUME)
+    aws_svc.create_tags(
+        bdm['/dev/sda3'].volume_id, name=NAME_METAVISOR_LOG_VOLUME)
+
+
 def run_encryptor_instance(aws_svc, encryptor_image_id, snapshot, root_size,
                            guest_image_id, security_group_ids=None,
                            subnet_id=None, update_ami=False):
@@ -428,19 +479,12 @@ def run_encryptor_instance(aws_svc, encryptor_image_id, snapshot, root_size,
         name=NAME_ENCRYPTOR,
         description=DESCRIPTION_ENCRYPTOR % {'image_id': guest_image_id}
     )
-    instance = _wait_for_instance(aws_svc, instance.id)
+    log.info('Waiting for encryptor instance %s', instance.id)
+    instance = wait_for_instance(aws_svc, instance.id)
     log.info('Launched encryptor instance %s', instance.id)
-    # Tag volumes.
-    bdm = instance.block_device_mapping
-    if not update_ami:
-        aws_svc.create_tags(
-            bdm['/dev/sda5'].volume_id, name=NAME_ENCRYPTED_ROOT_VOLUME)
-    aws_svc.create_tags(
-        bdm['/dev/sda2'].volume_id, name=NAME_METAVISOR_ROOT_VOLUME)
-    aws_svc.create_tags(
-        bdm['/dev/sda1'].volume_id, name=NAME_METAVISOR_GRUB_VOLUME)
-    aws_svc.create_tags(
-        bdm['/dev/sda3'].volume_id, name=NAME_METAVISOR_LOG_VOLUME)
+
+    tag_encryptor_volumes(aws_svc, instance, update_ami=update_ami)
+
     return instance
 
 
@@ -459,7 +503,7 @@ def run_snapshotter_instance(aws_svc, image_id, subnet_id=None, updater=False):
         name=NAME_SNAPSHOT_CREATOR,
         description=DESCRIPTION_SNAPSHOT_CREATOR % {'image_id': image_id}
     )
-    return _wait_for_instance(aws_svc, instance.id)
+    return wait_for_instance(aws_svc, instance.id)
 
 
 def _snapshot_root_volume(aws_svc, instance, image_id):
@@ -470,7 +514,7 @@ def _snapshot_root_volume(aws_svc, instance, image_id):
     log.info(
         'Stopping instance %s in order to create snapshot', instance.id)
     aws_svc.stop_instance(instance.id)
-    _wait_for_instance(aws_svc, instance.id, state='stopped')
+    wait_for_instance(aws_svc, instance.id, state='stopped')
 
     # Snapshot root volume.
     root_dev = instance.root_device_name
@@ -528,12 +572,17 @@ def terminate_instance(aws_svc, id, name, terminated_instance_ids):
         log.warn('Could not terminate %s instance: %s', name, e)
 
 
-def _clean_up(aws_svc, instance_ids=None, volume_ids=None,
+def clean_up(aws_svc, instance_ids=None, volume_ids=None,
               snapshot_ids=None, security_group_ids=None):
     """ Clean up any resources that were created by the encryption process.
     Handle and log exceptions, to ensure that the script doesn't exit during
     cleanup.
     """
+    instance_ids = instance_ids or []
+    volume_ids = volume_ids or []
+    snapshot_ids = snapshot_ids or []
+    security_group_ids = security_group_ids or []
+
     # Delete instances and snapshots.
     terminated_instance_ids = set()
     for instance_id in instance_ids:
@@ -560,7 +609,7 @@ def _clean_up(aws_svc, instance_ids=None, volume_ids=None,
     for id in terminated_instance_ids:
         log.info('Waiting for instance %s to terminate.', id)
         try:
-            _wait_for_instance(aws_svc, id, state='terminated')
+            wait_for_instance(aws_svc, id, state='terminated')
         except (EC2ResponseError, InstanceError) as e:
             log.warn(
                 'An error occurred while waiting for instance to '
@@ -596,11 +645,12 @@ def register_new_ami(aws_svc,
                      snap_bsd,
                      snap_log,
                      snap_guest,
-                     vol_type,
-                     iops,
-                     image_id,
-                     encryptor_ami=None,
-                     encrypted_ami_name=None):
+                     name,
+                     description,
+                     image_id=None,
+                     vol_type='',
+                     iops=None,
+                     encryptor_ami=None):
     # Registers the new encrypted AMI for a created or updated AMI
     # Set up new Block Device Mappings
     log.debug('Creating block device mapping')
@@ -625,46 +675,33 @@ def register_new_ami(aws_svc,
     new_bdm['/dev/sda3'] = dev_log
     new_bdm['/dev/sda5'] = dev_guest_root
 
-    log.debug('Getting image %s', image_id)
-    image = aws_svc.get_image(image_id)
-    if image is None:
-        raise BracketError("Can't find image %s" % image_id)
+    if image_id:
+        log.debug('Getting image %s', image_id)
+        image = aws_svc.get_image(image_id)
+        if image is None:
+            raise BracketError("Can't find image %s" % image_id)
 
-    # Propagate any ephemeral drive mappings to the soloized image
-    guest_bdm = image.block_device_mapping
-    for key in guest_bdm.keys():
-        guest_vol = guest_bdm[key]
-        if guest_vol.ephemeral_name:
-            log.info('Propagating block device mapping for %s at %s' %
-                     (guest_vol.ephemeral_name, key))
-            new_bdm[key] = guest_vol
+        # Propagate any ephemeral drive mappings to the soloized image
+        guest_bdm = image.block_device_mapping
+        for key in guest_bdm.keys():
+            guest_vol = guest_bdm[key]
+            if guest_vol.ephemeral_name:
+                log.info('Propagating block device mapping for %s at %s' %
+                         (guest_vol.ephemeral_name, key))
+                new_bdm[key] = guest_vol
+
     if encryptor_ami:
         # We are creating an encrypted image for the first time
         encryptor_image = aws_svc.get_image(encryptor_ami)
         if encryptor_image is None:
             raise BracketError("Can't find image %s" % encryptor_ami)
         kernel_id = encryptor_image.kernel_id
-    else:
+    elif image_id:
         # We are updating an encrypted image. We use the same kernel id
         kernel_id = image.kernel_id
-    # Register the new AMI.
-    if encrypted_ami_name:
-        name = encrypted_ami_name
-    else:
-        name = _append_suffix(
-            image.name,
-            _get_encrypted_suffix(),
-            max_length=AMI_NAME_MAX_LENGTH
-        )
-    if image.description:
-        suffix = SUFFIX_ENCRYPTED_IMAGE % {'image_id': image_id}
-        description = _append_suffix(
-            image.description, suffix, max_length=255)
-    else:
-        description = DEFAULT_DESCRIPTION_ENCRYPTED_IMAGE % {
-            'image_id': image_id
-        }
 
+    # Register the new AMI.
+    ami = None
     try:
         ami = aws_svc.register_image(
             name=name,
@@ -690,8 +727,117 @@ def register_new_ami(aws_svc,
             raise
     _wait_for_image(aws_svc, ami)
     aws_svc.create_tags(ami)
-    log.info('Created encrypted AMI %s based on %s', ami, image_id)
+    log.info('Created encrypted AMI %s (%s)', ami, description)
     return ami
+
+
+def make_encrypted_ami(aws_svc, enc_svc_cls, encryptor_instance, encryptor_ami,
+                       name, description, image_id=None, vol_type='',
+                       iops=None):
+    ami_info = {}
+    host_ip = (
+        encryptor_instance.ip_address or
+        encryptor_instance.private_ip_address
+    )
+    enc_svc = enc_svc_cls(host_ip)
+    log.info('Waiting for encryption service on %s at %s',
+             encryptor_instance.id, host_ip)
+    wait_for_encryptor_up(enc_svc, Deadline(600))
+    log.info('Creating encrypted root drive.')
+    try:
+        wait_for_encryption(enc_svc)
+    except EncryptionError as e:
+        log.error(
+            'Encryption failed.  Check console output of instance %s '
+            'for details.',
+            encryptor_instance.id
+        )
+
+        e.console_output_file = write_console_output(
+            aws_svc, encryptor_instance.id)
+        if e.console_output_file:
+            log.error(
+                'Wrote console output for instance %s to %s',
+                encryptor_instance.id,
+                e.console_output_file.name
+            )
+        else:
+            log.error(
+                'Encryptor console output is not currently available.  '
+                'Wait a minute and check the console output for '
+                'instance %s in the EC2 Management '
+                'Console.',
+                encryptor_instance.id
+            )
+        raise e
+
+    log.info('Encrypted root drive is ready.')
+
+    bdm = encryptor_instance.block_device_mapping
+
+    # Stop the encryptor instance.  Wait for it to stop before
+    # taking snapshots.
+    log.info('Stopping encryptor instance %s', encryptor_instance.id)
+    aws_svc.stop_instance(encryptor_instance.id)
+    wait_for_instance(aws_svc, encryptor_instance.id, state='stopped')
+
+    # Snapshot volumes.
+    snap_guest = aws_svc.create_snapshot(
+        bdm['/dev/sda5'].volume_id,
+        name=NAME_ENCRYPTED_ROOT_SNAPSHOT,
+        description=description
+    )
+    snap_bsd = aws_svc.create_snapshot(
+        bdm['/dev/sda2'].volume_id,
+        name=NAME_METAVISOR_ROOT_SNAPSHOT,
+        description=description
+    )
+    snap_grub = aws_svc.create_snapshot(
+        bdm['/dev/sda1'].volume_id,
+        name=NAME_METAVISOR_GRUB_SNAPSHOT,
+        description=description
+    )
+    snap_log = aws_svc.create_snapshot(
+        bdm['/dev/sda3'].volume_id,
+        name=NAME_METAVISOR_LOG_SNAPSHOT,
+        description=description
+    )
+
+    log.info(
+        'Creating snapshots for the new encrypted AMI: %s, %s, %s, %s',
+        snap_guest.id, snap_bsd.id, snap_grub.id, snap_log.id)
+
+    wait_for_snapshots(
+        aws_svc, snap_guest.id, snap_bsd.id, snap_grub.id, snap_log.id)
+
+    ami = register_new_ami(
+        aws_svc,
+        snap_grub,
+        snap_bsd,
+        snap_log,
+        snap_guest,
+        name,
+        description,
+        image_id=image_id,
+        vol_type=vol_type,
+        iops=iops,
+        encryptor_ami=encryptor_ami)
+
+    ami_info['volume_device_map'] = []
+    result_image = aws_svc.get_image(ami)
+    for attach_point, bdt in result_image.block_device_mapping.iteritems():
+        if bdt.snapshot_id:
+            bdt_snapshot = aws_svc.get_snapshot(bdt.snapshot_id)
+            device_details = {
+                'attach_point': attach_point,
+                'description': bdt_snapshot.tags.get('Name', ''),
+                'size': bdt_snapshot.volume_size
+            }
+            ami_info['volume_device_map'].append(device_details)
+
+    ami_info['ami'] = ami
+    ami_info['name'] = name
+    return ami_info
 
 
 def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
@@ -737,99 +883,21 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
             subnet_id=subnet_id
         )
 
-        host_ip = (
-            encryptor_instance.ip_address or
-            encryptor_instance.private_ip_address
-        )
-        enc_svc = enc_svc_cls(host_ip)
-        log.info('Waiting for encryption service on %s at %s',
-                 encryptor_instance.id, host_ip)
-        wait_for_encryptor_up(enc_svc, Deadline(600))
-        log.info('Creating encrypted root drive.')
-        try:
-            wait_for_encryption(enc_svc)
-        except EncryptionError as e:
-            log.error(
-                'Encryption failed.  Check console output of instance %s '
-                'for details.',
-                encryptor_instance.id
-            )
+        log.debug('Getting image %s', image_id)
+        image = aws_svc.get_image(image_id)
+        if image is None:
+            raise BracketError("Can't find image %s" % image_id)
 
-            e.console_output_file = write_console_output(
-                aws_svc, encryptor_instance.id)
-            if e.console_output_file:
-                log.error(
-                    'Wrote console output for instance %s to %s',
-                    encryptor_instance.id,
-                    e.console_output_file.name
-                )
-            else:
-                log.error(
-                    'Encryptor console output is not currently available.  '
-                    'Wait a minute and check the console output for '
-                    'instance %s in the EC2 Management '
-                    'Console.',
-                    encryptor_instance.id
-                )
-            raise e
+        if encrypted_ami_name:
+            name = encrypted_ami_name
+        elif image_id:
+            name = get_name_from_image(image)
 
-        bdm = encryptor_instance.block_device_mapping
+        description = get_description_from_image(image)
 
-        # Stop the encryptor instance.  Wait for it to stop before
-        # taking snapshots.
-        log.info('Stopping encryptor instance %s', encryptor_instance.id)
-        aws_svc.stop_instance(encryptor_instance.id)
-        _wait_for_instance(aws_svc, encryptor_instance.id, state='stopped')
-
-        description = DESCRIPTION_SNAPSHOT % {'image_id': image_id}
-
-        # Snapshot volumes.
-        snap_guest = aws_svc.create_snapshot(
-            bdm['/dev/sda5'].volume_id,
-            name=NAME_ENCRYPTED_ROOT_SNAPSHOT,
-            description=description
-        )
-        snap_bsd = aws_svc.create_snapshot(
-            bdm['/dev/sda2'].volume_id,
-            name=NAME_METAVISOR_ROOT_SNAPSHOT,
-            description=description
-        )
-        snap_grub = aws_svc.create_snapshot(
-            bdm['/dev/sda1'].volume_id,
-            name=NAME_METAVISOR_GRUB_SNAPSHOT,
-            description=description
-        )
-        snap_log = aws_svc.create_snapshot(
-            bdm['/dev/sda3'].volume_id,
-            name=NAME_METAVISOR_LOG_SNAPSHOT,
-            description=description
-        )
-
-        log.info(
-            'Creating snapshots for the new encrypted AMI: %s, %s, %s, %s',
-            snap_guest.id, snap_bsd.id, snap_grub.id, snap_log.id)
-
-        wait_for_snapshots(
-            aws_svc, snap_guest.id, snap_bsd.id, snap_grub.id, snap_log.id)
-
-        terminate_instance(
-            aws_svc,
-            id=encryptor_instance.id,
-            name='encryptor',
-            terminated_instance_ids=terminated_instance_ids
-        )
-        encryptor_instance = None
-        ami = register_new_ami(
-            aws_svc,
-            snap_grub,
-            snap_bsd,
-            snap_log,
-            snap_guest,
-            vol_type,
-            iops,
-            image_id,
-            encryptor_ami=encryptor_ami,
-            encrypted_ami_name=encrypted_ami_name)
+        ami_info = make_encrypted_ami(aws_svc, enc_svc_cls, encryptor_instance,
+            encryptor_ami, name, description, image_id=image_id)
+        ami = ami_info['ami']
     finally:
         instance_ids = []
         if snapshotter_instance:
@@ -855,11 +923,12 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
         sg_ids = []
         if temp_sg_id:
             sg_ids.append(temp_sg_id)
+
         snapshot_ids = []
         if snapshot_id:
             snapshot_ids.append(snapshot_id)
 
-        _clean_up(
+        clean_up(
             aws_svc,
             instance_ids=instance_ids,
             volume_ids=volume_ids,

@@ -186,14 +186,6 @@ def command_encrypt_ami(values, log):
 
 
 def command_update_encrypted_ami(values, log):
-    encrypted_ami_name = None
-    if values.encrypted_ami_name:
-        try:
-            aws_service.validate_image_name(values.encrypted_ami_name)
-            encrypted_ami_name = values.encrypted_ami_name
-        except aws_service.ImageNameError as e:
-            print(e.message, file=sys.stderr)
-            return 1
     region = values.region
     nonce = util.make_nonce()
     default_tags = encrypt_ami.get_default_tags(nonce, '')
@@ -228,6 +220,23 @@ def command_update_encrypted_ami(values, log):
     if not guest_snapshot:
         log.error('failed to launch instance %s: %s' % (encrypted_ami, error))
         return 1
+
+    log.debug('Getting image %s', encrypted_ami)
+    image = aws_svc.get_image(encrypted_ami)
+    if image is None:
+        raise util.BracketError("Can't find image %s" % encrypted_ami)
+    description = encrypt_ami.get_description_from_image(image)
+    name = None
+    if values.encrypted_ami_name:
+        try:
+            aws_service.validate_image_name(values.encrypted_ami_name)
+            name = values.encrypted_ami_name
+        except aws_service.ImageNameError as e:
+            print(e.message, file=sys.stderr)
+            return 1
+    else:
+        name = encrypt_ami.get_name_from_image(image)
+
     log.info('Launching metavisor update encryptor instance')
     updater_ami_block_devices = \
         update_encrypted_ami.snapshot_updater_ami_block_devices(
@@ -236,16 +245,18 @@ def command_update_encrypted_ami(values, log):
             updater_ami,
             guest_snapshot.id,
             volume_info['size'])
+
     ami = encrypt_ami.register_new_ami(
         aws_svc,
         updater_ami_block_devices[encrypt_ami.NAME_METAVISOR_GRUB_SNAPSHOT],
         updater_ami_block_devices[encrypt_ami.NAME_METAVISOR_ROOT_SNAPSHOT],
         updater_ami_block_devices[encrypt_ami.NAME_METAVISOR_LOG_SNAPSHOT],
         guest_snapshot,
-        volume_info['type'],
-        volume_info['iops'],
-        encrypted_ami,
-        encrypted_ami_name=encrypted_ami_name)
+        name,
+        description,
+        image_id=encrypted_ami,
+        vol_type=volume_info['type'],
+        iops=volume_info['iops'])
     log.info('Done.')
     print(ami)
     return 0
