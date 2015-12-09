@@ -263,7 +263,7 @@ class AWSService(BaseAWSService):
                 instance_profile_name=instance_profile_name
             )
             return reservation.instances[0]
-        except EC2ResponseError as e:
+        except EC2ResponseError:
             log.debug('Failed to launch instance for %s', image_id)
             raise
 

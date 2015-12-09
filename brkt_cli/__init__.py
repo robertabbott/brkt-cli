@@ -140,7 +140,8 @@ def command_encrypt_ami(values, log):
             encryptor_ami=encryptor_ami,
             encrypted_ami_name=values.encrypted_ami_name,
             subnet_id=values.subnet_id,
-            security_group_ids=values.security_group_ids
+            security_group_ids=values.security_group_ids,
+            brkt_env=values.brkt_env
         )
         # Print the AMI ID to stdout, in case the caller wants to process
         # the output.  Log messages go to stderr.
@@ -244,8 +245,8 @@ def command_update_encrypted_ami(values, log):
             encrypted_ami,
             updater_ami,
             guest_snapshot.id,
-            volume_info['size'])
-
+            volume_info['size'],
+            values.brkt_env)
     ami = encrypt_ami.register_new_ami(
         aws_svc,
         updater_ami_block_devices[encrypt_ami.NAME_METAVISOR_GRUB_SNAPSHOT],
