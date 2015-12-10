@@ -350,7 +350,7 @@ class TestRun(unittest.TestCase):
             aws_svc=aws_svc,
             enc_svc_cls=DummyEncryptorService,
             image_id=guest_image.id,
-            brkt_env="",
+            brkt_env=None,
             encryptor_ami=encryptor_image.id
         )
         self.assertIsNotNone(encrypted_ami_id)
@@ -366,7 +366,7 @@ class TestRun(unittest.TestCase):
                 aws_svc=aws_svc,
                 enc_svc_cls=FailedEncryptionService,
                 image_id=guest_image.id,
-                brkt_env="",
+                brkt_env=None,
                 encryptor_ami=encryptor_image.id
             )
             self.fail('Encryption should have failed')
@@ -389,7 +389,7 @@ class TestRun(unittest.TestCase):
                 aws_svc=aws_svc,
                 enc_svc_cls=FailedEncryptionService,
                 image_id=guest_image.id,
-                brkt_env="",
+                brkt_env=None,
                 encryptor_ami=encryptor_image.id
             )
             self.fail('Encryption should have failed')
@@ -420,7 +420,7 @@ class TestRun(unittest.TestCase):
             aws_svc=aws_svc,
             enc_svc_cls=DummyEncryptorService,
             image_id=guest_image.id,
-            brkt_env="",
+            brkt_env=None,
             encryptor_ami=encryptor_image.id
         )
 
@@ -439,7 +439,7 @@ class TestRun(unittest.TestCase):
             enc_svc_cls=DummyEncryptorService,
             image_id=guest_image.id,
             encryptor_ami=encryptor_image.id,
-            brkt_env="",
+            brkt_env=None,
             encrypted_ami_name=name
         )
         ami = aws_svc.get_image(image_id)
@@ -471,7 +471,7 @@ class TestRun(unittest.TestCase):
             enc_svc_cls=DummyEncryptorService,
             image_id=guest_image.id,
             encryptor_ami=encryptor_image.id,
-            brkt_env="",
+            brkt_env=None,
             subnet_id='subnet-1',
             security_group_ids=['sg-1', 'sg-2']
         )
@@ -500,7 +500,7 @@ class TestRun(unittest.TestCase):
             aws_svc=aws_svc,
             enc_svc_cls=DummyEncryptorService,
             image_id=guest_image.id,
-            brkt_env="",
+            brkt_env=None,
             encryptor_ami=encryptor_image.id,
             subnet_id='subnet-1'
         )
