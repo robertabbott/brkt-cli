@@ -439,11 +439,14 @@ def tag_encryptor_volumes(aws_svc, instance, update_ami=False):
 
 
 def run_encryptor_instance(aws_svc, encryptor_image_id, snapshot, root_size,
-                           guest_image_id, brkt_env='prod', security_group_ids=None,
+                           guest_image_id, brkt_env=None, security_group_ids=None,
                            subnet_id=None, update_ami=False):
     bdm = BlockDeviceMapping()
     user_data = {}
-    user_data['brkt'] = {'yeti_endpoints':brkt_env}
+    if brkt_env:
+        endpoints = brkt_env.split(',')
+        user_data['brkt'] = {'api_host':endpoints[0]}
+        user_data['brkt'] = {'hsmproxy_host':endpoints[1]}
     guest_unencrypted_root = EBSBlockDeviceType(
         volume_type='gp2',
         snapshot_id=snapshot,
@@ -845,7 +848,7 @@ def make_encrypted_ami(aws_svc, enc_svc_cls, encryptor_instance, encryptor_ami,
     return ami_info
 
 
-def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env='prod',
+def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
             encrypted_ami_name=None, subnet_id=None,
             security_group_ids=None):
     encryptor_instance = None
