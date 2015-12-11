@@ -16,7 +16,7 @@ more information.
 
 ## Installation
 
-The latest release of **brkt-cli** is 0.9.5.  Use pip to install **brkt-cli** and its dependencies:
+The latest release of **brkt-cli** is 0.9.7.  Use pip to install **brkt-cli** and its dependencies:
 
 ```
 $ pip install brkt-cli
@@ -32,13 +32,14 @@ The master branch has the latest features and bug fixes, but is not as thoroughl
 
 ## Usage
 ```
-$ brkt encrypt-ami -h
+$ brkt encrypt-ami --help
 usage: brkt encrypt-ami [-h] [--encrypted-ami-name NAME] [--validate-ami]
                         [--no-validate-ami] --region NAME
-                        AMI_ID
+                        [--security-group ID] [--subnet ID]
+                        ID
 
 positional arguments:
-  AMI_ID                The AMI that will be encrypted
+  ID                    The AMI that will be encrypted
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -47,9 +48,12 @@ optional arguments:
   --validate-ami        Validate AMI properties (default)
   --no-validate-ami     Don't validate AMI properties
   --region NAME         AWS region (e.g. us-west-2)
+  --security-group ID   Use this security group when running the encryptor
+                        instance. May be specified multiple times.
+  --subnet ID           Launch instances in this subnet
 ```
 ```
-$ python brkt update-encrypted-ami --help
+$ brkt update-encrypted-ami --help
 usage: brkt update-encrypted-ami [-h] --updater-ami UPDATER_AMI_ID --region
                                  REGION [--encrypted-ami-name NAME]
                                  [--no-validate-ami]
