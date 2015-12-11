@@ -15,7 +15,6 @@
 import abc
 import json
 import logging
-import re
 import urllib2
 
 ENCRYPT_DOWNLOADING = 'downloading'

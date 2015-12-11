@@ -42,7 +42,7 @@ def setup_update_encrypted_ami(parser):
         dest='brkt_env',
         help=argparse.SUPPRESS
     )
-    # Optional EC2 SSH key pair name to use for launching the snapshotter
+    # Optional EC2 SSH key pair name to use for launching the guest
     # and encryptor instances.  This argument is hidden because it's only
     # used for development.
     parser.add_argument(
