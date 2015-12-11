@@ -780,8 +780,10 @@ def make_encrypted_ami(aws_svc, enc_svc_cls, encryptor_instance, encryptor_ami,
 
     log.info('Encrypted root drive is ready.')
 
-    # Making a get_instance call has the same underlying cost as boto's
-    # convenience update() method.
+
+    # The encryptor instance may modify its volume attachments while running,
+    # so we update the encryptor instance's local attributes before reading
+    # them.
     encryptor_instance = aws_svc.get_instance(encryptor_instance.id)
     bdm = encryptor_instance.block_device_mapping
 
