@@ -445,8 +445,10 @@ def run_encryptor_instance(aws_svc, encryptor_image_id, snapshot, root_size,
     user_data = {}
     if brkt_env:
         endpoints = brkt_env.split(',')
-        user_data['brkt'] = {'api_host':endpoints[0]}
-        user_data['brkt'] = {'hsmproxy_host':endpoints[1]}
+        user_data['brkt'] = {
+            'api_host': endpoints[0],
+            'hsmproxy_host': endpoints[1],
+        }
     guest_unencrypted_root = EBSBlockDeviceType(
         volume_type='gp2',
         snapshot_id=snapshot,
