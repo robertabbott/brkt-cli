@@ -51,9 +51,9 @@ def setup_encrypt_ami_args(parser):
     )
 
     # Optional yeti endpoints. Hidden because it's only used for development
-    # if you're using this option, it should be passed as a comma separated list
-    # of endpoints. ie blb.*.*.brkt.net:7002,blb.*.*.brkt.net:7001 the endpoints
-    # must also be in order: api_host,hsmproxy_host
+    # if you're using this option, it should be passed as a comma separated
+    # list of endpoints. ie blb.*.*.brkt.net:7002,blb.*.*.brkt.net:7001 the
+    # endpoints must also be in order: api_host,hsmproxy_host
     parser.add_argument(
         '--brkt-env',
         dest='brkt_env',
@@ -69,7 +69,7 @@ def setup_encrypt_ami_args(parser):
         help=argparse.SUPPRESS
     )
 
-    # Optional EC2 SSH key pair name to use for launching the snapshotter
+    # Optional EC2 SSH key pair name to use for launching the guest
     # and encryptor instances.  This argument is hidden because it's only
     # used for development.
     parser.add_argument(
