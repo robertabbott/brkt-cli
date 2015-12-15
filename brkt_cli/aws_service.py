@@ -42,10 +42,11 @@ class BaseAWSService(object):
                      image_id,
                      security_group_ids=None,
                      instance_type='c3.xlarge',
+                     placement=None,
                      block_device_map=None,
                      subnet_id=None,
                      user_data=None,
-                     ebs_optimized='True',
+                     ebs_optimized=True,
                      instance_profile_name=None):
         pass
 

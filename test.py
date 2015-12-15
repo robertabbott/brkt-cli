@@ -47,8 +47,8 @@ def _new_id():
 
 class DummyEncryptorService(encryptor_service.BaseEncryptorService):
 
-    def __init__(self, hostname='test-host', port=8000):
-        super(DummyEncryptorService, self).__init__(hostname, port)
+    def __init__(self, hostnames=['test-host'], port=8000):
+        super(DummyEncryptorService, self).__init__(hostnames, port)
         self.is_up = False
         self.progress = 0
 
@@ -96,11 +96,13 @@ class DummyAWSService(aws_service.BaseAWSService):
     def run_instance(self,
                      image_id,
                      security_group_ids=None,
-                     instance_type='m3.medium',
+                     instance_type='c3.xlarge',
                      placement=None,
-                     user_data="",
                      block_device_map=None,
-                     subnet_id=None):
+                     subnet_id=None,
+                     user_data=None,
+                     ebs_optimized=True,
+                     instance_profile_name=None):
         instance = Instance()
         instance.id = _new_id()
         instance.root_device_name = '/dev/sda1'
