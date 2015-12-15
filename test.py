@@ -29,7 +29,7 @@ from boto.ec2.snapshot import Snapshot
 from boto.ec2.volume import Volume
 from brkt_cli import (
     encrypt_ami,
-    encryptor_service
+    encryptor_service,
 )
 from brkt_cli import aws_service
 
@@ -47,8 +47,8 @@ def _new_id():
 
 class DummyEncryptorService(encryptor_service.BaseEncryptorService):
 
-    def __init__(self, hostname='test-host', port=8000):
-        super(DummyEncryptorService, self).__init__(hostname, port)
+    def __init__(self, hostnames=['test-host'], port=8000):
+        super(DummyEncryptorService, self).__init__(hostnames, port)
         self.is_up = False
         self.progress = 0
 
@@ -96,10 +96,13 @@ class DummyAWSService(aws_service.BaseAWSService):
     def run_instance(self,
                      image_id,
                      security_group_ids=None,
-                     instance_type='m3.medium',
-                     user_data="",
+                     instance_type='c3.xlarge',
+                     placement=None,
                      block_device_map=None,
-                     subnet_id=None):
+                     subnet_id=None,
+                     user_data=None,
+                     ebs_optimized=True,
+                     instance_profile_name=None):
         instance = Instance()
         instance.id = _new_id()
         instance.root_device_name = '/dev/sda1'
@@ -190,6 +193,30 @@ class DummyAWSService(aws_service.BaseAWSService):
         self.snapshots[snapshot.id] = snapshot
         return snapshot
 
+    def attach_volume(self, vol_id, instance_id, device, **kwargs):
+        pass
+
+    def create_image(self, instance_id, name, **kwargs):
+        image = Image()
+        image.id = instance_id
+        image.block_device_mapping = kwargs['block_device_mapping']
+        image.state = 'available'
+        image.name = name
+        image.description = 'This is a test'
+        image.virtualization_type = 'paravirtual'
+        self.images[image.id] = image
+        return image.id
+
+    def create_volume(self, size, zone, **kwargs):
+        volume = Volume()
+        volume.id = _new_id()
+        volume.size = size
+        volume.zone = zone
+        return volume
+
+    def detach_volume(self, vol_id, **kwargs):
+        pass
+
     def delete_volume(self, volume_id):
         del(self.volumes[volume_id])
 
@@ -210,6 +237,7 @@ class DummyAWSService(aws_service.BaseAWSService):
         image.state = 'available'
         image.name = name
         image.description = description
+        image.virtualization_type = 'paravirtual'
         self.images[image.id] = image
         return image.id
 
@@ -551,7 +579,8 @@ class TestEncryptionService(unittest.TestCase):
             def get_status(self):
                 return {
                     'state': encryptor_service.ENCRYPT_FAILED,
-                    'failure_code': encryptor_service.FAILURE_CODE_UNSUPPORTED_GUEST,
+                    'failure_code':
+                        encryptor_service.FAILURE_CODE_UNSUPPORTED_GUEST,
                     'percent_complete': 0
                 }
 

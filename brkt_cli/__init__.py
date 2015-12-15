@@ -19,6 +19,7 @@ import boto
 import boto.ec2
 import boto.vpc
 import logging
+import re
 import sys
 
 from boto.exception import EC2ResponseError, NoAuthHandlerFound
@@ -26,12 +27,13 @@ from boto.exception import EC2ResponseError, NoAuthHandlerFound
 from brkt_cli import aws_service
 from brkt_cli import encrypt_ami
 from brkt_cli import encrypt_ami_args
-from brkt_cli import update_encrypted_ami
 from brkt_cli import update_encrypted_ami_args
 from brkt_cli import encryptor_service
 from brkt_cli import util
 
-VERSION = '0.9.7'
+from update_ami import update_ami
+
+VERSION = '0.9.8pre1'
 
 log = None
 
@@ -187,6 +189,15 @@ def command_encrypt_ami(values, log):
 
 
 def command_update_encrypted_ami(values, log):
+    if values.encrypted_ami_name:
+        try:
+            aws_service.validate_image_name(values.encrypted_ami_name)
+            encrypted_ami_name = values.encrypted_ami_name
+        except aws_service.ImageNameError as e:
+            print(e.message, file=sys.stderr)
+            return 1
+    else:
+        encrypted_ami_name = None
     region = values.region
     nonce = util.make_nonce()
     default_tags = encrypt_ami.get_default_tags(nonce, '')
@@ -196,7 +207,7 @@ def command_update_encrypted_ami(values, log):
         print ('Invalid region %s' % region,
                file=sys.stderr)
         return 1
-    aws_svc.connect(region)
+    aws_svc.connect(region, key_name=values.key_name)
     encrypted_ami = values.ami
     if not values.no_validate_ami:
         guest_ami_error = aws_svc.validate_guest_encrypted_ami(encrypted_ami)
@@ -211,56 +222,23 @@ def command_update_encrypted_ami(values, log):
     if updater_ami_error:
         log.error('Update failed: %s', updater_ami_error)
         return 1
-    # Initial validation done
-    log.info('Updating %s', encrypted_ami)
-    # snapshot the guest's volume
-    guest_snapshot, volume_info, error = \
-        update_encrypted_ami.retrieve_guest_volume_snapshot(
-            aws_svc,
-            encrypted_ami)
-    if not guest_snapshot:
-        log.error('failed to launch instance %s: %s' % (encrypted_ami, error))
+    guest_image = aws_svc.get_image(encrypted_ami)
+    mv_image = aws_svc.get_image(updater_ami)
+    if (guest_image.virtualization_type !=
+        mv_image.virtualization_type):
+        log.error("Encryptor virtualization_type mismatch")
         return 1
+    if not values.encrypted_ami_name:
+        # Replace nonce in AMI name
+        name = guest_image.name
+        m = re.match('(\S+) \(encrypted (\S+)\)', name)
+        encrypted_ami_name = m.group(1) + ' (encrypted %s)' % (nonce,)
+    # Initial validation done
+    log.info('Updating %s with new metavisor %s', encrypted_ami, updater_ami)
 
-    log.debug('Getting image %s', encrypted_ami)
-    image = aws_svc.get_image(encrypted_ami)
-    if image is None:
-        raise util.BracketError("Can't find image %s" % encrypted_ami)
-    description = encrypt_ami.get_description_from_image(image)
-    name = None
-    if values.encrypted_ami_name:
-        try:
-            aws_service.validate_image_name(values.encrypted_ami_name)
-            name = values.encrypted_ami_name
-        except aws_service.ImageNameError as e:
-            print(e.message, file=sys.stderr)
-            return 1
-    else:
-        name = encrypt_ami.get_name_from_image(image)
-
-    log.info('Launching metavisor update encryptor instance')
-    updater_ami_block_devices = \
-        update_encrypted_ami.snapshot_updater_ami_block_devices(
-            aws_svc,
-            encrypted_ami,
-            updater_ami,
-            guest_snapshot.id,
-            volume_info['size'],
-            values.brkt_env)
-    ami = encrypt_ami.register_new_ami(
-        aws_svc,
-        updater_ami_block_devices[encrypt_ami.NAME_METAVISOR_GRUB_SNAPSHOT],
-        updater_ami_block_devices[encrypt_ami.NAME_METAVISOR_ROOT_SNAPSHOT],
-        updater_ami_block_devices[encrypt_ami.NAME_METAVISOR_LOG_SNAPSHOT],
-        guest_snapshot,
-        name,
-        description,
-        image_id=encrypted_ami,
-        vol_type=volume_info['type'],
-        iops=volume_info['iops'])
-    log.info('Done.')
-    print(ami)
-    return 0
+    # XXX: subnet? security_group_ids?
+    return update_ami(aws_svc, encrypted_ami, updater_ami,
+                      encrypted_ami_name)
 
 
 def main():

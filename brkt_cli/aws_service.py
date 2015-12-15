@@ -42,9 +42,11 @@ class BaseAWSService(object):
                      image_id,
                      security_group_ids=None,
                      instance_type='c3.xlarge',
+                     placement=None,
                      block_device_map=None,
                      subnet_id=None,
                      user_data=None,
+                     ebs_optimized=True,
                      instance_profile_name=None):
         pass
 
@@ -82,6 +84,15 @@ class BaseAWSService(object):
 
     @abc.abstractmethod
     def create_snapshot(self, volume_id, name=None, description=None):
+        pass
+
+    @abc.abstractmethod
+    def create_volume(self,
+                      size,
+                      zone,
+                      snapshot=None,
+                      volume_type=None,
+                      encrypted=False):
         pass
 
     @abc.abstractmethod
@@ -142,6 +153,22 @@ class BaseAWSService(object):
 
     @abc.abstractmethod
     def get_subnet(self, subnet_id):
+        pass
+
+    def create_image(self,
+                     instance_id,
+                     name,
+                     description=None,
+                     no_reboot=True,
+                     block_device_mapping=None):
+        pass
+
+    @abc.abstractmethod
+    def detach_volume(self, vol_id, instance_id=None, force=True):
+        pass
+
+    @abc.abstractmethod
+    def attach_volume(self, vol_id, instance_id, device):
         pass
 
 
@@ -237,9 +264,11 @@ class AWSService(BaseAWSService):
                      image_id,
                      security_group_ids=None,
                      instance_type='c3.xlarge',
+                     placement=None,
                      block_device_map=None,
                      subnet_id=None,
                      user_data=None,
+                     ebs_optimized=True,
                      instance_profile_name=None):
         if security_group_ids is None:
             security_group_ids = []
@@ -253,12 +282,13 @@ class AWSService(BaseAWSService):
         try:
             reservation = self.conn.run_instances(
                 image_id=image_id,
+                placement=placement,
                 key_name=self.key_name,
                 instance_type=instance_type,
                 block_device_map=block_device_map,
                 security_group_ids=security_group_ids,
                 subnet_id=subnet_id,
-                ebs_optimized=True,
+                ebs_optimized=ebs_optimized,
                 user_data=user_data,
                 instance_profile_name=instance_profile_name
             )
@@ -318,6 +348,20 @@ class AWSService(BaseAWSService):
         self.create_tags(snapshot.id, name=name)
         return snapshot
 
+    def create_volume(self,
+                      size,
+                      zone,
+                      snapshot=None,
+                      volume_type=None,
+                      encrypted=None):
+        return self.conn.create_volume(size,
+                                       zone,
+                                       snapshot=snapshot,
+                                       volume_type=volume_type,
+                                       encrypted=encrypted
+        )
+
+    @retry_boto(error_code_regexp=r'VolumeInUse')
     def delete_volume(self, volume_id):
         log.debug('Deleting volume %s', volume_id)
         try:
@@ -390,9 +434,8 @@ class AWSService(BaseAWSService):
             name=name,
             description=description,
             architecture='x86_64',
-            kernel_id=kernel_id,
+            kernel=kernel_id,
             root_device_name='/dev/sda1',
-            block_device_map=block_device_map,
             virtualization_type='paravirtual'
         )
 
@@ -411,7 +454,9 @@ class AWSService(BaseAWSService):
         if vpc_id:
             log.debug('Using %s', vpc_id)
 
-        return self.conn.create_security_group(name, description, vpc_id=vpc_id)
+        return self.conn.create_security_group(
+                    name, description, vpc_id=vpc_id
+               )
 
     def get_security_group(self, sg_id, retry=True):
         if retry:
@@ -431,6 +476,7 @@ class AWSService(BaseAWSService):
         if not ok:
             raise Exception('Unknown error while adding security group rule')
 
+    @retry_boto(max_retries=20, error_code_regexp=r'InvalidGroup\.InUse')
     def delete_security_group(self, sg_id):
         ok = self.conn.delete_security_group(group_id=sg_id)
         if not ok:
@@ -446,6 +492,30 @@ class AWSService(BaseAWSService):
     def get_subnet(self, subnet_id):
         subnets = self.conn.get_all_subnets(subnet_ids=[subnet_id])
         return _get_first_element(subnets, 'InvalidSubnetID.NotFound')
+
+    @retry_boto(max_retries=20, error_code_regexp=r'InvalidParameterValue')
+    def create_image(self,
+                     instance_id,
+                     name,
+                     description=None,
+                     no_reboot=True,
+                     block_device_mapping=None):
+        return self.conn.create_image(instance_id,
+                                      name,
+                                      description=description,
+                                      no_reboot=no_reboot,
+                                      block_device_mapping=block_device_mapping
+        )
+
+    def detach_volume(self, vol_id, instance_id=None, force=True):
+        return self.conn.detach_volume(vol_id,
+                                       instance_id=instance_id,
+                                       force=force
+        )
+
+    @retry_boto(error_code_regexp=r'VolumeInUse')
+    def attach_volume(self, vol_id, instance_id, device):
+        return self.conn.attach_volume(vol_id, instance_id, device)
 
 
 class ImageNameError(Exception):
