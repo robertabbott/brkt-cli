@@ -14,6 +14,7 @@
 from boto.ec2.keypair import KeyPair
 from boto.ec2.securitygroup import SecurityGroup
 from boto.exception import EC2ResponseError
+from boto.regioninfo import RegionInfo
 from boto.vpc import Subnet
 
 import brkt_cli
@@ -88,10 +89,17 @@ class DummyAWSService(aws_service.BaseAWSService):
         self.tagged_volumes = []
         self.subnets = {}
         self.security_groups = {}
+        self.regions = [RegionInfo(name='us-west-2')]
 
         # Callbacks.
         self.run_instance_callback = None
         self.create_security_group_callback = None
+
+    def get_regions(self):
+        return self.regions
+
+    def connect(self, region, key_name=None):
+        pass
 
     def run_instance(self,
                      image_id,
@@ -224,7 +232,8 @@ class DummyAWSService(aws_service.BaseAWSService):
         pass
 
     def validate_encryptor_ami(self, ami_id):
-        pass
+        if not ami_id or not ami_id.startswith('ami-'):
+            raise Exception('Invalid AMI ID: %s', ami_id)
 
     def register_image(self,
                        kernel_id,
@@ -232,7 +241,7 @@ class DummyAWSService(aws_service.BaseAWSService):
                        name=None,
                        description=None):
         image = Image()
-        image.id = _new_id()
+        image.id = 'ami-' + _new_id()
         image.block_device_mapping = block_device_map
         image.state = 'available'
         image.name = name
@@ -246,6 +255,16 @@ class DummyAWSService(aws_service.BaseAWSService):
 
     def get_image(self, image_id):
         return self.images[image_id]
+
+    def get_images(self, filters=None):
+        # Only filtering by name is currently supported.
+        name = filters.get('name', None)
+        images = []
+        if name:
+            for i in self.images.values():
+                if i.name == name:
+                    images.append(i)
+        return images
 
     def delete_snapshot(self, snapshot_id):
         del(self.snapshots[snapshot_id])
@@ -678,7 +697,20 @@ class TestInstance(unittest.TestCase):
             self.assertTrue('unexpectedly terminated' in e.message)
 
 
-class TestEncryptCommand(unittest.TestCase):
+class DummyValues(object):
+
+    def __init__(self):
+        self.encrypted_ami_name = None
+        self.region = 'us-west-2'
+        self.key_name = None
+        self.subnet_id = None
+        self.security_group_ids = []
+        self.no_validate_ami = False
+        self.ami = None
+        self.encryptor_ami = None
+
+
+class TestValidation(unittest.TestCase):
 
     def test_validate_subnet_and_security_groups(self):
         aws_svc, encryptor_image, guest_image = _build_aws_service()
@@ -709,3 +741,26 @@ class TestEncryptCommand(unittest.TestCase):
         self.assertFalse(brkt_cli._validate_subnet_and_security_groups(
             aws_svc, subnet_id=subnet.id, security_group_ids=[sg3.id]
         ))
+
+    def test_duplicate_image_name(self):
+        """ Test that we detect name collisions with the encrypted image.
+        """
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
+
+        # No name.
+        values = DummyValues()
+        image = None
+        for image_id, i in aws_svc.images.iteritems():
+            values.ami = image_id
+            image = i
+        brkt_cli._connect_and_validate(aws_svc, values, encryptor_image.id)
+
+        # Unique name.
+        image.name = 'My image'
+        values.encrypted_ami_name = 'Propsed name'
+        brkt_cli._connect_and_validate(aws_svc, values, encryptor_image.id)
+
+        # Name collision.
+        values.encrypted_ami_name = image.name
+        with self.assertRaises(brkt_cli.ValidationError):
+            brkt_cli._connect_and_validate(aws_svc, values, encryptor_image.id)
