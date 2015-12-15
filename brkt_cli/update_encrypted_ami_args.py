@@ -4,12 +4,12 @@ import argparse
 def setup_update_encrypted_ami(parser):
     parser.add_argument(
         'ami',
-        metavar='AMI_ID',
+        metavar='ID',
         help='The AMI that will be encrypted'
     )
     parser.add_argument(
         '--updater-ami',
-        metavar='UPDATER_AMI_ID',
+        metavar='ID',
         help='The metavisor updater AMI that will be used',
         dest='updater_ami',
         required=True

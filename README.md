@@ -54,18 +54,17 @@ optional arguments:
 ```
 ```
 $ brkt update-encrypted-ami --help
-usage: brkt update-encrypted-ami [-h] --updater-ami UPDATER_AMI_ID --region
-                                 REGION [--encrypted-ami-name NAME]
+usage: brkt update-encrypted-ami [-h] --updater-ami ID --region REGION
+                                 [--encrypted-ami-name NAME]
                                  [--no-validate-ami]
-                                 AMI_ID
+                                 ID
 
 positional arguments:
-  AMI_ID                The AMI that will be encrypted
+  ID                    The AMI that will be encrypted
 
 optional arguments:
   -h, --help            show this help message and exit
-  --updater-ami UPDATER_AMI_ID
-                        The metavisor updater AMI that will be used
+  --updater-ami ID      The metavisor updater AMI that will be used
   --region REGION       AWS region (e.g. us-west-2)
   --encrypted-ami-name NAME
                         Specify the name of the generated encrypted AMI
