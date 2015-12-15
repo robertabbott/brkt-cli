@@ -215,7 +215,10 @@ def wait_for_encryptor_up(enc_svc, deadline):
             )
             return
         sleep(5)
-    raise BracketError('Unable to contact %s' % enc_svc.hostname)
+    raise BracketError(
+        'Unable to contact encryptor instance at %s.' %
+        ', '.join(enc_svc.hostnames)
+    )
 
 
 class EncryptionError(BracketError):
@@ -743,7 +746,6 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
         snapshot_id, root_dev, size, vol_type, iops = _snapshot_root_volume(
             aws_svc, guest_instance, image_id
         )
-        root_device_name = guest_instance.root_device_name
 
         if not security_group_ids:
             vpc_id = None
@@ -754,7 +756,6 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
                 aws_svc, vpc_id=vpc_id).id
             security_group_ids = [temp_sg_id]
         root_device_name = guest_instance.root_device_name
-        encryptor_image = aws_svc.get_image(encryptor_ami)
 
         encryptor_instance = run_encryptor_instance(
             aws_svc=aws_svc,
@@ -768,10 +769,15 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
             zone=guest_instance.placement,
         )
 
-        host_ip = encryptor_instance.ip_address
-        enc_svc = enc_svc_cls(host_ip)
-        log.info('Waiting for encryption service on %s at %s',
-                 encryptor_instance.id, host_ip)
+        host_ips = []
+        if encryptor_instance.ip_address:
+            host_ips.append(encryptor_instance.ip_address)
+        if encryptor_instance.private_ip_address:
+            host_ips.append(encryptor_instance.private_ip_address)
+
+        enc_svc = enc_svc_cls(host_ips)
+        log.info('Waiting for encryption service on %s (port %s on %s)',
+                 encryptor_instance.id, enc_svc.port, ', '.join(host_ips))
         wait_for_encryptor_up(enc_svc, Deadline(600))
 
         log.info('Creating encrypted root drive.')
