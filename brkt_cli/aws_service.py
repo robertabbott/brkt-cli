@@ -38,6 +38,14 @@ class BaseAWSService(object):
         self.session_id = session_id
 
     @abc.abstractmethod
+    def get_regions(self):
+        pass
+
+    @abc.abstractmethod
+    def connect(self, region, key_name=None):
+        pass
+
+    @abc.abstractmethod
     def run_instance(self,
                      image_id,
                      security_group_ids=None,
@@ -121,6 +129,10 @@ class BaseAWSService(object):
 
     @abc.abstractmethod
     def get_image(self, image_id):
+        pass
+
+    @abc.abstractmethod
+    def get_images(self, filters=None):
         pass
 
     @abc.abstractmethod
@@ -238,11 +250,8 @@ class AWSService(BaseAWSService):
         self.region = None
         self.conn = None
 
-    def validate_region(self, region):
-        regions = [str(r.name) for r in boto.vpc.regions()]
-        if region not in regions:
-            return False
-        return True
+    def get_regions(self):
+        return boto.vpc.regions()
 
     def connect(self, region, key_name=None):
         self.region = region
@@ -438,6 +447,9 @@ class AWSService(BaseAWSService):
             root_device_name='/dev/sda1',
             virtualization_type='paravirtual'
         )
+
+    def get_images(self, filters=None):
+        return self.conn.get_all_images(filters=filters)
 
     @retry_boto(error_code_regexp=r'InvalidAMIID\.NotFound')
     def get_image(self, image_id):

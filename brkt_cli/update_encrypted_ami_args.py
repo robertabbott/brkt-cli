@@ -36,6 +36,22 @@ def setup_update_encrypted_ami(parser):
         help="Don't validate encrypted AMI properties"
     )
 
+    # These are temporarily hidden, so that the validation code works
+    # before we properly support security group and subnet for image update.
+    parser.add_argument(
+        '--security-group',
+        metavar='ID',
+        dest='security_group_ids',
+        action='append',
+        help=argparse.SUPPRESS
+    )
+    parser.add_argument(
+        '--subnet',
+        metavar='ID',
+        dest='subnet_id',
+        help=argparse.SUPPRESS
+    )
+
     # Optional yeti endpoints. Hidden because it's only used for development
     parser.add_argument(
         '--brkt-env',

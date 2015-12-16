@@ -30,9 +30,9 @@ from brkt_cli import encryptor_service
 from brkt_cli.util import Deadline
 
 from encrypt_ami import (
+    clean_up,
     create_encryptor_security_group,
     log_exception_console,
-    terminate_instance,
     wait_for_instance,
     wait_for_snapshots,
     wait_for_volume,
@@ -56,7 +56,6 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
     updater = None
     mv_root_id = None
     temp_sg_id = None
-    tids = set()
     try:
         guest_image = aws_svc.get_image(encrypted_ami)
 
@@ -107,9 +106,15 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
 
         wait_for_instance(aws_svc, updater.id, state="running")
         updater.update()
-        host_ip = updater.ip_address
-        enc_svc = encryptor_service.EncryptorService(host_ip)
-        log.info("Waiting for updater service on %s" % (host_ip,))
+        host_ips = []
+        if updater.ip_address:
+            host_ips.append(updater.ip_address)
+        if updater.private_ip_address:
+            host_ips.append(updater.private_ip_address)
+
+        enc_svc = encryptor_service.EncryptorService(host_ips)
+        log.info('Waiting for updater service on %s (port %s on %s)',
+                 updater.id, enc_svc.port, ', '.join(host_ips))
         wait_for_encryptor_up(enc_svc, Deadline(600))
         try:
             wait_for_encryption(enc_svc)
@@ -204,25 +209,24 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
             block_device_mapping=guest_bdm
         )
         log.info("Created %s" % (ami,))
-        # Step 8. Clean up
-        terminate_instance(aws_svc, encrypted_guest.id, 'guest', tids)
-        terminate_instance(aws_svc, updater.id, 'updater', tids)
-        encrypted_guest = None
-        updater = None
-        aws_svc.delete_volume(mv_root_id)
-        mv_root_id = None
-        if temp_sg_id:
-            aws_svc.delete_security_group(temp_sg_id)
-        temp_sg_id = None
         return 0
     except:
         log.exception('Upgrade Failed')
     finally:
+        instance_ids = set()
+        volume_ids = set()
+        sg_ids = set()
+
         if encrypted_guest:
-            terminate_instance(aws_svc, encrypted_guest.id, 'guest', tids)
+            instance_ids.add(encrypted_guest.id)
         if updater:
-            terminate_instance(aws_svc, updater.id, 'updater', tids)
+            instance_ids.add(updater.id)
         if mv_root_id:
-            aws_svc.delete_volume(mv_root_id)
+            volume_ids.add(mv_root_id)
         if temp_sg_id:
-            aws_svc.delete_security_group(temp_sg_id)
+            sg_ids.add(temp_sg_id)
+
+        clean_up(aws_svc,
+                 instance_ids=instance_ids,
+                 volume_ids=volume_ids,
+                 security_group_ids=sg_ids)
