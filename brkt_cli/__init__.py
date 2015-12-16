@@ -157,7 +157,7 @@ def command_update_encrypted_ami(values, log):
     default_tags = encrypt_ami.get_default_tags(nonce, '')
     aws_svc = aws_service.AWSService(
         nonce, default_tags=default_tags)
-    _connect_and_validate(aws_svc, values.updater_ami)
+    _connect_and_validate(aws_svc, values, values.updater_ami)
 
     encrypted_ami = values.ami
     if not values.no_validate_ami:
@@ -178,7 +178,8 @@ def command_update_encrypted_ami(values, log):
         mv_image.virtualization_type):
         log.error("Encryptor virtualization_type mismatch")
         return 1
-    if not values.encrypted_ami_name:
+    encrypted_ami_name = values.encrypted_ami_name
+    if not encrypted_ami_name:
         # Replace nonce in AMI name
         name = guest_image.name
         m = re.match('(\S+) \(encrypted (\S+)\)', name)
