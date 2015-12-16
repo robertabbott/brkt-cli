@@ -34,6 +34,7 @@ from encrypt_ami import (
     create_encryptor_security_group,
     log_exception_console,
     wait_for_instance,
+    wait_for_image,
     wait_for_snapshots,
     wait_for_volume,
     wait_for_encryptor_up,
@@ -208,6 +209,8 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
             no_reboot=True,
             block_device_mapping=guest_bdm
         )
+        wait_for_image(aws_svc, ami)
+        aws_svc.create_tags(ami)
         log.info("Created %s" % (ami,))
         return 0
     except:
