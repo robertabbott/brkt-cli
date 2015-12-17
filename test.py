@@ -134,7 +134,8 @@ class DummyAWSService(aws_service.BaseAWSService):
         self.instances[instance.id] = instance
 
         if self.run_instance_callback:
-            self.run_instance_callback(security_group_ids, subnet_id)
+            self.run_instance_callback(
+                instance_type, ebs_optimized, security_group_ids, subnet_id)
 
         return instance
 
@@ -498,7 +499,10 @@ class TestRun(unittest.TestCase):
         """
         self.call_count = 0
 
-        def run_instance_callback(security_group_ids, subnet_id):
+        def run_instance_callback(instance_type,
+                                  ebs_optimized,
+                                  security_group_ids,
+                                  subnet_id):
             self.call_count += 1
             self.assertEqual('subnet-1', subnet_id)
             if self.call_count == 1:
@@ -518,7 +522,6 @@ class TestRun(unittest.TestCase):
             enc_svc_cls=DummyEncryptorService,
             image_id=guest_image.id,
             encryptor_ami=encryptor_image.id,
-            brkt_env=None,
             subnet_id='subnet-1',
             security_group_ids=['sg-1', 'sg-2']
         )
@@ -547,11 +550,40 @@ class TestRun(unittest.TestCase):
             aws_svc=aws_svc,
             enc_svc_cls=DummyEncryptorService,
             image_id=guest_image.id,
-            brkt_env=None,
             encryptor_ami=encryptor_image.id,
             subnet_id='subnet-1'
         )
         self.assertTrue(self.security_group_was_created)
+
+    def test_instance_type(self):
+        """ Test that we launch the guest as m3.medium and the encryptor
+        as c3.xlarge.
+        """
+        self.call_count = 0
+
+        def run_instance_callback(instance_type,
+                                  ebs_optimized,
+                                  security_group_ids,
+                                  subnet_id):
+            self.call_count += 1
+            if self.call_count == 1:
+                self.assertEqual('m3.medium', instance_type)
+                self.assertFalse(ebs_optimized)
+            elif self.call_count == 2:
+                self.assertEqual('c3.xlarge', instance_type)
+                self.assertTrue(ebs_optimized)
+            else:
+                self.fail('Unexpected number of calls to run_instance()')
+
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
+        aws_svc.run_instance_callback = run_instance_callback
+        encrypt_ami.SLEEP_ENABLED = False
+        encrypt_ami.encrypt(
+            aws_svc=aws_svc,
+            enc_svc_cls=DummyEncryptorService,
+            image_id=guest_image.id,
+            encryptor_ami=encryptor_image.id
+        )
 
 
 class ExpiredDeadline(object):

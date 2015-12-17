@@ -524,7 +524,9 @@ def run_encryptor_instance(aws_svc, encryptor_image_id,
 
 
 def run_guest_instance(aws_svc, image_id, subnet_id=None, updater=False):
-    instance = aws_svc.run_instance(image_id, subnet_id=subnet_id)
+    instance = aws_svc.run_instance(
+        image_id, subnet_id=subnet_id,
+        instance_type='m3.medium', ebs_optimized=False)
     if not updater:
         log.info(
             'Launching instance %s to snapshot root disk for %s',
@@ -726,9 +728,8 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
     # Normal operation is both encryptor and guest match
     # on virtualization type, but we'll support a PV encryptor
     # and a HVM guest (legacy)
-    log.info("Guest type: %s Encryptor type: %s" %
-        (guest_image.virtualization_type, mv_image.virtualization_type)
-    )
+    log.debug('Guest type: %s Encryptor type: %s',
+        guest_image.virtualization_type, mv_image.virtualization_type)
     if (mv_image.virtualization_type == 'hvm' and
         guest_image.virtualization_type == 'paravirtual'):
             raise BracketError(
