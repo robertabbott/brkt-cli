@@ -363,7 +363,7 @@ def get_description_from_image(image):
     return description
 
 
-def _wait_for_image(amazon_svc, image_id):
+def wait_for_image(amazon_svc, image_id):
     log.debug('Waiting for %s to become available.', image_id)
     for i in range(180):
         sleep(5)
@@ -965,7 +965,7 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
             aws_svc.delete_volume(mv_root_id)
 
         log.info('Registered AMI %s based on the snapshots.', ami)
-        _wait_for_image(aws_svc, ami)
+        wait_for_image(aws_svc, ami)
         aws_svc.create_tags(ami)
 
         terminate_instance(
