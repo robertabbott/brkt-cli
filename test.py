@@ -591,7 +591,8 @@ class TestRunUpdate(unittest.TestCase):
         encrypt_ami.SLEEP_ENABLED = False
 
     def test_subnet_and_security_groups(self):
-        """ Run the update process and test that nothing obvious is broken.
+        """ Test that the subnet and security group ids are passed through
+        to run_instance().
         """
         aws_svc, encryptor_image, guest_image = _build_aws_service()
         encrypt_ami.SLEEP_ENABLED = False
