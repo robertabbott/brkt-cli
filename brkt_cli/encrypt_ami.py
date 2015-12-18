@@ -195,7 +195,7 @@ def wait_for_volume(
 
     deadline = Deadline(timeout)
     while not deadline.is_expired():
-        volume.update()
+        volume = aws_svc.get_volume(volume.id)
         if volume.status == state:
             return volume
         sleep(2)
@@ -996,7 +996,7 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
             volume_ids = [v.id for v in volumes]
         except EC2ResponseError as e:
             log.warn('Unable to clean up orphaned volumes: %s', e)
-        except Exception as e:
+        except:
             log.exception('Unable to clean up orphaned volumes')
 
         sg_ids = []
