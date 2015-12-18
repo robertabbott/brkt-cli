@@ -52,7 +52,8 @@ log = logging.getLogger(__name__)
 
 
 def update_ami(aws_svc, encrypted_ami, updater_ami,
-               encrypted_ami_name, subnet_id=None, security_group_ids=None):
+               encrypted_ami_name, subnet_id=None, security_group_ids=None,
+               enc_svc_class=encryptor_service.EncryptorService):
     encrypted_guest = None
     updater = None
     mv_root_id = None
@@ -77,21 +78,25 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
                 aws_svc, vpc_id=vpc_id).id
             security_group_ids = [temp_sg_id]
 
-        encrypted_guest = aws_svc.run_instance(encrypted_ami,
-                    instance_type="m3.medium",
-                    ebs_optimized=False,
-                    security_group_ids=security_group_ids,
-                    user_data=user_data)
+        encrypted_guest = aws_svc.run_instance(
+            encrypted_ami,
+            instance_type="m3.medium",
+            ebs_optimized=False,
+            subnet_id=subnet_id,
+            security_group_ids=security_group_ids,
+            user_data=user_data)
         aws_svc.create_tags(
             encrypted_guest.id,
             name=NAME_GUEST_CREATOR,
             description=DESCRIPTION_GUEST_CREATOR % {'image_id': encrypted_ami}
         )
-        updater = aws_svc.run_instance(updater_ami,
-                    instance_type="m3.medium",
-                    user_data=user_data,
-                    ebs_optimized=False,
-                    security_group_ids=security_group_ids)
+        updater = aws_svc.run_instance(
+            updater_ami,
+            instance_type="m3.medium",
+            user_data=user_data,
+            ebs_optimized=False,
+            subnet_id=subnet_id,
+            security_group_ids=security_group_ids)
         aws_svc.create_tags(
             updater.id,
             name=NAME_METAVISOR_UPDATER,
@@ -105,15 +110,14 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
         # Step 2. Wait for the updater to finish and stop the instances
         aws_svc.stop_instance(encrypted_guest.id)
 
-        wait_for_instance(aws_svc, updater.id, state="running")
-        updater.update()
+        updater = wait_for_instance(aws_svc, updater.id, state="running")
         host_ips = []
         if updater.ip_address:
             host_ips.append(updater.ip_address)
         if updater.private_ip_address:
             host_ips.append(updater.private_ip_address)
 
-        enc_svc = encryptor_service.EncryptorService(host_ips)
+        enc_svc = enc_svc_class(host_ips)
         log.info('Waiting for updater service on %s (port %s on %s)',
                  updater.id, enc_svc.port, ', '.join(host_ips))
         wait_for_encryptor_up(enc_svc, Deadline(600))
@@ -124,9 +128,9 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
             raise e
 
         aws_svc.stop_instance(updater.id)
-        wait_for_instance(aws_svc, encrypted_guest.id, state="stopped")
-        wait_for_instance(aws_svc, updater.id, state="stopped")
-        encrypted_guest.update()
+        encrypted_guest = wait_for_instance(
+            aws_svc, encrypted_guest.id, state="stopped")
+        updater = wait_for_instance(aws_svc, updater.id, state="stopped")
 
         guest_bdm = encrypted_guest.block_device_mapping
         updater_bdm = updater.block_device_mapping
@@ -195,7 +199,7 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
             (mv_root_id, encrypted_guest.id)
         )
         aws_svc.attach_volume(mv_root_id, encrypted_guest.id, '/dev/sda1')
-        encrypted_guest.update()
+        encrypted_guest = aws_svc.get_instance(encrypted_guest.id)
         guest_bdm['/dev/sda1'] = \
             encrypted_guest.block_device_mapping['/dev/sda1']
         guest_bdm['/dev/sda1'].delete_on_termination = True
@@ -211,10 +215,7 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
         )
         wait_for_image(aws_svc, ami)
         aws_svc.create_tags(ami)
-        log.info("Created %s" % (ami,))
-        return 0
-    except:
-        log.exception('Upgrade Failed')
+        return ami
     finally:
         instance_ids = set()
         volume_ids = set()

@@ -152,7 +152,6 @@ def command_encrypt_ami(values, log):
 
 
 def command_update_encrypted_ami(values, log):
-    region = values.region
     nonce = util.make_nonce()
     default_tags = encrypt_ami.get_default_tags(nonce, '')
     aws_svc = aws_service.AWSService(
@@ -187,9 +186,12 @@ def command_update_encrypted_ami(values, log):
     # Initial validation done
     log.info('Updating %s with new metavisor %s', encrypted_ami, updater_ami)
 
-    # XXX: subnet? security_group_ids?
-    return update_ami(aws_svc, encrypted_ami, updater_ami,
-                      encrypted_ami_name)
+    updated_ami_id = update_ami(
+        aws_svc, encrypted_ami, updater_ami, encrypted_ami_name,
+        subnet_id=values.subnet_id,
+        security_group_ids=values.security_group_ids)
+    print(updated_ami_id)
+    return 0
 
 
 def main():

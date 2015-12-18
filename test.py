@@ -31,6 +31,7 @@ from boto.ec2.volume import Volume
 from brkt_cli import (
     encrypt_ami,
     encryptor_service,
+    update_ami
 )
 from brkt_cli import aws_service
 
@@ -90,6 +91,7 @@ class DummyAWSService(aws_service.BaseAWSService):
         self.subnets = {}
         self.security_groups = {}
         self.regions = [RegionInfo(name='us-west-2')]
+        self.volumes = {}
 
         # Callbacks.
         self.run_instance_callback = None
@@ -170,7 +172,7 @@ class DummyAWSService(aws_service.BaseAWSService):
         return instance
 
     def get_volume(self, volume_id):
-        return self.volumes.get(volume_id)
+        return self.volumes[volume_id]
 
     def get_volumes(self, tag_key=None, tag_value=None):
         if tag_key and tag_value:
@@ -218,9 +220,11 @@ class DummyAWSService(aws_service.BaseAWSService):
 
     def create_volume(self, size, zone, **kwargs):
         volume = Volume()
-        volume.id = _new_id()
+        volume.id = 'vol-' + _new_id()
         volume.size = size
         volume.zone = zone
+        volume.status = 'available'
+        self.volumes[volume.id] = volume
         return volume
 
     def detach_volume(self, vol_id, **kwargs):
@@ -387,13 +391,15 @@ def _build_aws_service():
     return aws_svc, encryptor_image, guest_image
 
 
-class TestRun(unittest.TestCase):
+class TestRunEncryption(unittest.TestCase):
+
+    def setUp(self):
+        encrypt_ami.SLEEP_ENABLED = False
 
     def test_smoke(self):
         """ Run the entire process and test that nothing obvious is broken.
         """
         aws_svc, encryptor_image, guest_image = _build_aws_service()
-        encrypt_ami.SLEEP_ENABLED = False
         encrypted_ami_id = encrypt_ami.encrypt(
             aws_svc=aws_svc,
             enc_svc_cls=DummyEncryptorService,
@@ -408,7 +414,6 @@ class TestRun(unittest.TestCase):
         console log to a temp file.
         """
         aws_svc, encryptor_image, guest_image = _build_aws_service()
-        encrypt_ami.SLEEP_ENABLED = False
         try:
             encrypt_ami.encrypt(
                 aws_svc=aws_svc,
@@ -429,7 +434,6 @@ class TestRun(unittest.TestCase):
         output is not available.
         """
         aws_svc, encryptor_image, guest_image = _build_aws_service()
-        encrypt_ami.SLEEP_ENABLED = False
         aws_svc.console_output_text = None
 
         try:
@@ -448,7 +452,6 @@ class TestRun(unittest.TestCase):
         """ Test that we clean up instance volumes that are orphaned by AWS.
         """
         aws_svc, encryptor_image, guest_image = _build_aws_service()
-        encrypt_ami.SLEEP_ENABLED = False
 
         # Simulate a tagged orphaned volume.
         volume = Volume()
@@ -473,13 +476,12 @@ class TestRun(unittest.TestCase):
         )
 
         # Verify that the volume was deleted.
-        self.assertIsNone(aws_svc.get_volume(volume.id))
+        self.assertIsNone(aws_svc.volumes.get(volume.id, None))
 
     def test_encrypted_ami_name(self):
         """ Test that the name is set on the encrypted AMI when specified.
         """
         aws_svc, encryptor_image, guest_image = _build_aws_service()
-        encrypt_ami.SLEEP_ENABLED = False
 
         name = 'Am I an AMI?'
         image_id = encrypt_ami.encrypt(
@@ -516,7 +518,6 @@ class TestRun(unittest.TestCase):
 
         aws_svc, encryptor_image, guest_image = _build_aws_service()
         aws_svc.run_instance_callback = run_instance_callback
-        encrypt_ami.SLEEP_ENABLED = False
         encrypt_ami.encrypt(
             aws_svc=aws_svc,
             enc_svc_cls=DummyEncryptorService,
@@ -539,7 +540,6 @@ class TestRun(unittest.TestCase):
         aws_svc, encryptor_image, guest_image = _build_aws_service()
         aws_svc.create_security_group_callback = \
             create_security_group_callback
-        encrypt_ami.SLEEP_ENABLED = False
 
         subnet = Subnet()
         subnet.id = 'subnet-1'
@@ -577,13 +577,52 @@ class TestRun(unittest.TestCase):
 
         aws_svc, encryptor_image, guest_image = _build_aws_service()
         aws_svc.run_instance_callback = run_instance_callback
-        encrypt_ami.SLEEP_ENABLED = False
         encrypt_ami.encrypt(
             aws_svc=aws_svc,
             enc_svc_cls=DummyEncryptorService,
             image_id=guest_image.id,
             encryptor_ami=encryptor_image.id
         )
+
+
+class TestRunUpdate(unittest.TestCase):
+
+    def setUp(self):
+        encrypt_ami.SLEEP_ENABLED = False
+
+    def test_subnet_and_security_groups(self):
+        """ Test that the subnet and security group ids are passed through
+        to run_instance().
+        """
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
+        encrypt_ami.SLEEP_ENABLED = False
+        encrypted_ami_id = encrypt_ami.encrypt(
+            aws_svc=aws_svc,
+            enc_svc_cls=DummyEncryptorService,
+            image_id=guest_image.id,
+            brkt_env=None,
+            encryptor_ami=encryptor_image.id
+        )
+
+        self.call_count = 0
+
+        def run_instance_callback(instance_type,
+                                  ebs_optimized,
+                                  security_group_ids,
+                                  subnet_id):
+            self.call_count += 1
+            self.assertEqual('subnet-1', subnet_id)
+            self.assertEqual(['sg-1', 'sg-2'], security_group_ids)
+
+        aws_svc.run_instance_callback = run_instance_callback
+        ami_id = update_ami(
+            aws_svc, encrypted_ami_id, encryptor_image.id, 'Test updated AMI',
+            subnet_id='subnet-1', security_group_ids=['sg-1', 'sg-2'],
+            enc_svc_class=DummyEncryptorService
+        )
+
+        self.assertEqual(2, self.call_count)
+        self.assertIsNotNone(ami_id)
 
 
 class ExpiredDeadline(object):

@@ -8,21 +8,6 @@ def setup_update_encrypted_ami(parser):
         help='The AMI that will be encrypted'
     )
     parser.add_argument(
-        '--updater-ami',
-        metavar='ID',
-        help='The metavisor updater AMI that will be used',
-        dest='updater_ami',
-        required=True
-    )
-    parser.add_argument(
-        '--region',
-        metavar='REGION',
-        help='AWS region (e.g. us-west-2)',
-        dest='region',
-        default='us-west-2',
-        required=True
-    )
-    parser.add_argument(
         '--encrypted-ami-name',
         metavar='NAME',
         dest='encrypted_ami_name',
@@ -35,21 +20,36 @@ def setup_update_encrypted_ami(parser):
         action='store_true',
         help="Don't validate encrypted AMI properties"
     )
-
-    # These are temporarily hidden, so that the validation code works
-    # before we properly support security group and subnet for image update.
+    parser.add_argument(
+        '--region',
+        metavar='REGION',
+        help='AWS region (e.g. us-west-2)',
+        dest='region',
+        default='us-west-2',
+        required=True
+    )
     parser.add_argument(
         '--security-group',
         metavar='ID',
         dest='security_group_ids',
         action='append',
-        help=argparse.SUPPRESS
+        help=(
+            'Use this security group when running the encryptor instance. '
+            'May be specified multiple times.'
+        )
     )
     parser.add_argument(
         '--subnet',
         metavar='ID',
         dest='subnet_id',
-        help=argparse.SUPPRESS
+        help='Launch instances in this subnet'
+    )
+    parser.add_argument(
+        '--updater-ami',
+        metavar='ID',
+        help='The metavisor updater AMI that will be used',
+        dest='updater_ami',
+        required=True
     )
 
     # Optional yeti endpoints. Hidden because it's only used for development
