@@ -181,8 +181,17 @@ def command_update_encrypted_ami(values, log):
     if not encrypted_ami_name:
         # Replace nonce in AMI name
         name = guest_image.name
-        m = re.match('(\S+) \(encrypted (\S+)\)', name)
-        encrypted_ami_name = m.group(1) + ' (encrypted %s)' % (nonce,)
+        m = re.match('(.+) \(encrypted (\S+)\)', name)
+        if m:
+            encrypted_ami_name = m.group(1) + ' (encrypted %s)' % (nonce,)
+        else:
+            encrypted_ami_name = name + ' (encrypted %s)' % (nonce,)
+        filters = {'name': encrypted_ami_name}
+        if aws_svc.get_images(filters=filters):
+            raise ValidationError(
+                    'There is already an image named %s' %
+                     encrypted_ami_name
+            )
     # Initial validation done
     log.info('Updating %s with new metavisor %s', encrypted_ami, updater_ami)
 

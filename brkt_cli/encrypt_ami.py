@@ -487,8 +487,12 @@ def run_encryptor_instance(aws_svc, encryptor_image_id,
         bdm['/dev/sda4'] = guest_unencrypted_root
         bdm['/dev/sda5'] = guest_encrypted_root
     else:
-        bdm['/dev/xvdf'] = guest_unencrypted_root
-        bdm['/dev/xvdg'] = guest_encrypted_root
+        # Use 'sd' names even though AWS maps these to 'xvd'
+        # The AWS GUI only exposes 'sd' names, and won't allow
+        # the user to attach to an existing 'sd' name in use, but
+        # would allow conflicts if we used 'xvd' names here.
+        bdm['/dev/sdf'] = guest_unencrypted_root
+        bdm['/dev/sdg'] = guest_encrypted_root
 
     instance = aws_svc.run_instance(encryptor_image_id,
                                     security_group_ids=security_group_ids,
@@ -518,7 +522,7 @@ def run_encryptor_instance(aws_svc, encryptor_image_id,
         aws_svc.create_tags(
             bdm['/dev/sda1'].volume_id, name=NAME_METAVISOR_ROOT_VOLUME)
         aws_svc.create_tags(
-            bdm['/dev/xvdg'].volume_id, name=NAME_ENCRYPTED_ROOT_VOLUME)
+            bdm['/dev/sdg'].volume_id, name=NAME_ENCRYPTED_ROOT_VOLUME)
 
     return instance
 
@@ -739,7 +743,12 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
         guest_image.virtualization_type == 'hvm'):
             # This will go away when HVM MV GA's
             log.warn("Must specify a paravirtual AMI type in order to "
-                     "preserve guest license information")
+                     "preserve guest OS license information")
+            legacy = True
+    root_device_name = guest_image.root_device_name
+    if not guest_image.block_device_mapping.get(root_device_name):
+            log.warn("AMI must have root_device_name in block_device_mapping "
+                    "in order to preserve guest OS license information")
             legacy = True
     try:
         guest_instance = run_guest_instance(aws_svc,
@@ -816,22 +825,17 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
                 name=NAME_METAVISOR_ROOT_SNAPSHOT,
                 description=description
             )
-            snap_grub = aws_svc.create_snapshot(
-                encryptor_bdm['/dev/sda1'].volume_id,
-                name=NAME_METAVISOR_GRUB_SNAPSHOT,
-                description=description
-            )
             snap_log = aws_svc.create_snapshot(
                 encryptor_bdm['/dev/sda3'].volume_id,
                 name=NAME_METAVISOR_LOG_SNAPSHOT,
                 description=description
             )
             log.info(
-                'Creating snapshots for the new encrypted AMI: %s, %s, %s, %s',
-                snap_guest.id, snap_bsd.id, snap_grub.id, snap_log.id)
+                'Creating snapshots for the new encrypted AMI: %s, %s, %s',
+                snap_guest.id, snap_bsd.id, snap_log.id)
 
             wait_for_snapshots(
-                aws_svc, snap_guest.id, snap_bsd.id, snap_grub.id, snap_log.id)
+                aws_svc, snap_guest.id, snap_bsd.id, snap_log.id)
 
             if vol_type is None:
                 vol_type = "standard"
@@ -853,7 +857,7 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
         else:
             # HVM instance type
             snap_guest = aws_svc.create_snapshot(
-                encryptor_bdm['/dev/xvdg'].volume_id,
+                encryptor_bdm['/dev/sdg'].volume_id,
                 name=NAME_ENCRYPTED_ROOT_SNAPSHOT,
                 description=description
             )
@@ -867,7 +871,7 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
                                         iops=iops,
                                         delete_on_termination=True)
             mv_root_id = encryptor_bdm['/dev/sda1'].volume_id
-            new_bdm['/dev/xvdf'] = dev_guest_root
+            new_bdm['/dev/sdf'] = dev_guest_root
 
         if not legacy:
             log.info("Detaching new guest root %s" % (mv_root_id,))
@@ -920,6 +924,8 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
             # Explicitly detach/delete all but root drive
             bdm = encryptor_instance.block_device_mapping
             for d in ['/dev/sda2', '/dev/sda3', '/dev/sda4', '/dev/sda5']:
+                if not bdm.get(d):
+                    continue
                 aws_svc.detach_volume(
                     bdm[d].volume_id,
                     instance_id=encryptor_instance.id,
@@ -932,9 +938,10 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
             aws_svc.attach_volume(
                 mv_root_id,
                 guest_instance.id,
-                root_device_name
+                root_device_name,
             )
             log.info("Done attaching new root: %s" % (root_device_name,))
+            guest_instance = aws_svc.get_instance(guest_instance.id)
             bdm = guest_instance.block_device_mapping
             new_bdm[root_device_name] = bdm[root_device_name]
             new_bdm[root_device_name].delete_on_termination = True
@@ -967,6 +974,17 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
 
         log.info('Registered AMI %s based on the snapshots.', ami)
         wait_for_image(aws_svc, ami)
+        image = aws_svc.get_image(ami)
+        if mv_image.virtualization_type == 'paravirtual':
+            name = NAME_METAVISOR_GRUB_SNAPSHOT
+        else:
+            name = NAME_METAVISOR_ROOT_SNAPSHOT
+        snap = image.block_device_mapping[image.root_device_name]
+        aws_svc.create_tags(
+            snap.snapshot_id,
+            name=name,
+            description=description
+        )
         aws_svc.create_tags(ami)
 
         terminate_instance(
