@@ -15,16 +15,11 @@ def setup_encrypt_ami_args(parser):
         required=False
     )
     parser.add_argument(
-        '--validate-ami',
-        dest='no_validate_ami',
-        action='store_true',
-        help="Validate AMI properties (default)"
-    )
-    parser.add_argument(
-        '--no-validate-ami',
-        dest='no_validate_ami',
+        '--no-validate',
+        dest='validate',
         action='store_false',
-        help="Don't validate AMI properties"
+        default=True,
+        help="Don't validate AMIs, subnet, and security groups"
     )
     parser.add_argument(
         '--region',
@@ -50,8 +45,8 @@ def setup_encrypt_ami_args(parser):
         help='Launch instances in this subnet'
     )
 
-    # Optional yeti endpoints. Hidden because it's only used for development
-    # if you're using this option, it should be passed as a comma separated
+    # Optional yeti endpoints. Hidden because it's only used for development.
+    # If you're using this option, it should be passed as a comma separated
     # list of endpoints. ie blb.*.*.brkt.net:7002,blb.*.*.brkt.net:7001 the
     # endpoints must also be in order: api_host,hsmproxy_host
     parser.add_argument(
@@ -77,4 +72,19 @@ def setup_encrypt_ami_args(parser):
         metavar='NAME',
         help=argparse.SUPPRESS,
         dest='key_name'
+    )
+
+    # These options were deprecated in 0.9.9. Keep them hidden for a while,
+    # to maintain backward compatibility.
+    parser.add_argument(
+        '--validate-ami',
+        dest='validate_ami',
+        action='store_true',
+        help=argparse.SUPPRESS
+    )
+    parser.add_argument(
+        '--no-validate-ami',
+        dest='no_validate_ami',
+        action='store_true',
+        help=argparse.SUPPRESS
     )

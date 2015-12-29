@@ -183,6 +183,10 @@ class BaseAWSService(object):
     def attach_volume(self, vol_id, instance_id, device):
         pass
 
+    @abc.abstractmethod
+    def get_default_vpc(self):
+        pass
+
 
 def retry_boto(error_code_regexp, max_retries=5, initial_sleep_seconds=0.25):
     """ Call a boto function repeatedly until it succeeds.  If the call
@@ -528,6 +532,12 @@ class AWSService(BaseAWSService):
     @retry_boto(error_code_regexp=r'VolumeInUse')
     def attach_volume(self, vol_id, instance_id, device):
         return self.conn.attach_volume(vol_id, instance_id, device)
+
+    def get_default_vpc(self):
+        vpcs = self.conn.get_all_vpcs(filters={'is-default': 'true'})
+        if len(vpcs) > 0:
+            return vpcs[0]
+        return None
 
 
 class ImageNameError(Exception):

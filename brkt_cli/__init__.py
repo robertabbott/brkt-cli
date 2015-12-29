@@ -45,7 +45,7 @@ def _validate_subnet_and_security_groups(aws_svc,
     in the same subnet.
 
     :return True if all of the ids are valid and in the same VPC
-    :raise EC2ResponseError if any of the ids are invalid
+    :raise EC2ResponseError or ValidationError if any of the ids are invalid
     """
     vpc_ids = set()
     if subnet_id:
@@ -59,7 +59,29 @@ def _validate_subnet_and_security_groups(aws_svc,
             sg = aws_svc.get_security_group(id, retry=False)
             vpc_ids.add(sg.vpc_id)
 
-    return len(vpc_ids) <= 1
+    if len(vpc_ids) > 1:
+        raise ValidationError(
+            'Subnet and security groups must be in the same VPC.')
+
+    if not subnet_id and vpc_ids:
+        # Security groups were specified but subnet wasn't.  Make sure that
+        # the security groups are in the default VPC.
+        (vpc_id, ) = vpc_ids
+        default_vpc = aws_svc.get_default_vpc()
+        log.debug(
+            'Default VPC: %s, security group VPC IDs: %s',
+            default_vpc,
+            vpc_ids
+        )
+
+        # Perform the check as long as there's a default VPC.  In
+        # EC2-Classic, there is no default VPC and the vpc_id field is null.
+        if vpc_id and default_vpc:
+            if vpc_id != default_vpc.id:
+                raise ValidationError(
+                    'Security groups must be in the default VPC when '
+                    'a subnet is not specified.'
+                )
 
 
 class ValidationError(Exception):
@@ -90,12 +112,10 @@ def _connect_and_validate(aws_svc, values, encryptor_ami_id):
         if values.key_name:
             aws_svc.get_key_pair(values.key_name)
 
-        if not _validate_subnet_and_security_groups(
-                aws_svc, values.subnet_id, values.security_group_ids):
-            raise ValidationError(
-                    'Subnet and security groups must be in the same VPC')
+        if values.validate:
+            _validate_subnet_and_security_groups(
+                aws_svc, values.subnet_id, values.security_group_ids)
 
-        if not values.no_validate_ami:
             error_msg = aws_svc.validate_guest_ami(values.ami)
             if error_msg:
                 raise ValidationError(error_msg)
@@ -103,6 +123,8 @@ def _connect_and_validate(aws_svc, values, encryptor_ami_id):
             error_msg = aws_svc.validate_encryptor_ami(encryptor_ami_id)
             if error_msg:
                 raise ValidationError(error_msg)
+        else:
+            log.debug('Skipping validation')
 
         if values.encrypted_ami_name:
             filters = {'name': values.encrypted_ami_name}
@@ -159,7 +181,7 @@ def command_update_encrypted_ami(values, log):
     _connect_and_validate(aws_svc, values, values.updater_ami)
 
     encrypted_ami = values.ami
-    if not values.no_validate_ami:
+    if values.validate:
         guest_ami_error = aws_svc.validate_guest_encrypted_ami(encrypted_ami)
         if guest_ami_error:
             raise ValidationError(
@@ -259,6 +281,20 @@ def main():
     log.setLevel(log_level)
     aws_service.log.setLevel(log_level)
     encryptor_service.log.setLevel(log_level)
+
+    if values.validate_ami:
+        print(
+            'The --validate-ami option has been replaced with --no-validate. '
+            'It will be removed in a future release.', file=sys.stderr
+        )
+        values.validate = True
+
+    if values.no_validate_ami:
+        print(
+            'The --validate-ami option has been replaced with --no-validate. '
+            'It will be removed in a future release.', file=sys.stderr
+        )
+        values.validate = False
 
     try:
         if values.subparser_name == 'encrypt-ami':
