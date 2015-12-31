@@ -488,7 +488,7 @@ class AWSService(BaseAWSService):
         if not ok:
             raise Exception('Unknown error while adding security group rule')
 
-    @retry_boto(max_retries=20, error_code_regexp=r'InvalidGroup\.InUse')
+    @retry_boto(error_code_regexp=r'InvalidGroup\.InUse|DependencyViolation')
     def delete_security_group(self, sg_id):
         ok = self.conn.delete_security_group(group_id=sg_id)
         if not ok:
