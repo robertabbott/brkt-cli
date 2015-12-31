@@ -523,24 +523,19 @@ def run_encryptor_instance(aws_svc, encryptor_image_id,
     return instance
 
 
-def run_guest_instance(aws_svc, image_id, subnet_id=None, updater=False):
+def run_guest_instance(aws_svc, image_id, subnet_id=None):
     instance = aws_svc.run_instance(
         image_id, subnet_id=subnet_id,
         instance_type='m3.medium', ebs_optimized=False)
-    if not updater:
-        log.info(
-            'Launching instance %s to snapshot root disk for %s',
-            instance.id, image_id)
-    else:
-        log.info(
-            'Launching instance %s to snapshot ' % instance.id +
-            'metavisor volumes')
+    log.info(
+        'Launching instance %s to snapshot root disk for %s',
+        instance.id, image_id)
     aws_svc.create_tags(
         instance.id,
         name=NAME_GUEST_CREATOR,
         description=DESCRIPTION_GUEST_CREATOR % {'image_id': image_id}
     )
-    return wait_for_instance(aws_svc, instance.id)
+    return instance
 
 
 def _snapshot_root_volume(aws_svc, instance, image_id):
@@ -744,6 +739,7 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
     try:
         guest_instance = run_guest_instance(aws_svc,
             image_id, subnet_id=subnet_id)
+        wait_for_instance(aws_svc, guest_instance.id)
         snapshot_id, root_dev, size, vol_type, iops = _snapshot_root_volume(
             aws_svc, guest_instance, image_id
         )

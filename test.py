@@ -96,6 +96,8 @@ class DummyAWSService(aws_service.BaseAWSService):
         # Callbacks.
         self.run_instance_callback = None
         self.create_security_group_callback = None
+        self.get_instance_callback = None
+        self.terminate_instance_callback = None
 
     def get_regions(self):
         return self.regions
@@ -143,6 +145,8 @@ class DummyAWSService(aws_service.BaseAWSService):
 
     def get_instance(self, instance_id):
         instance = self.instances[instance_id]
+        if self.get_instance_callback:
+            self.get_instance_callback(instance)
 
         # Transition from pending to running on subsequent calls.
         if instance.state == 'pending':
@@ -167,6 +171,9 @@ class DummyAWSService(aws_service.BaseAWSService):
 
     def terminate_instance(self, instance_id):
         instance = self.instances[instance_id]
+        if self.terminate_instance_callback:
+            self.terminate_instance_callback(instance)
+
         instance._state.code = 48
         instance._state.name = 'terminated'
         return instance
@@ -583,6 +590,40 @@ class TestRunEncryption(unittest.TestCase):
             image_id=guest_image.id,
             encryptor_ami=encryptor_image.id
         )
+
+    def test_terminate_guest(self):
+        """ Test that we terminate the guest instance if an exception is
+        raised while waiting for it to come up.
+        """
+        self.terminate_instance_called = False
+        self.instance_id = None
+
+        class TestException(Exception):
+            pass
+
+        def get_instance_callback(instance):
+            self.instance_id = instance.id
+            raise TestException('Test')
+
+        def terminate_instance_callback(instance):
+            self.terminate_instance_called = True
+            self.assertEqual(self.instance_id, instance.id)
+
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
+        aws_svc.get_instance_callback = get_instance_callback
+        aws_svc.terminate_instance_callback = terminate_instance_callback
+
+        try:
+            encrypt_ami.encrypt(
+                aws_svc=aws_svc,
+                enc_svc_cls=DummyEncryptorService,
+                image_id=guest_image.id,
+                encryptor_ami=encryptor_image.id
+            )
+        except TestException:
+            pass
+
+        self.assertTrue(self.terminate_instance_called)
 
 
 class TestRunUpdate(unittest.TestCase):
