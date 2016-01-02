@@ -222,6 +222,11 @@ class DummyAWSService(aws_service.BaseAWSService):
         image.name = name
         image.description = 'This is a test'
         image.virtualization_type = 'paravirtual'
+        image.root_device_name = '/dev/sda1'
+        i = self.get_instance(instance_id)
+        rdn = image.root_device_name
+        # create_image creates this implicitly
+        image.block_device_mapping[rdn] = i.block_device_mapping[rdn]
         self.images[image.id] = image
         return image.id
 

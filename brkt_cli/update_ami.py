@@ -36,13 +36,14 @@ from encrypt_ami import (
     wait_for_instance,
     wait_for_image,
     wait_for_snapshots,
-    wait_for_volume,
     wait_for_encryptor_up,
     wait_for_encryption,
     DESCRIPTION_GUEST_CREATOR,
     DESCRIPTION_METAVISOR_UPDATER,
+    DESCRIPTION_SNAPSHOT,
     NAME_GUEST_CREATOR,
     NAME_METAVISOR_UPDATER,
+    NAME_ENCRYPTED_ROOT_SNAPSHOT,
     NAME_METAVISOR_GRUB_SNAPSHOT,
     NAME_METAVISOR_ROOT_SNAPSHOT,
     NAME_METAVISOR_LOG_SNAPSHOT,
@@ -67,7 +68,7 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
         # base to create a new AMI and preserve license
         # information embedded in the guest AMI
         log.info("Launching encrypted guest/updater")
-        user_data = json.dumps({'brkt': { 'solo_mode': 'updater'}})
+        user_data = json.dumps({'brkt': {'solo_mode': 'updater'}})
 
         if not security_group_ids:
             vpc_id = None
@@ -90,12 +91,14 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
             name=NAME_GUEST_CREATOR,
             description=DESCRIPTION_GUEST_CREATOR % {'image_id': encrypted_ami}
         )
+        # Run updater in same zone as guest so we can swap volumes
         updater = aws_svc.run_instance(
             updater_ami,
             instance_type="m3.medium",
             user_data=user_data,
             ebs_optimized=False,
             subnet_id=subnet_id,
+            placement=encrypted_guest.placement,
             security_group_ids=security_group_ids)
         aws_svc.create_tags(
             updater.id,
@@ -139,7 +142,7 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
         if guest_image.virtualization_type == 'paravirtual':
             d_list = ['/dev/sda1', '/dev/sda2', '/dev/sda3']
         else:
-            d_list = ['/dev/sda1']
+            d_list = [encrypted_guest.root_device_name]
         for d in d_list:
             log.info("Detaching old metavisor disk: %s from %s" %
                 (guest_bdm[d].volume_id, encrypted_guest.id))
@@ -149,26 +152,21 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
             )
             aws_svc.delete_volume(guest_bdm[d].volume_id)
 
-        zone = encrypted_guest.placement
-
         # Step 4. Snapshot MV volume(s)
         log.info("Creating snapshots")
         if guest_image.virtualization_type == 'paravirtual':
-            snap_boot = aws_svc.create_snapshot(
-                updater_bdm['/dev/sda1'].volume_id,
-                name=NAME_METAVISOR_GRUB_SNAPSHOT
-            )
+            description = DESCRIPTION_SNAPSHOT % {'image_id': updater.id}
             snap_root = aws_svc.create_snapshot(
                 updater_bdm['/dev/sda2'].volume_id,
-                name=NAME_METAVISOR_ROOT_SNAPSHOT
+                name=NAME_METAVISOR_ROOT_SNAPSHOT,
+                description=description
             )
             snap_log = aws_svc.create_snapshot(
                 updater_bdm['/dev/sda3'].volume_id,
-                name=NAME_METAVISOR_LOG_SNAPSHOT
+                name=NAME_METAVISOR_LOG_SNAPSHOT,
+                description=description
             )
-            wait_for_snapshots(aws_svc, snap_boot.id,
-                               snap_root.id, snap_log.id
-            )
+            wait_for_snapshots(aws_svc, snap_root.id, snap_log.id)
             dev_root = EBSBlockDeviceType(volume_type='gp2',
                         snapshot_id=snap_root.id,
                         delete_on_termination=True)
@@ -177,32 +175,33 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
                         delete_on_termination=True)
             guest_bdm['/dev/sda2'] = dev_root
             guest_bdm['/dev/sda3'] = dev_log
+            # Use updater as base instance for create_image
+            boot_snap_name = NAME_METAVISOR_GRUB_SNAPSHOT
+            root_device_name = updater.root_device_name
+            guest_root = '/dev/sda5'
         else:
-            snap_boot = aws_svc.create_snapshot(
-                updater_bdm['/dev/sda1'].volume_id,
-                name=NAME_METAVISOR_ROOT_SNAPSHOT
-            )
-            wait_for_snapshots(aws_svc, snap_boot.id)
+            # Use guest_instance as base instance for create_image
+            boot_snap_name = NAME_METAVISOR_ROOT_SNAPSHOT
+            root_device_name = guest_image.root_device_name
+            guest_root = '/dev/sdf'
 
-        # Step 5. Create new MV boot disk from snapshot
-        log.info("Creating new metavisor boot from %s" % (snap_boot.id,))
-        new_vol = aws_svc.create_volume(snap_boot.volume_size, zone,
-            snapshot=snap_boot.id,
-            volume_type="gp2",
-            encrypted=False,
+        # Step 5. Move new MV boot disk to base instance
+        log.info("Detach boot volume from %s" % (updater.id,))
+        mv_root_id = updater_bdm['/dev/sda1'].volume_id
+        aws_svc.detach_volume(mv_root_id,
+            instance_id=updater.id,
+            force=True
         )
-        mv_root_id = new_vol.id
-        wait_for_volume(aws_svc, new_vol, state="available")
 
         # Step 6. Attach new boot disk to guest instance
-        log.info("Attaching new MV boot disk: %s to %s" %
+        log.info("Attaching new metavisor boot disk: %s to %s" %
             (mv_root_id, encrypted_guest.id)
         )
-        aws_svc.attach_volume(mv_root_id, encrypted_guest.id, '/dev/sda1')
+        aws_svc.attach_volume(mv_root_id, encrypted_guest.id, root_device_name)
         encrypted_guest = aws_svc.get_instance(encrypted_guest.id)
-        guest_bdm['/dev/sda1'] = \
-            encrypted_guest.block_device_mapping['/dev/sda1']
-        guest_bdm['/dev/sda1'].delete_on_termination = True
+        guest_bdm[root_device_name] = \
+            encrypted_guest.block_device_mapping[root_device_name]
+        guest_bdm[root_device_name].delete_on_termination = True
 
         # Step 7. Create new AMI. Preserve billing/license info
         log.info("Creating new AMI")
@@ -214,6 +213,15 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
             block_device_mapping=guest_bdm
         )
         wait_for_image(aws_svc, ami)
+        image = aws_svc.get_image(ami)
+        aws_svc.create_tags(
+            image.block_device_mapping[root_device_name].snapshot_id,
+            name=boot_snap_name,
+        )
+        aws_svc.create_tags(
+            image.block_device_mapping[guest_root].snapshot_id,
+            name=NAME_ENCRYPTED_ROOT_SNAPSHOT,
+        )
         aws_svc.create_tags(ami)
         return ami
     finally:
