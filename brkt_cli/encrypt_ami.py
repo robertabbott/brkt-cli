@@ -553,6 +553,7 @@ def _snapshot_root_volume(aws_svc, instance, image_id):
     wait_for_instance(aws_svc, instance.id, state='stopped')
 
     # Snapshot root volume.
+    instance = aws_svc.get_instance(instance.id)
     root_dev = instance.root_device_name
     bdm = instance.block_device_mapping
 
