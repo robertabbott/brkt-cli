@@ -17,6 +17,7 @@ import json
 import logging
 import urllib2
 
+ENCRYPT_INITIALIZING = 'initial'
 ENCRYPT_DOWNLOADING = 'downloading'
 ENCRYPT_RUNNING = 'encrypting'
 ENCRYPT_SUCCESSFUL = 'finished'
