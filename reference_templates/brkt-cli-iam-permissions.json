@@ -25,6 +25,7 @@
                 "ec2:DescribeSnapshots",
                 "ec2:DescribeSubnets",
                 "ec2:DescribeVolumes",
+                "ec2:DescribeVpcs",
                 "ec2:GetConsoleOutput",
                 "ec2:RegisterImage",
                 "ec2:RunInstances",

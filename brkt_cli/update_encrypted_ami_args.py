@@ -15,10 +15,11 @@ def setup_update_encrypted_ami(parser):
         required=False
     )
     parser.add_argument(
-        '--no-validate-ami',
-        dest='no_validate_ami',
-        action='store_true',
-        help="Don't validate encrypted AMI properties"
+        '--no-validate',
+        dest='validate',
+        action='store_false',
+        default=True,
+        help="Don't validate AMIs, subnet, and security groups"
     )
     parser.add_argument(
         '--region',
@@ -52,7 +53,7 @@ def setup_update_encrypted_ami(parser):
         required=True
     )
 
-    # Optional yeti endpoints. Hidden because it's only used for development
+    # Optional yeti endpoints. Hidden because it's only used for development.
     parser.add_argument(
         '--brkt-env',
         dest='brkt_env',
@@ -66,4 +67,19 @@ def setup_update_encrypted_ami(parser):
         metavar='KEY',
         help=argparse.SUPPRESS,
         dest='key_name'
+    )
+
+    # These options were deprecated in 0.9.9. Keep them hidden for a while,
+    # to maintain backward compatibility.
+    parser.add_argument(
+        '--validate-ami',
+        dest='validate_ami',
+        action='store_true',
+        help=argparse.SUPPRESS
+    )
+    parser.add_argument(
+        '--no-validate-ami',
+        dest='no_validate_ami',
+        action='store_true',
+        help=argparse.SUPPRESS
     )

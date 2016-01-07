@@ -15,7 +15,7 @@ from boto.ec2.keypair import KeyPair
 from boto.ec2.securitygroup import SecurityGroup
 from boto.exception import EC2ResponseError
 from boto.regioninfo import RegionInfo
-from boto.vpc import Subnet
+from boto.vpc import Subnet, VPC
 
 import brkt_cli
 import logging
@@ -92,6 +92,11 @@ class DummyAWSService(aws_service.BaseAWSService):
         self.security_groups = {}
         self.regions = [RegionInfo(name='us-west-2')]
         self.volumes = {}
+
+        vpc = VPC()
+        vpc.id = 'vpc-' + _new_id()
+        vpc.is_default = True
+        self.default_vpc = vpc
 
         # Callbacks.
         self.run_instance_callback = None
@@ -291,7 +296,7 @@ class DummyAWSService(aws_service.BaseAWSService):
             self.create_security_group_callback(vpc_id)
         sg = SecurityGroup()
         sg.id = 'sg-%s' % _new_id()
-        sg.vpc_id = vpc_id
+        sg.vpc_id = vpc_id or self.default_vpc.id
         self.security_groups[sg.id] = sg
         return sg
 
@@ -316,6 +321,9 @@ class DummyAWSService(aws_service.BaseAWSService):
 
     def get_subnet(self, subnet_id):
         return self.subnets[subnet_id]
+
+    def get_default_vpc(self):
+        return self.default_vpc
 
 
 class TestSnapshotProgress(unittest.TestCase):
@@ -822,7 +830,7 @@ class DummyValues(object):
         self.key_name = None
         self.subnet_id = None
         self.security_group_ids = []
-        self.no_validate_ami = False
+        self.validate = True
         self.ami = None
         self.encryptor_ami = None
 
@@ -838,26 +846,44 @@ class TestValidation(unittest.TestCase):
         subnet.vpc_id = 'vpc-1'
         aws_svc.subnets[subnet.id] = subnet
 
-        self.assertTrue(brkt_cli._validate_subnet_and_security_groups(
-            aws_svc, subnet_id=subnet.id))
+        brkt_cli._validate_subnet_and_security_groups(
+            aws_svc, subnet_id=subnet.id)
 
         # Security groups, no subnet.
-        sg1 = aws_svc.create_security_group('test1', 'test', vpc_id='vpc-1')
-        sg2 = aws_svc.create_security_group('test2', 'test', vpc_id='vpc-1')
-        self.assertTrue(brkt_cli._validate_subnet_and_security_groups(
+        sg1 = aws_svc.create_security_group('test1', 'test')
+        sg2 = aws_svc.create_security_group('test2', 'test')
+        brkt_cli._validate_subnet_and_security_groups(
             aws_svc, security_group_ids=[sg1.id, sg2.id]
-        ))
+        )
+
+        # Security group and subnet.
+        sg3 = aws_svc.create_security_group(
+            'test3', 'test', vpc_id=subnet.vpc_id)
+        brkt_cli._validate_subnet_and_security_groups(
+            aws_svc, subnet_id=subnet.id, security_group_ids=[sg3.id])
 
         # Security groups in different VPCs.
-        sg3 = aws_svc.create_security_group('test3', 'test', vpc_id='vpc-2')
-        self.assertFalse(brkt_cli._validate_subnet_and_security_groups(
-            aws_svc, security_group_ids=[sg1.id, sg2.id, sg3.id]
-        ))
+        with self.assertRaises(brkt_cli.ValidationError):
+            brkt_cli._validate_subnet_and_security_groups(
+                aws_svc, security_group_ids=[sg1.id, sg2.id, sg3.id])
+
+        # Security group not in default subnet.
+        with self.assertRaises(brkt_cli.ValidationError):
+            brkt_cli._validate_subnet_and_security_groups(
+                aws_svc, security_group_ids=[sg3.id])
 
         # Security group and subnet in different VPCs.
-        self.assertFalse(brkt_cli._validate_subnet_and_security_groups(
-            aws_svc, subnet_id=subnet.id, security_group_ids=[sg3.id]
-        ))
+        sg4 = aws_svc.create_security_group(
+            'test4', 'test', vpc_id='vpc-2')
+        with self.assertRaises(brkt_cli.ValidationError):
+            brkt_cli._validate_subnet_and_security_groups(
+                aws_svc, subnet_id=subnet.id, security_group_ids=[sg4.id])
+
+        # We don't validate security groups that have no vpc_id.
+        sg5 = aws_svc.create_security_group('test5', 'test', vpc_id='vpc-2')
+        sg5.vpc_id = None
+        brkt_cli._validate_subnet_and_security_groups(
+            aws_svc, security_group_ids=[sg5.id])
 
     def test_duplicate_image_name(self):
         """ Test that we detect name collisions with the encrypted image.
@@ -881,3 +907,21 @@ class TestValidation(unittest.TestCase):
         values.encrypted_ami_name = image.name
         with self.assertRaises(brkt_cli.ValidationError):
             brkt_cli._connect_and_validate(aws_svc, values, encryptor_image.id)
+
+    def test_no_validate(self):
+        """ Test that the --no-validate option turns off validation.
+        """
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
+        sg = aws_svc.create_security_group('test', 'test', vpc_id='vpc-1')
+
+        values = DummyValues()
+        values.security_group_ids = [sg.id]
+
+        # Validation checks that the security group is not in the default
+        # subnet.
+        with self.assertRaises(brkt_cli.ValidationError):
+            brkt_cli._connect_and_validate(aws_svc, values, encryptor_image.id)
+
+        # Exception is not raised when we turn off validation.
+        values.validate = False
+        brkt_cli._connect_and_validate(aws_svc, values, encryptor_image.id)
