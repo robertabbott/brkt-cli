@@ -33,7 +33,7 @@ from brkt_cli import util
 
 from update_ami import update_ami
 
-VERSION = '0.9.10'
+VERSION = '0.9.11pre1'
 
 log = None
 
