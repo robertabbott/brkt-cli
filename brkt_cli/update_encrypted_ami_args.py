@@ -45,14 +45,6 @@ def setup_update_encrypted_ami(parser):
         dest='subnet_id',
         help='Launch instances in this subnet'
     )
-    parser.add_argument(
-        '--updater-ami',
-        metavar='ID',
-        help='The metavisor updater AMI that will be used',
-        dest='updater_ami',
-        required=True
-    )
-
     # Optional yeti endpoints. Hidden because it's only used for development.
     parser.add_argument(
         '--brkt-env',
@@ -69,7 +61,18 @@ def setup_update_encrypted_ami(parser):
         dest='key_name'
     )
 
-    # These options were deprecated in 0.9.9. Keep them hidden for a while,
+    # Optional hidden argument for specifying the metavisor AMI.  This
+    # argument is hidden because it's only used for development.  It can
+    # also be used to override the default AMI if it's determined to be
+    # unstable.
+    parser.add_argument(
+        '--encryptor-ami',
+        metavar='ID',
+        help=argparse.SUPPRESS,
+        dest='encryptor_ami'
+    )
+
+    # These options were deprecated in 0.9.10. Keep them hidden for a while,
     # to maintain backward compatibility.
     parser.add_argument(
         '--validate-ami',
