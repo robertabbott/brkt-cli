@@ -138,17 +138,11 @@ def _connect_and_validate(aws_svc, values, encryptor_ami_id):
 
 
 def command_encrypt_ami(values, log):
-    region = values.region
-
-    encryptor_ami = values.encryptor_ami
-    if not encryptor_ami:
-        try:
-            encryptor_ami = encrypt_ami.get_encryptor_ami(region)
-        except:
-            log.exception('Failed to get encryptor AMI.')
-            return 1
-
     session_id = util.make_nonce()
+    encryptor_ami = (
+        values.encryptor_ami or
+        encrypt_ami.get_encryptor_ami(values.region)
+    )
     default_tags = encrypt_ami.get_default_tags(session_id, encryptor_ami)
 
     aws_svc = aws_service.AWSService(
@@ -178,7 +172,11 @@ def command_update_encrypted_ami(values, log):
     default_tags = encrypt_ami.get_default_tags(nonce, '')
     aws_svc = aws_service.AWSService(
         nonce, default_tags=default_tags)
-    _connect_and_validate(aws_svc, values, values.updater_ami)
+    encryptor_ami = (
+        values.encryptor_ami or
+        encrypt_ami.get_encryptor_ami(values.region)
+    )
+    _connect_and_validate(aws_svc, values, encryptor_ami)
 
     encrypted_ami = values.ami
     if values.validate:
@@ -188,13 +186,8 @@ def command_update_encrypted_ami(values, log):
                 'Encrypted AMI verification failed: %s' % guest_ami_error)
     else:
         log.info('skipping AMI verification')
-    updater_ami = values.updater_ami
-    updater_ami_error = aws_svc.validate_encryptor_ami(values.updater_ami)
-    if updater_ami_error:
-        log.error('Update failed: %s', updater_ami_error)
-        return 1
     guest_image = aws_svc.get_image(encrypted_ami)
-    mv_image = aws_svc.get_image(updater_ami)
+    mv_image = aws_svc.get_image(encryptor_ami)
     if (guest_image.virtualization_type !=
         mv_image.virtualization_type):
         log.error("Encryptor virtualization_type mismatch")
@@ -215,10 +208,10 @@ def command_update_encrypted_ami(values, log):
                      encrypted_ami_name
             )
     # Initial validation done
-    log.info('Updating %s with new metavisor %s', encrypted_ami, updater_ami)
+    log.info('Updating %s with new metavisor %s', encrypted_ami, encryptor_ami)
 
     updated_ami_id = update_ami(
-        aws_svc, encrypted_ami, updater_ami, encrypted_ami_name,
+        aws_svc, encrypted_ami, encryptor_ami, encrypted_ami_name,
         subnet_id=values.subnet_id,
         security_group_ids=values.security_group_ids)
     print(updated_ami_id)

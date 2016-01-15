@@ -74,7 +74,7 @@ def setup_encrypt_ami_args(parser):
         dest='key_name'
     )
 
-    # These options were deprecated in 0.9.9. Keep them hidden for a while,
+    # These options were deprecated in 0.9.10. Keep them hidden for a while,
     # to maintain backward compatibility.
     parser.add_argument(
         '--validate-ami',
