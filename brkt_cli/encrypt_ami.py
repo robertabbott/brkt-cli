@@ -972,6 +972,11 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
             log.warn("AMI must have root_device_name in block_device_mapping "
                     "in order to preserve guest OS license information")
             legacy = True
+    if (guest_image.root_device_name != "/dev/sda1"):
+        log.warn("Guest Operating System license information will not be "
+                 "preserved because the root disk is attached at %s "
+                 "instead of /dev/sda1", guest_image.root_device_name)
+        legacy = True
     try:
         guest_instance = run_guest_instance(aws_svc,
             image_id, subnet_id=subnet_id)
