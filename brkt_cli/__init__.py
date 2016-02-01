@@ -230,7 +230,9 @@ def main():
         )
         return 1
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description='Command-line interface to the Bracket Computing service.'
+    )
     parser.add_argument(
         '-v',
         '--verbose',
@@ -246,11 +248,19 @@ def main():
 
     subparsers = parser.add_subparsers(dest='subparser_name')
 
-    encrypt_ami_parser = subparsers.add_parser('encrypt-ami')
+    encrypt_ami_parser = subparsers.add_parser(
+        'encrypt-ami',
+        description='Create an encrypted AMI from an existing AMI.'
+    )
     encrypt_ami_args.setup_encrypt_ami_args(encrypt_ami_parser)
 
     update_encrypted_ami_parser = \
-        subparsers.add_parser('update-encrypted-ami')
+        subparsers.add_parser(
+            'update-encrypted-ami',
+            description=(
+                'Update an encrypted AMI with the latest Metavisor release.'
+            )
+        )
     update_encrypted_ami_args.setup_update_encrypted_ami(
         update_encrypted_ami_parser)
 
