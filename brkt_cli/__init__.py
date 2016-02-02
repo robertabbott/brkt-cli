@@ -88,6 +88,19 @@ class ValidationError(Exception):
     pass
 
 
+def _validate_region(aws_svc, region):
+    """ Return the region specified on the command line.
+
+    :raise ValidationError if the region is invalid
+    """
+    regions = [str(r.name) for r in aws_svc.get_regions()]
+    if region not in regions:
+        raise ValidationError(
+            'Invalid region %s.  Must be one of %s.' %
+            (region, str(regions)))
+    return region
+
+
 def _connect_and_validate(aws_svc, values, encryptor_ami_id):
     """ Connect to the AWS service and validate command-line options
 
@@ -99,12 +112,6 @@ def _connect_and_validate(aws_svc, values, encryptor_ami_id):
             aws_service.validate_image_name(values.encrypted_ami_name)
         except aws_service.ImageNameError as e:
             raise ValidationError(e.message)
-
-    regions = [str(r.name) for r in aws_svc.get_regions()]
-    if values.region not in regions:
-        raise ValidationError(
-            'Invalid region %s.  Must be one of %s.' %
-            (values.region, str(regions)))
 
     aws_svc.connect(values.region, key_name=values.key_name)
 
@@ -139,14 +146,18 @@ def _connect_and_validate(aws_svc, values, encryptor_ami_id):
 
 def command_encrypt_ami(values, log):
     session_id = util.make_nonce()
+
+    aws_svc = aws_service.AWSService(session_id)
+    _validate_region(aws_svc, values.region)
+
     encryptor_ami = (
         values.encryptor_ami or
         encrypt_ami.get_encryptor_ami(values.region)
     )
-    default_tags = encrypt_ami.get_default_tags(session_id, encryptor_ami)
 
-    aws_svc = aws_service.AWSService(
-        session_id, default_tags=default_tags)
+    default_tags = encrypt_ami.get_default_tags(session_id, encryptor_ami)
+    aws_svc.default_tags = default_tags
+
     _connect_and_validate(aws_svc, values, encryptor_ami)
 
     log.info('Starting encryptor session %s', aws_svc.session_id)
@@ -172,6 +183,7 @@ def command_update_encrypted_ami(values, log):
     default_tags = encrypt_ami.get_default_tags(nonce, '')
     aws_svc = aws_service.AWSService(
         nonce, default_tags=default_tags)
+    _validate_region(aws_svc, values.region)
     encryptor_ami = (
         values.encryptor_ami or
         encrypt_ami.get_encryptor_ami(values.region)
