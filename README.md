@@ -33,10 +33,11 @@ The master branch has the latest features and bug fixes, but is not as thoroughl
 ## Usage
 ```
 $ brkt encrypt-ami --help
-usage: brkt encrypt-ami [-h] [--encrypted-ami-name NAME] [--validate-ami]
-                        [--no-validate-ami] --region NAME
-                        [--security-group ID] [--subnet ID]
+usage: brkt encrypt-ami [-h] [--encrypted-ami-name NAME] [--no-validate]
+                        --region NAME [--security-group ID] [--subnet ID]
                         ID
+
+Create an encrypted AMI from an existing AMI.
 
 positional arguments:
   ID                    The AMI that will be encrypted
@@ -45,8 +46,7 @@ optional arguments:
   -h, --help            show this help message and exit
   --encrypted-ami-name NAME
                         Specify the name of the generated encrypted AMI
-  --validate-ami        Validate AMI properties (default)
-  --no-validate-ami     Don't validate AMI properties
+  --no-validate         Don't validate AMIs, subnet, and security groups
   --region NAME         AWS region (e.g. us-west-2)
   --security-group ID   Use this security group when running the encryptor
                         instance. May be specified multiple times.
@@ -54,21 +54,25 @@ optional arguments:
 ```
 ```
 $ brkt update-encrypted-ami --help
-usage: brkt update-encrypted-ami [-h] --updater-ami ID --region REGION
-                                 [--encrypted-ami-name NAME]
-                                 [--no-validate-ami]
+usage: brkt update-encrypted-ami [-h] [--encrypted-ami-name NAME]
+                                 [--no-validate] --region REGION
+                                 [--security-group ID] [--subnet ID]
                                  ID
+
+Update an encrypted AMI with the latest Metavisor release.
 
 positional arguments:
   ID                    The AMI that will be encrypted
 
 optional arguments:
   -h, --help            show this help message and exit
-  --updater-ami ID      The metavisor updater AMI that will be used
-  --region REGION       AWS region (e.g. us-west-2)
   --encrypted-ami-name NAME
                         Specify the name of the generated encrypted AMI
-  --no-validate-ami     Don't validate encrypted AMI properties
+  --no-validate         Don't validate AMIs, subnet, and security groups
+  --region REGION       AWS region (e.g. us-west-2)
+  --security-group ID   Use this security group when running the encryptor
+                        instance. May be specified multiple times.
+  --subnet ID           Launch instances in this subnet
 ```
 
 ## Configuration
