@@ -947,7 +947,6 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
     snapshot_id = None
     guest_instance = None
     temp_sg_id = None
-    terminated_instance_ids = set()
     guest_image = aws_svc.get_image(image_id)
     mv_image = aws_svc.get_image(encryptor_ami)
 

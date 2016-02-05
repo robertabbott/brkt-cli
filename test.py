@@ -18,6 +18,7 @@ from boto.regioninfo import RegionInfo
 from boto.vpc import Subnet, VPC
 
 import brkt_cli
+from brkt_cli.validation import ValidationError
 import inspect
 import logging
 import os
@@ -379,14 +380,14 @@ class TestEncryptedImageName(unittest.TestCase):
     def test_name_validation(self):
         name = 'Test123 ()[]./-\'@_'
         self.assertEquals(name, aws_service.validate_image_name(name))
-        with self.assertRaises(aws_service.ImageNameError):
+        with self.assertRaises(ValidationError):
             aws_service.validate_image_name(None)
-        with self.assertRaises(aws_service.ImageNameError):
+        with self.assertRaises(ValidationError):
             aws_service.validate_image_name('ab')
-        with self.assertRaises(aws_service.ImageNameError):
+        with self.assertRaises(ValidationError):
             aws_service.validate_image_name('a' * 129)
         for c in '?!#$%^&*~`{}\|"<>':
-            with self.assertRaises(aws_service.ImageNameError):
+            with self.assertRaises(ValidationError):
                 aws_service.validate_image_name('test' + c)
 
 
@@ -864,19 +865,19 @@ class TestValidation(unittest.TestCase):
             aws_svc, subnet_id=subnet.id, security_group_ids=[sg3.id])
 
         # Security groups in different VPCs.
-        with self.assertRaises(brkt_cli.ValidationError):
+        with self.assertRaises(ValidationError):
             brkt_cli._validate_subnet_and_security_groups(
                 aws_svc, security_group_ids=[sg1.id, sg2.id, sg3.id])
 
         # Security group not in default subnet.
-        with self.assertRaises(brkt_cli.ValidationError):
+        with self.assertRaises(ValidationError):
             brkt_cli._validate_subnet_and_security_groups(
                 aws_svc, security_group_ids=[sg3.id])
 
         # Security group and subnet in different VPCs.
         sg4 = aws_svc.create_security_group(
             'test4', 'test', vpc_id='vpc-2')
-        with self.assertRaises(brkt_cli.ValidationError):
+        with self.assertRaises(ValidationError):
             brkt_cli._validate_subnet_and_security_groups(
                 aws_svc, subnet_id=subnet.id, security_group_ids=[sg4.id])
 
@@ -906,7 +907,7 @@ class TestValidation(unittest.TestCase):
 
         # Name collision.
         values.encrypted_ami_name = image.name
-        with self.assertRaises(brkt_cli.ValidationError):
+        with self.assertRaises(ValidationError):
             brkt_cli._connect_and_validate(aws_svc, values, encryptor_image.id)
 
     def test_no_validate(self):
@@ -920,7 +921,7 @@ class TestValidation(unittest.TestCase):
 
         # Validation checks that the security group is not in the default
         # subnet.
-        with self.assertRaises(brkt_cli.ValidationError):
+        with self.assertRaises(ValidationError):
             brkt_cli._connect_and_validate(aws_svc, values, encryptor_image.id)
 
         # Exception is not raised when we turn off validation.
@@ -974,3 +975,33 @@ class TestEncryptAMIBackwardsCompatibility(unittest.TestCase):
                   'Did not find argument "%s" for method encrypt_ami.%s' % (
                       arg, mthd)
               )
+
+
+class TestCustomTags(unittest.TestCase):
+
+    def test_tag_validation(self):
+        # Key
+        key = 'x' * 127
+        self.assertEquals(key, aws_service.validate_tag_key(key))
+        with self.assertRaises(ValidationError):
+            aws_service.validate_tag_key(key + 'x')
+        with self.assertRaises(ValidationError):
+            aws_service.validate_tag_key('aws:foobar')
+
+        # Value
+        value = 'x' * 255
+        self.assertEquals(value, aws_service.validate_tag_value(value))
+        with self.assertRaises(ValidationError):
+            aws_service.validate_tag_value(value + 'x')
+        with self.assertRaises(ValidationError):
+            aws_service.validate_tag_value('aws:foobar')
+
+    def test_parse_tags(self):
+        # Valid tag strings
+        self.assertEquals(
+            {'a': 'b', 'foo': 'bar'},
+            brkt_cli._parse_tags(['a=b', 'foo=bar']))
+
+        # Invalid tag string
+        with self.assertRaises(ValidationError):
+            brkt_cli._parse_tags(['abc'])

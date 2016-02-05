@@ -44,6 +44,16 @@ def setup_encrypt_ami_args(parser):
         dest='subnet_id',
         help='Launch instances in this subnet'
     )
+    parser.add_argument(
+        '--tag',
+        metavar='KEY=VALUE',
+        dest='tags',
+        action='append',
+        help=(
+            'Custom tag for resources created during encryption. '
+            'May be specified multiple times.'
+        )
+    )
 
     # Optional yeti endpoints. Hidden because it's only used for development.
     # If you're using this option, it should be passed as a comma separated
