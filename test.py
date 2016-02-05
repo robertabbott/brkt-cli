@@ -931,50 +931,51 @@ class TestValidation(unittest.TestCase):
 
 class TestEncryptAMIBackwardsCompatibility(unittest.TestCase):
 
-  def test_attributes(self):
-      required_attributes = (
-          'AMI_NAME_MAX_LENGTH',
-          'DESCRIPTION_SNAPSHOT',
-          'NAME_ENCRYPTOR',
-          'NAME_METAVISOR_ROOT_VOLUME',
-          'NAME_METAVISOR_GRUB_VOLUME',
-          'NAME_METAVISOR_LOG_VOLUME'
-      )
-      for attr in required_attributes:
-          self.assertTrue(
-              hasattr(encrypt_ami, attr),
-              'Did not find attribute encrypt_ami.%s' % attr
-          )
+    def test_attributes(self):
+        required_attributes = (
+            'AMI_NAME_MAX_LENGTH',
+            'DESCRIPTION_SNAPSHOT',
+            'NAME_ENCRYPTOR',
+            'NAME_METAVISOR_ROOT_VOLUME',
+            'NAME_METAVISOR_GRUB_VOLUME',
+            'NAME_METAVISOR_LOG_VOLUME'
+        )
+        for attr in required_attributes:
+            self.assertTrue(
+                hasattr(encrypt_ami, attr),
+                'Did not find attribute encrypt_ami.%s' % attr
+            )
 
-  def test_method_signatures(self):
-      required_method_signatures = (
-          ('append_suffix',
-              ['name', 'suffix', 'max_length']),
-          ('clean_up',
-              ['aws_svc', 'instance_ids', 'security_group_ids']),
-          ('get_encrypted_suffix', []),
-          ('snapshot_encrypted_instance',
-              ['aws_svc', 'enc_svc_cls', 'encryptor_instance',
-               'encryptor_image', 'legacy']),
-          ('register_ami',
-              ['aws_svc', 'encryptor_instance', 'encryptor_image', 'name',
-               'description', 'mv_bdm', 'legacy', 'mv_root_id']),
-          ('wait_for_instance',
-              ['aws_svc', 'instance_id']),
-          ('create_encryptor_security_group', ['aws_svc'])
-      )
-      for mthd, args in required_method_signatures:
-          self.assertTrue(
-              hasattr(encrypt_ami, mthd),
-              'Did not find method encrypt_ami.%s' % mthd
-          )
-          method_ref = encrypt_ami.__dict__[mthd]
-          method_args = inspect.getargspec(method_ref)[0]
-          for arg in args:
-              self.assertIn(arg, method_args,
-                  'Did not find argument "%s" for method encrypt_ami.%s' % (
-                      arg, mthd)
-              )
+    def test_method_signatures(self):
+        required_method_signatures = (
+            ('append_suffix',
+             ['name', 'suffix', 'max_length']),
+            ('clean_up',
+             ['aws_svc', 'instance_ids', 'security_group_ids']),
+            ('get_encrypted_suffix', []),
+            ('snapshot_encrypted_instance',
+             ['aws_svc', 'enc_svc_cls', 'encryptor_instance',
+              'encryptor_image', 'legacy']),
+            ('register_ami',
+             ['aws_svc', 'encryptor_instance', 'encryptor_image', 'name',
+              'description', 'mv_bdm', 'legacy', 'mv_root_id']),
+            ('wait_for_instance',
+             ['aws_svc', 'instance_id']),
+            ('create_encryptor_security_group', ['aws_svc'])
+        )
+        for mthd, args in required_method_signatures:
+            self.assertTrue(
+                hasattr(encrypt_ami, mthd),
+                'Did not find method encrypt_ami.%s' % mthd
+            )
+            method_ref = encrypt_ami.__dict__[mthd]
+            method_args = inspect.getargspec(method_ref)[0]
+            for arg in args:
+                self.assertIn(
+                    arg, method_args,
+                    'Did not find argument "%s" for method encrypt_ami.%s' % (
+                        arg, mthd)
+                )
 
 
 class TestCustomTags(unittest.TestCase):
