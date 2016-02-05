@@ -34,7 +34,7 @@ from brkt_cli.validation import ValidationError
 
 from update_ami import update_ami
 
-VERSION = '0.9.11'
+VERSION = '0.9.12pre1'
 
 log = None
 
