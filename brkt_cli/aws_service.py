@@ -25,6 +25,7 @@ from encrypt_ami import (
     TAG_ENCRYPTOR_SESSION_ID,
     TAG_ENCRYPTOR_AMI
 )
+from validation import ValidationError
 
 PLATFORM_WINDOWS = 'windows'
 
@@ -540,24 +541,54 @@ class AWSService(BaseAWSService):
         return None
 
 
-class ImageNameError(Exception):
-    pass
-
-
 def validate_image_name(name):
     """ Verify that the name is a valid EC2 image name.  Return the name
         if it's valid.
 
-    :raises ImageNameError
+    :raises ValidationError if the name is invalid
     """
     if not (name and 3 <= len(name) <= 128):
-        raise ImageNameError(
+        raise ValidationError(
             'Image name must be between 3 and 128 characters long')
 
     m = re.match(r'[A-Za-z0-9()\[\] ./\-\'@_]+$', name)
     if not m:
-        raise ImageNameError(
+        raise ValidationError(
             "Image name may only contain letters, numbers, spaces, "
             "and the following characters: ()[]./-'@_"
         )
     return name
+
+
+def validate_tag_key(key):
+    """ Verify that the key is a valid EC2 tag key.
+
+    :return: the key if it's valid
+    :raises ValidationError if the key is invalid
+    """
+    if len(key) > 127:
+        raise ValidationError(
+            'Tag key cannot be longer than 127 characters'
+        )
+    if key.startswith('aws:'):
+        raise ValidationError(
+            'Tag key cannot start with "aws:"'
+        )
+    return key
+
+
+def validate_tag_value(value):
+    """ Verify that the value is a valid EC2 tag value.
+
+    :return: the value if it's valid
+    :raises ValidationError if the value is invalid
+    """
+    if len(value) > 255:
+        raise ValidationError(
+            'Tag value cannot be longer than 255 characters'
+        )
+    if value.startswith('aws:'):
+        raise ValidationError(
+            'Tag value cannot start with "aws:"'
+        )
+    return value

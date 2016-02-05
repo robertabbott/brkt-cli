@@ -60,6 +60,16 @@ def setup_update_encrypted_ami(parser):
         help=argparse.SUPPRESS,
         dest='key_name'
     )
+    parser.add_argument(
+        '--tag',
+        metavar='KEY=VALUE',
+        dest='tags',
+        action='append',
+        help=(
+            'Custom tag for resources created during encryption. '
+            'May be specified multiple times.'
+        )
+    )
 
     # Optional hidden argument for specifying the metavisor AMI.  This
     # argument is hidden because it's only used for development.  It can
