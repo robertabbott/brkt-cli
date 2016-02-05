@@ -81,18 +81,3 @@ def setup_update_encrypted_ami(parser):
         help=argparse.SUPPRESS,
         dest='encryptor_ami'
     )
-
-    # These options were deprecated in 0.9.10. Keep them hidden for a while,
-    # to maintain backward compatibility.
-    parser.add_argument(
-        '--validate-ami',
-        dest='validate_ami',
-        action='store_true',
-        help=argparse.SUPPRESS
-    )
-    parser.add_argument(
-        '--no-validate-ami',
-        dest='no_validate_ami',
-        action='store_true',
-        help=argparse.SUPPRESS
-    )
