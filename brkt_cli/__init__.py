@@ -313,20 +313,6 @@ def main():
     aws_service.log.setLevel(log_level)
     encryptor_service.log.setLevel(log_level)
 
-    if values.validate_ami:
-        print(
-            'The --validate-ami option has been replaced with --no-validate. '
-            'It will be removed in a future release.', file=sys.stderr
-        )
-        values.validate = True
-
-    if values.no_validate_ami:
-        print(
-            'The --validate-ami option has been replaced with --no-validate. '
-            'It will be removed in a future release.', file=sys.stderr
-        )
-        values.validate = False
-
     try:
         if values.subparser_name == 'encrypt-ami':
             return command_encrypt_ami(values, log)
