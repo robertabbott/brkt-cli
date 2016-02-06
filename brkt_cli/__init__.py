@@ -31,6 +31,11 @@ from brkt_cli import update_encrypted_ami_args
 from brkt_cli import encryptor_service
 from brkt_cli import util
 from brkt_cli.validation import ValidationError
+from encrypt_ami import (
+    TAG_ENCRYPTOR,
+    TAG_ENCRYPTOR_AMI,
+    TAG_ENCRYPTOR_SESSION_ID
+)
 
 from update_ami import update_ami
 
@@ -117,11 +122,11 @@ def _connect_and_validate(aws_svc, values, encryptor_ami_id):
             _validate_subnet_and_security_groups(
                 aws_svc, values.subnet_id, values.security_group_ids)
 
-            error_msg = aws_svc.validate_guest_ami(values.ami)
+            error_msg = _validate_guest_ami(aws_svc, values.ami)
             if error_msg:
                 raise ValidationError(error_msg)
 
-            error_msg = aws_svc.validate_encryptor_ami(encryptor_ami_id)
+            error_msg = validate_encryptor_ami(aws_svc, encryptor_ami_id)
             if error_msg:
                 raise ValidationError(error_msg)
         else:
@@ -192,6 +197,63 @@ def command_encrypt_ami(values, log):
     return 0
 
 
+def _validate_guest_ami(aws_svc, ami_id):
+    """ Validate that we are able to encrypt this image.
+
+    :return: None if the image is valid, or an error string if not
+    """
+    try:
+        image = aws_svc.get_image(ami_id)
+    except EC2ResponseError, e:
+        if e.error_code == 'InvalidAMIID.NotFound':
+            return e.error_message
+        else:
+            raise
+
+    if TAG_ENCRYPTOR in image.tags:
+        return '%s is already an encrypted image' % ami_id
+
+    # Amazon's API only returns 'windows' or nothing.  We're not currently
+    # able to detect individual Linux distros.
+    if image.platform == 'windows':
+        return 'Windows is not a supported platform'
+
+    if image.root_device_type != 'ebs':
+        return '%s does not use EBS storage.' % ami_id
+    if image.hypervisor != 'xen':
+        return '%s uses hypervisor %s.  Only xen is supported' % (
+            ami_id, image.hypervisor)
+    return None
+
+
+def _validate_guest_encrypted_ami(aws_svc, ami_id):
+    """ Validate that this image was encrypted by Bracket by checking
+        tags.
+    :return: None if we recognize the image, or an error string if not
+    """
+    # Is this encrypted by Bracket?
+    image = aws_svc.get_image(ami_id)
+    tags = image.tags
+    expected_tags = (TAG_ENCRYPTOR,
+                     TAG_ENCRYPTOR_SESSION_ID,
+                     TAG_ENCRYPTOR_AMI)
+    missing_tags = set(expected_tags) - set(tags.keys())
+    if missing_tags:
+        return 'Missing tags %s' % str(missing_tags)
+    return None
+
+
+def validate_encryptor_ami(aws_svc, ami_id):
+    try:
+        image = aws_svc.get_image(ami_id)
+    except EC2ResponseError, e:
+        return e.error_message
+    if 'brkt-avatar' not in image.name:
+        return '%s (%s) is not a Bracket Encryptor image' % (
+            ami_id, image.name)
+    return None
+
+
 def command_update_encrypted_ami(values, log):
     nonce = util.make_nonce()
     default_tags = encrypt_ami.get_default_tags(nonce, '')
@@ -208,7 +270,7 @@ def command_update_encrypted_ami(values, log):
 
     encrypted_ami = values.ami
     if values.validate:
-        guest_ami_error = aws_svc.validate_guest_encrypted_ami(encrypted_ami)
+        guest_ami_error = _validate_guest_encrypted_ami(aws_svc, encrypted_ami)
         if guest_ami_error:
             raise ValidationError(
                 'Encrypted AMI verification failed: %s' % guest_ami_error)

@@ -252,13 +252,6 @@ class DummyAWSService(aws_service.BaseAWSService):
     def delete_volume(self, volume_id):
         del(self.volumes[volume_id])
 
-    def validate_guest_ami(self, ami_id):
-        pass
-
-    def validate_encryptor_ami(self, ami_id):
-        if not ami_id or not ami_id.startswith('ami-'):
-            raise Exception('Invalid AMI ID: %s', ami_id)
-
     def register_image(self,
                        kernel_id,
                        block_device_map,
@@ -271,13 +264,15 @@ class DummyAWSService(aws_service.BaseAWSService):
         image.name = name
         image.description = description
         image.virtualization_type = 'paravirtual'
+        image.root_device_type = 'ebs'
+        image.hypervisor = 'xen'
         self.images[image.id] = image
         return image.id
 
     def wait_for_image(self, image_id):
         pass
 
-    def get_image(self, image_id):
+    def get_image(self, image_id, retry=False):
         return self.images[image_id]
 
     def get_images(self, filters=None):
@@ -400,7 +395,7 @@ def _build_aws_service():
         device_name = '/dev/sda%d' % n
         bdm[device_name] = BlockDeviceType()
     id = aws_svc.register_image(
-        kernel_id=None, name='Encryptor image', block_device_map=bdm)
+        kernel_id=None, name='brkt-avatar', block_device_map=bdm)
     encryptor_image = aws_svc.get_image(id)
 
     # Guest image
@@ -894,19 +889,16 @@ class TestValidation(unittest.TestCase):
 
         # No name.
         values = DummyValues()
-        image = None
-        for image_id, i in aws_svc.images.iteritems():
-            values.ami = image_id
-            image = i
+        values.ami = guest_image.id
         brkt_cli._connect_and_validate(aws_svc, values, encryptor_image.id)
 
         # Unique name.
-        image.name = 'My image'
-        values.encrypted_ami_name = 'Propsed name'
+        guest_image.name = 'My image'
+        values.encrypted_ami_name = 'Proposed name'
         brkt_cli._connect_and_validate(aws_svc, values, encryptor_image.id)
 
         # Name collision.
-        values.encrypted_ami_name = image.name
+        values.encrypted_ami_name = guest_image.name
         with self.assertRaises(ValidationError):
             brkt_cli._connect_and_validate(aws_svc, values, encryptor_image.id)
 
@@ -927,6 +919,24 @@ class TestValidation(unittest.TestCase):
         # Exception is not raised when we turn off validation.
         values.validate = False
         brkt_cli._connect_and_validate(aws_svc, values, encryptor_image.id)
+
+    def test_detect_double_encryption(self):
+        """ Test that we disallow encryption of an already encrypted AMI.
+        """
+        aws_svc = DummyAWSService()
+
+        # Register guest image
+        bdm = BlockDeviceMapping()
+        bdm['/dev/sda1'] = BlockDeviceType()
+        id = aws_svc.register_image(
+            kernel_id=None, name='Guest image', block_device_map=bdm)
+        guest_image = aws_svc.get_image(id)
+
+        # Make the guest image look like it was already encrypted and
+        # make sure that validation fails.
+        guest_image.tags[encrypt_ami.TAG_ENCRYPTOR] = 'ami-' + _new_id()
+        self.assertTrue(
+            'encrypted' in brkt_cli._validate_guest_ami(aws_svc, id))
 
 
 class TestEncryptAMIBackwardsCompatibility(unittest.TestCase):

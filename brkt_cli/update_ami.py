@@ -213,7 +213,7 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
             block_device_mapping=guest_bdm
         )
         wait_for_image(aws_svc, ami)
-        image = aws_svc.get_image(ami)
+        image = aws_svc.get_image(ami, retry=True)
         aws_svc.create_tags(
             image.block_device_mapping[root_device_name].snapshot_id,
             name=boot_snap_name,

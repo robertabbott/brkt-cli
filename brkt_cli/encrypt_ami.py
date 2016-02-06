@@ -909,7 +909,7 @@ def register_ami(aws_svc, encryptor_instance, encryptor_image, name,
 
     log.info('Registered AMI %s based on the snapshots.', ami)
     wait_for_image(aws_svc, ami)
-    image = aws_svc.get_image(ami)
+    image = aws_svc.get_image(ami, retry=True)
     if encryptor_image.virtualization_type == 'paravirtual':
         name = NAME_METAVISOR_GRUB_SNAPSHOT
     else:
@@ -924,7 +924,7 @@ def register_ami(aws_svc, encryptor_instance, encryptor_image, name,
 
     ami_info = {}
     ami_info['volume_device_map'] = []
-    result_image = aws_svc.get_image(ami)
+    result_image = aws_svc.get_image(ami, retry=True)
     for attach_point, bdt in result_image.block_device_mapping.iteritems():
         if bdt.snapshot_id:
             bdt_snapshot = aws_svc.get_snapshot(bdt.snapshot_id)
