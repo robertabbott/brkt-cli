@@ -20,14 +20,7 @@ import logging
 from boto.exception import EC2ResponseError
 import time
 
-from encrypt_ami import (
-    TAG_ENCRYPTOR,
-    TAG_ENCRYPTOR_SESSION_ID,
-    TAG_ENCRYPTOR_AMI
-)
 from validation import ValidationError
-
-PLATFORM_WINDOWS = 'windows'
 
 log = logging.getLogger(__name__)
 
@@ -113,14 +106,6 @@ class BaseAWSService(object):
         pass
 
     @abc.abstractmethod
-    def validate_guest_ami(self, ami_id):
-        pass
-
-    @abc.abstractmethod
-    def validate_encryptor_ami(self, ami_id):
-        pass
-
-    @abc.abstractmethod
     def register_image(self,
                        kernel_id,
                        block_device_map,
@@ -129,7 +114,7 @@ class BaseAWSService(object):
         pass
 
     @abc.abstractmethod
-    def get_image(self, image_id):
+    def get_image(self, image_id, retry=False):
         pass
 
     @abc.abstractmethod
@@ -385,59 +370,6 @@ class AWSService(BaseAWSService):
                 raise
         return True
 
-    def validate_guest_ami(self, ami_id):
-        try:
-            images = self.conn.get_all_images([ami_id])
-        except EC2ResponseError, e:
-            if e.error_code == 'InvalidAMIID.NotFound':
-                return e.error_message
-            else:
-                raise
-        if len(images) == 0:
-            return '%s is no longer available' % ami_id
-        image = images[0]
-        # Amazon's API only returns 'windows' or nothing.  We're not currently
-        # able to detect individual Linux distros.
-        if image.platform == PLATFORM_WINDOWS:
-            return '%s is not a supported platform for %s' % (
-                PLATFORM_WINDOWS, ami_id)
-
-        if image.root_device_type != 'ebs':
-            return '%s does not use EBS storage.' % ami_id
-        if image.hypervisor != 'xen':
-            return '%s uses hypervisor %s.  Only xen is supported' % (
-                ami_id, image.hypervisor)
-        return None
-
-    def validate_guest_encrypted_ami(self, ami_id):
-        # Is this the right type of AMI?
-        error = self.validate_guest_ami(ami_id)
-        if error:
-            return error
-        # Is this encrypted by Bracket?
-        image = self.conn.get_all_images([ami_id])[0]
-        tags = image.tags
-        expected_tags = (TAG_ENCRYPTOR,
-                         TAG_ENCRYPTOR_SESSION_ID,
-                         TAG_ENCRYPTOR_AMI)
-        missing_tags = set(expected_tags) - set(tags.keys())
-        if missing_tags:
-            return 'Missing tags %s' % str(missing_tags)
-        return None
-
-    def validate_encryptor_ami(self, ami_id):
-        try:
-            images = self.conn.get_all_images([ami_id])
-        except EC2ResponseError, e:
-            return e.error_message
-        if len(images) == 0:
-            return 'Bracket encryptor image %s is no longer available' % ami_id
-        image = images[0]
-        if 'brkt-avatar' not in image.name:
-            return '%s (%s) is not a Bracket Encryptor image' % (
-                ami_id, image.name)
-        return None
-
     def register_image(self,
                        kernel_id,
                        block_device_map,
@@ -456,9 +388,15 @@ class AWSService(BaseAWSService):
     def get_images(self, filters=None):
         return self.conn.get_all_images(filters=filters)
 
-    @retry_boto(error_code_regexp=r'InvalidAMIID\.NotFound')
-    def get_image(self, image_id):
-        return self.conn.get_image(image_id)
+    def get_image(self, image_id, retry=False):
+        if retry:
+            @retry_boto(error_code_regexp=r'InvalidAMIID\.NotFound')
+            def get_with_retry(image_id):
+                return self.conn.get_image(image_id)
+
+            return get_with_retry(image_id)
+        else:
+            return self.conn.get_image(image_id)
 
     def delete_snapshot(self, snapshot_id):
         return self.conn.delete_snapshot(snapshot_id)
