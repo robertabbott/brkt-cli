@@ -14,6 +14,14 @@
 
 import re
 from setuptools import setup
+import sys
+
+# Check Python version.
+python_version = '%d.%d' % (sys.version_info[0], sys.version_info[1])
+if python_version != '2.7':
+    sys.exit(
+        'brkt-cli requires Python 2.7.  Version %s is not supported.' %
+        python_version)
 
 version = ''
 with open('brkt_cli/__init__.py', 'r') as fd:
