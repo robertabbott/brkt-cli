@@ -122,10 +122,6 @@ def _connect_and_validate(aws_svc, values, encryptor_ami_id):
             _validate_subnet_and_security_groups(
                 aws_svc, values.subnet_id, values.security_group_ids)
 
-            error_msg = _validate_guest_ami(aws_svc, values.ami)
-            if error_msg:
-                raise ValidationError(error_msg)
-
             error_msg = validate_encryptor_ami(aws_svc, encryptor_ami_id)
             if error_msg:
                 raise ValidationError(error_msg)
@@ -178,6 +174,9 @@ def command_encrypt_ami(values, log):
     aws_svc.default_tags = default_tags
 
     _connect_and_validate(aws_svc, values, encryptor_ami)
+    error_msg = _validate_guest_ami(aws_svc, values.ami)
+    if error_msg:
+        raise ValidationError(error_msg)
 
     log.info('Starting encryptor session %s', aws_svc.session_id)
 
@@ -256,16 +255,18 @@ def validate_encryptor_ami(aws_svc, ami_id):
 
 def command_update_encrypted_ami(values, log):
     nonce = util.make_nonce()
-    default_tags = encrypt_ami.get_default_tags(nonce, '')
-    default_tags.update(_parse_tags(values.tags))
 
-    aws_svc = aws_service.AWSService(
-        nonce, default_tags=default_tags)
+    aws_svc = aws_service.AWSService(nonce)
     _validate_region(aws_svc, values.region)
     encryptor_ami = (
         values.encryptor_ami or
         encrypt_ami.get_encryptor_ami(values.region)
     )
+
+    default_tags = encrypt_ami.get_default_tags(nonce, encryptor_ami)
+    default_tags.update(_parse_tags(values.tags))
+    aws_svc.default_tags = default_tags
+
     _connect_and_validate(aws_svc, values, encryptor_ami)
 
     encrypted_ami = values.ami
