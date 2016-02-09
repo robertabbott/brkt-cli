@@ -310,17 +310,6 @@ def command_update_encrypted_ami(values, log):
 
 
 def main():
-    # Check Python version.
-    version = '%d.%d' % (sys.version_info.major, sys.version_info.minor)
-    if version != '2.7':
-        print(
-            'brkt-cli requires Python 2.7.  Version',
-            version,
-            'is not supported.',
-            file=sys.stderr
-        )
-        return 1
-
     parser = argparse.ArgumentParser(
         description='Command-line interface to the Bracket Computing service.'
     )
