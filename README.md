@@ -14,6 +14,40 @@ more information.
 * [boto](https://github.com/boto/boto) 2.38.0+ (Python interface to AWS)
 * [requests](http://www.python-requests.org/en/latest/) 2.7.0+ (Python HTTP library)
 
+## Process
+
+The `encrypt-ami` subcommand performs the following steps to create an
+encrypted image:
+
+1. Launch an instance based on the specified unencrypted AMI.  We call this
+the guest instance.
+1. Snapshot the root volume of the guest instance.
+1. Launch a Bracket Encryptor instance.
+1. Attach the unencrypted guest root volume to the Bracket encryptor instance.
+1. Copy the unencrypted root volume to a new, encrypted volume.
+1. Create a new AMI based on the encrypted root volume and other volumes
+required by the metavisor at runtime.
+
+The `update-encrypted-ami` subcommand updates an encrypted AMI with the latest
+version of the metavisor code.
+
+## Networking requirements
+
+The following network connections are established during image encryption:
+
+* **brkt-cli** talks to the Encryptor instance on port 8000.
+* The Encryptor talks to the Bracket service at `yetiapi.mgmt.brkt.com`.  In
+order to do this, port 443 must be accessible on the following hosts:
+  * 52.32.38.106
+  * 52.35.101.76
+  * 52.88.55.6
+* Both **brkt-cli** and the Encryptor also need to access Amazon S3.
+
+When launching the Encryptor instance, **brkt-cli** creates a temporary
+security group that allows inbound access on port 8000.  Alternately, you can
+use the `--security-group` option to specify one or more existing security
+groups.
+
 ## Installation
 
 The latest release of **brkt-cli** is 0.9.11.  Use pip to install **brkt-cli** and its dependencies:
