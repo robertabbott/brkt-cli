@@ -15,6 +15,8 @@
 from __future__ import print_function
 
 import argparse
+from distutils.version import LooseVersion
+
 import boto
 import boto.ec2
 import boto.vpc
@@ -22,6 +24,7 @@ import logging
 import re
 import sys
 
+import requests
 from boto.exception import EC2ResponseError, NoAuthHandlerFound
 
 from brkt_cli import aws_service
@@ -309,6 +312,32 @@ def command_update_encrypted_ami(values, log):
     return 0
 
 
+def _is_version_supported(version, supported_versions):
+    """ Return True if the given version string is at least as high as
+    the earliest version string in supported_versions.
+    """
+    # We use LooseVersion because StrictVersion can't deal with patch
+    # releases like 0.9.9.1.
+    sorted_versions = sorted(
+        supported_versions,
+        key=lambda v: LooseVersion(v)
+    )
+    return LooseVersion(version) >= LooseVersion(sorted_versions[0])
+
+
+def _is_later_version_available(version, supported_versions):
+    """ Return True if the given version string is the latest supported
+    version.
+    """
+    # We use LooseVersion because StrictVersion can't deal with patch
+    # releases like 0.9.9.1.
+    sorted_versions = sorted(
+        supported_versions,
+        key=lambda v: LooseVersion(v)
+    )
+    return LooseVersion(version) < LooseVersion(sorted_versions[-1])
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Command-line interface to the Bracket Computing service.'
@@ -324,6 +353,13 @@ def main():
         '--version',
         action='version',
         version='brkt-cli version %s' % VERSION
+    )
+    parser.add_argument(
+        '--no-check-version',
+        dest='check_version',
+        action='store_false',
+        default=True,
+        help="Don't check whether this version of brkt-cli is supported"
     )
 
     subparsers = parser.add_subparsers(dest='subparser_name')
@@ -364,6 +400,42 @@ def main():
     log.setLevel(log_level)
     aws_service.log.setLevel(log_level)
     encryptor_service.log.setLevel(log_level)
+
+    if values.check_version:
+        supported_versions = None
+
+        try:
+            url = 'http://pypi.python.org/pypi/brkt-cli/json'
+            r = requests.get(url)
+            if r.status_code / 100 != 2:
+                raise Exception(
+                    'Error %d when opening %s' % (r.status_code, url))
+            supported_versions = r.json()['releases'].keys()
+        except Exception as e:
+            print(e, file=sys.stderr)
+            print(
+                'Version check failed.  You can bypass it with '
+                '--no-check-version',
+                file=sys.stderr
+            )
+            return 1
+
+        if not _is_version_supported(VERSION, supported_versions):
+            print(
+                'Version %s is no longer supported.\n'
+                'Run "pip install --upgrade brkt-cli" to upgrade to the '
+                'latest version.' %
+                VERSION,
+                file=sys.stderr
+            )
+            return 1
+        if _is_later_version_available(VERSION, supported_versions):
+            print(
+                'A new release of brkt-cli is available.\n'
+                'Run "pip install --upgrade brkt-cli" to upgrade to the '
+                'latest version.',
+                file=sys.stderr
+            )
 
     try:
         if values.subparser_name == 'encrypt-ami':
