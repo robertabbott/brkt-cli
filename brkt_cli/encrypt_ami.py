@@ -123,6 +123,12 @@ ENCRYPTION_PROGRESS_TIMEOUT = 10 * 60  # 10 minutes
 log = logging.getLogger(__name__)
 
 
+# boto2 does not support this attribute, and this attribute needs to be
+# queried for as metavisor does not support sriovNet
+if 'sriovNetSupport' not in InstanceAttribute.ValidValues:
+    InstanceAttribute.ValidValues.append('sriovNetSupport')
+
+
 class SnapshotError(BracketError):
     pass
 
@@ -987,10 +993,6 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
         )
 
         if (guest_image.virtualization_type == 'hvm'):
-            if 'sriovNetSupport' not in InstanceAttribute.ValidValues:
-                log.warn("boto out of date: Added sriovNetSupport to valid "
-                         "values of instance attribute")
-                InstanceAttribute.ValidValues.append('sriovNetSupport')
             net_sriov_attr = aws_svc.get_instance_attribute(guest_instance.id,
                                                             "sriovNetSupport")
             if (net_sriov_attr.get("sriovNetSupport") == "simple"):
