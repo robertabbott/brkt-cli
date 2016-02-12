@@ -322,6 +322,11 @@ class DummyAWSService(aws_service.BaseAWSService):
     def get_default_vpc(self):
         return self.default_vpc
 
+    def get_instance_attribute(self, instance_id, attribute, dry_run=False):
+        if (attribute == "sriovNetSupport"):
+            return dict()
+        return None
+
 
 class TestSnapshotProgress(unittest.TestCase):
 

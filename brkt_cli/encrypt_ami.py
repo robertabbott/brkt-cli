@@ -50,6 +50,7 @@ from boto.ec2.blockdevicemapping import (
     BlockDeviceMapping,
     EBSBlockDeviceType,
 )
+from boto.ec2.instance import InstanceAttribute
 
 from brkt_cli import encryptor_service
 from brkt_cli.util import (
@@ -861,7 +862,8 @@ def register_ami(aws_svc, encryptor_instance, encryptor_image, name,
         guest_id = encryptor_instance.id
         # Explicitly detach/delete all but root drive
         bdm = encryptor_instance.block_device_mapping
-        for d in ['/dev/sda2', '/dev/sda3', '/dev/sda4', '/dev/sda5']:
+        for d in ['/dev/sda2', '/dev/sda3', '/dev/sda4',
+                  '/dev/sda5', '/dev/sdf', '/dev/sdg']:
             if not bdm.get(d):
                 continue
             aws_svc.detach_volume(
@@ -983,6 +985,19 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
         snapshot_id, root_dev, size, vol_type, iops = _snapshot_root_volume(
             aws_svc, guest_instance, image_id
         )
+
+        if (guest_image.virtualization_type == 'hvm'):
+            if 'sriovNetSupport' not in InstanceAttribute.ValidValues:
+                log.warn("boto out of date: Added sriovNetSupport to valid "
+                         "values of instance attribute")
+                InstanceAttribute.ValidValues.append('sriovNetSupport')
+            net_sriov_attr = aws_svc.get_instance_attribute(guest_instance.id,
+                                                            "sriovNetSupport")
+            if (net_sriov_attr.get("sriovNetSupport") == "simple"):
+                log.warn("Guest Operating System license information will not "
+                         "be preserved because guest has sriovNetSupport "
+                         "enabled and metavisor does not support sriovNet")
+                legacy = True
 
         if not security_group_ids:
             vpc_id = None
