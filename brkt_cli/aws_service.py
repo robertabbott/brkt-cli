@@ -173,6 +173,10 @@ class BaseAWSService(object):
     def get_default_vpc(self):
         pass
 
+    @abc.abstractmethod
+    def get_instance_attribute(self, instance_id, attribute, dry_run=False):
+        pass
+
 
 def retry_boto(error_code_regexp, max_retries=5, initial_sleep_seconds=0.25):
     """ Call a boto function repeatedly until it succeeds.  If the call
@@ -477,6 +481,11 @@ class AWSService(BaseAWSService):
         if len(vpcs) > 0:
             return vpcs[0]
         return None
+
+    def get_instance_attribute(self, instance_id, attribute, dry_run=False):
+        return self.conn.get_instance_attribute(instance_id,
+                                                attribute,
+                                                dry_run=dry_run)
 
 
 def validate_image_name(name):
