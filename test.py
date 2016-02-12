@@ -1021,3 +1021,40 @@ class TestCustomTags(unittest.TestCase):
         # Invalid tag string
         with self.assertRaises(ValidationError):
             brkt_cli._parse_tags(['abc'])
+
+
+class TestVersionCheck(unittest.TestCase):
+
+    def test_is_version_supported(self):
+        supported = [
+            '0.9.8', '0.9.9', '0.9.9.1', '0.9.10', '0.9.11', '0.9.12'
+        ]
+        self.assertFalse(
+            brkt_cli._is_version_supported('0.9.7', supported)
+        )
+        self.assertTrue(
+            brkt_cli._is_version_supported('0.9.8', supported)
+        )
+        self.assertTrue(
+            brkt_cli._is_version_supported('0.9.12', supported)
+        )
+        self.assertTrue(
+            brkt_cli._is_version_supported('0.9.13pre1', supported)
+        )
+        self.assertTrue(
+            brkt_cli._is_version_supported('0.9.13', supported)
+        )
+
+    def test_is_later_version_available(self):
+        supported = [
+            '0.9.8', '0.9.9', '0.9.9.1', '0.9.10', '0.9.11', '0.9.12'
+        ]
+        self.assertTrue(
+            brkt_cli._is_later_version_available('0.9.11', supported)
+        )
+        self.assertFalse(
+            brkt_cli._is_later_version_available('0.9.12', supported)
+        )
+        self.assertFalse(
+            brkt_cli._is_later_version_available('0.9.13pre1', supported)
+        )
