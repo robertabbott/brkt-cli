@@ -202,6 +202,10 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
         guest_bdm[root_device_name] = \
             encrypted_guest.block_device_mapping[root_device_name]
         guest_bdm[root_device_name].delete_on_termination = True
+        guest_bdm[root_device_name].volume_type = 'gp2'
+        guest_root_vol_id = guest_bdm[guest_root].volume_id
+        guest_root_vol = aws_svc.get_volume(guest_root_vol_id)
+        guest_bdm[guest_root].volume_type = guest_root_vol.type
 
         # Step 7. Create new AMI. Preserve billing/license info
         log.info("Creating new AMI")
