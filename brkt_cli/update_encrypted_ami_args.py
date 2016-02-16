@@ -81,3 +81,13 @@ def setup_update_encrypted_ami(parser):
         help=argparse.SUPPRESS,
         dest='encryptor_ami'
     )
+
+    # Use an HVM encryptor AMI. Right now, this is hidden while HVM is in
+    # development. When it is GA, we will remove the flag and assume HVM on
+    # by default
+    parser.add_argument(
+        '--hvm',
+        action='store_false',
+        help=argparse.SUPPRESS,
+        dest='hvm'
+    )
