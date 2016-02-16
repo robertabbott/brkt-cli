@@ -603,7 +603,7 @@ def _snapshot_root_volume(aws_svc, instance, image_id):
     aws_svc.delete_volume(root_vol.volume_id)
 
     ret_values = (
-        snapshot.id, root_dev, vol.size, root_vol.volume_type, root_vol.iops)
+        snapshot.id, root_dev, vol.size, vol.type, root_vol.iops)
     log.debug('Returning %s', str(ret_values))
     return ret_values
 
@@ -764,7 +764,7 @@ def snapshot_encrypted_instance(aws_svc, enc_svc_cls, encryptor_instance,
     log.debug('Creating block device mapping')
     new_bdm = BlockDeviceMapping()
     if not vol_type or vol_type == '':
-        vol_type = 'standard'
+        vol_type = 'gp2'
 
     # Snapshot volumes.
     if encryptor_image.virtualization_type == 'paravirtual':
@@ -791,7 +791,7 @@ def snapshot_encrypted_instance(aws_svc, enc_svc_cls, encryptor_instance,
             aws_svc, snap_guest.id, snap_bsd.id, snap_log.id)
 
         if vol_type is None:
-            vol_type = "standard"
+            vol_type = "gp2"
         dev_guest_root = EBSBlockDeviceType(volume_type=vol_type,
                                     snapshot_id=snap_guest.id,
                                     iops=iops,
