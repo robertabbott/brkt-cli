@@ -118,6 +118,8 @@ AMI_NAME_MAX_LENGTH = 128
 
 BRACKET_ENVIRONMENT = "prod"
 ENCRYPTOR_AMIS_URL = "http://solo-brkt-%s-net.s3.amazonaws.com/amis.json"
+HVM_ENCRYPTOR_AMIS_URL = \
+    "http://solo-brkt-%s-net.s3.amazonaws.com/hvm_amis.json"
 ENCRYPTION_PROGRESS_TIMEOUT = 10 * 60  # 10 minutes
 
 log = logging.getLogger(__name__)
@@ -334,13 +336,15 @@ def append_suffix(name, suffix, max_length=None):
     return name + suffix
 
 
-# XXX We should return either a PV or HVM ami based on guest AMI type
-def get_encryptor_ami(region):
+def get_encryptor_ami(region, hvm=False):
     bracket_env = os.getenv('BRACKET_ENVIRONMENT',
                             BRACKET_ENVIRONMENT)
     if not bracket_env:
         raise BracketError('No bracket environment found')
-    bucket_url = ENCRYPTOR_AMIS_URL % (bracket_env)
+    if hvm:
+        bucket_url = HVM_ENCRYPTOR_AMIS_URL % (bracket_env)
+    else:
+        bucket_url = ENCRYPTOR_AMIS_URL % (bracket_env)
     log.debug('Getting encryptor AMI list from %s', bucket_url)
     r = urllib2.urlopen(bucket_url)
     if r.getcode() not in (200, 201):
