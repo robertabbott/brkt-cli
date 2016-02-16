@@ -89,7 +89,7 @@ def setup_encrypt_ami_args(parser):
     # by default
     parser.add_argument(
         '--hvm',
-        action='store_false',
+        action='store_true',
         help=argparse.SUPPRESS,
         dest='hvm'
     )
