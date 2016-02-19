@@ -30,6 +30,10 @@ from brkt_cli import aws_service
 from brkt_cli import encrypt_ami
 from brkt_cli import encrypt_ami_args
 from brkt_cli import encryptor_service
+from brkt_cli import encrypt_gce_image
+from brkt_cli import encrypt_gce_image_args
+from brkt_cli import launch_gce_image
+from brkt_cli import launch_gce_image_args
 from brkt_cli import update_encrypted_ami_args
 from brkt_cli import util
 from brkt_cli.util import validate_dns_name_ip_address
@@ -196,6 +200,40 @@ def _parse_brkt_env(brkt_env_string):
     (be.api_host, be.api_port) = _parse_endpoint(endpoints[0])
     (be.hsmproxy_host, be.hsmproxy_port) = _parse_endpoint(endpoints[1])
     return be
+
+
+def command_launch_gce_image(values, log):
+    gce_svc = encrypt_gce_image.GCEService(values.project, None, log)
+    launch_gce_image.launch(log,
+                            gce_svc,
+                            values.image,
+                            values.instance_name,
+                            values.zone,
+                            values.delete_boot,
+                            {})
+    return 0
+
+
+def command_encrypt_gce_image(values, log):
+    session_id = util.make_nonce()
+    default_tags = encrypt_ami.get_default_tags(session_id,
+                                                values.encryptor_image)
+    gce_svc = encrypt_gce_image.GCEService(values.project, default_tags, log)
+    log.info('Starting encryptor session %s', gce_svc.get_session_id())
+
+    encrypted_image_id = encrypt_gce_image.encrypt(
+        gce_svc=gce_svc,
+        enc_svc_cls=encryptor_service.EncryptorService,
+        image_id=values.image,
+        encryptor_image=values.encryptor_image,
+        encrypted_image_name=values.encrypted_image_name,
+        zone=values.zone,
+        brkt_env=values.brkt_env
+    )
+    # Print the image name to stdout, in case the caller wants to process
+    # the output.  Log messages go to stderr.
+    print(encrypted_image_id)
+    return 0
 
 
 def command_encrypt_ami(values, log):
@@ -421,13 +459,23 @@ def main():
         help="Don't check whether this version of brkt-cli is supported"
     )
 
-    subparsers = parser.add_subparsers(dest='subparser_name')
+    # metavar indicates with subparsers will be shown
+    # when the cli is invoked incorrectly or with -h/--help
+    # this hides other subparsers that shouldn't be visible
+    # to users
+    subparsers = parser.add_subparsers(dest='subparser_name', metavar='{encrypt-ami,update-encrypted-ami}')
 
     encrypt_ami_parser = subparsers.add_parser(
         'encrypt-ami',
         description='Create an encrypted AMI from an existing AMI.'
     )
     encrypt_ami_args.setup_encrypt_ami_args(encrypt_ami_parser)
+
+    encrypt_gce_image_parser = subparsers.add_parser('encrypt-gce-image')
+    encrypt_gce_image_args.setup_encrypt_gce_image_args(encrypt_gce_image_parser)
+
+    launch_gce_image_parser = subparsers.add_parser('launch-gce-image')
+    launch_gce_image_args.setup_launch_gce_image_args(launch_gce_image_parser)
 
     update_encrypted_ami_parser = \
         subparsers.add_parser(
@@ -441,6 +489,7 @@ def main():
 
     argv = sys.argv[1:]
     values = parser.parse_args(argv)
+
     # Initialize logging.  Log messages are written to stderr and are
     # prefixed with a compact timestamp, so that the user knows how long
     # each operation took.
@@ -462,7 +511,19 @@ def main():
 
     if values.check_version:
         supported_versions = None
-
+    try:
+        if values.subparser_name == 'launch-gce-image':
+            log.info('Warning: GCE support is still in development.')
+            return command_launch_gce_image(values, log)
+        if values.subparser_name == 'encrypt-gce-image':
+            log.info('Warning: GCE support is still in development.')
+            return command_encrypt_gce_image(values, log)
+        if values.validate_ami:
+            print(
+                'The --validate-ami option has been replaced with --no-validate. '
+                'It will be removed in a future release.', file=sys.stderr
+            )
+            values.validate = True
         try:
             url = 'http://pypi.python.org/pypi/brkt-cli/json'
             r = requests.get(url)
@@ -495,8 +556,6 @@ def main():
                 'latest version.',
                 file=sys.stderr
             )
-
-    try:
         if values.subparser_name == 'encrypt-ami':
             return command_encrypt_ami(values, log)
         if values.subparser_name == 'update-encrypted-ami':
