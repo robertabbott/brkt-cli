@@ -943,6 +943,29 @@ class TestValidation(unittest.TestCase):
         self.assertTrue(
             'encrypted' in brkt_cli._validate_guest_ami(aws_svc, id))
 
+    def test_detect_valid_ntp_server(self):
+        """ Test that we allow only valid host names or IPv4 addresses to
+            to be configured as ntp servers.
+        """
+
+        # first test a valid collection of host names/IPv4 addresses
+        ntp_servers = ["0.netbsd.pool.ntp.org", "10.10.10.1",
+                       "ec2-52-36-60-215.us-west-2.compute.amazonaws.com",
+                       "abc.com."]
+        brkt_cli._validate_ntp_servers(ntp_servers)
+
+        # test invalid host name is rejected
+        ntp_servers = ["ec2_52_36_60_215.us-west-2.compute.amazonaws.com"]
+        with self.assertRaises(ValidationError):
+            brkt_cli._validate_ntp_servers(ntp_servers)
+
+        # test IPv6 address is rejected
+        ntp_servers = ["2001:db8:a0b:12f0::1"]
+        with self.assertRaises(ValidationError):
+            brkt_cli._validate_ntp_servers(ntp_servers)
+        ntp_servers = ["2001:0db8:0a0b:12f0:0001:0001:0001:0001"]
+        with self.assertRaises(ValidationError):
+            brkt_cli._validate_ntp_servers(ntp_servers)
 
 class TestEncryptAMIBackwardsCompatibility(unittest.TestCase):
 
