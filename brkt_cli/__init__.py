@@ -93,6 +93,32 @@ def _validate_subnet_and_security_groups(aws_svc,
                 )
 
 
+def _validate_dns_name_ip_address(hostname):
+    """ Verifies that the input hostname is indeed a valid
+    host name or ip address
+
+    :return True if valid, returns False otherwise
+    """
+    # ensure length does not exceed 255 characters
+    if (len(hostname) > 255):
+        return False
+    # remove the last dot from the end
+    if (hostname[-1] == "."):
+        hostname = hostname[:-1]
+    valid = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
+    return all(valid.match(x) for x in hostname.split("."))
+
+
+def _validate_ntp_servers(ntp_servers):
+    if ntp_servers is None:
+        return
+    for server in ntp_servers:
+        if not _validate_dns_name_ip_address(server):
+            raise ValidationError(
+                'Invalid ntp-server %s specified. '
+                'Should be either a host name or an IPv4 address' % server)
+
+
 def _validate_region(aws_svc, region):
     """ Return the region specified on the command line.
 
@@ -175,6 +201,7 @@ def command_encrypt_ami(values, log):
     default_tags = encrypt_ami.get_default_tags(session_id, encryptor_ami)
     default_tags.update(_parse_tags(values.tags))
     aws_svc.default_tags = default_tags
+    _validate_ntp_servers(values.ntp_servers)
 
     _connect_and_validate(aws_svc, values, encryptor_ami)
     error_msg = _validate_guest_ami(aws_svc, values.ami)
@@ -191,7 +218,8 @@ def command_encrypt_ami(values, log):
         encrypted_ami_name=values.encrypted_ami_name,
         subnet_id=values.subnet_id,
         security_group_ids=values.security_group_ids,
-        brkt_env=values.brkt_env
+        brkt_env=values.brkt_env,
+        ntp_servers=values.ntp_servers
     )
     # Print the AMI ID to stdout, in case the caller wants to process
     # the output.  Log messages go to stderr.
@@ -270,6 +298,7 @@ def command_update_encrypted_ami(values, log):
     default_tags.update(_parse_tags(values.tags))
     aws_svc.default_tags = default_tags
 
+    _validate_ntp_servers(values.ntp_servers)
     _connect_and_validate(aws_svc, values, encryptor_ami)
 
     encrypted_ami = values.ami
@@ -307,7 +336,8 @@ def command_update_encrypted_ami(values, log):
     updated_ami_id = update_ami(
         aws_svc, encrypted_ami, encryptor_ami, encrypted_ami_name,
         subnet_id=values.subnet_id,
-        security_group_ids=values.security_group_ids)
+        security_group_ids=values.security_group_ids,
+        ntp_servers=values.ntp_servers)
     print(updated_ami_id)
     return 0
 
