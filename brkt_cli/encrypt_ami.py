@@ -244,6 +244,10 @@ class AWSPermissionsError(BracketError):
     pass
 
 
+class InvalidNtpServerError(BracketError):
+    pass
+
+
 def wait_for_encryption(enc_svc,
                         progress_timeout=ENCRYPTION_PROGRESS_TIMEOUT):
     err_count = 0
@@ -306,6 +310,10 @@ def wait_for_encryption(enc_svc,
             if failure_code == encryptor_service.FAILURE_CODE_AWS_PERMISSIONS:
                 raise AWSPermissionsError(
                     'The specified IAM profile has insufficient permissions')
+            if failure_code == \
+                    encryptor_service.FAILURE_CODE_INVALID_NTP_SERVERS:
+                raise InvalidNtpServerError(
+                    'Invalid NTP servers provided.')
             raise EncryptionError('Encryption failed')
 
         sleep(10)
@@ -471,7 +479,7 @@ def create_encryptor_security_group(aws_svc, vpc_id=None):
 def run_encryptor_instance(aws_svc, encryptor_image_id,
            snapshot, root_size,
            guest_image_id, brkt_env=None, security_group_ids=None,
-           subnet_id=None, zone=None):
+           subnet_id=None, zone=None, ntp_servers=None):
     bdm = BlockDeviceMapping()
     user_data = {}
     if brkt_env:
@@ -480,6 +488,9 @@ def run_encryptor_instance(aws_svc, encryptor_image_id,
             'api_host': endpoints[0],
             'hsmproxy_host': endpoints[1],
         }
+
+    if ntp_servers:
+        user_data['ntp-servers'] = ntp_servers
 
     image = aws_svc.get_image(encryptor_image_id)
     virtualization_type = image.virtualization_type
@@ -953,7 +964,8 @@ def register_ami(aws_svc, encryptor_instance, encryptor_image, name,
 
 
 def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
-            encrypted_ami_name=None, subnet_id=None, security_group_ids=None):
+            encrypted_ami_name=None, subnet_id=None, security_group_ids=None,
+            ntp_servers=None):
     encryptor_instance = None
     ami = None
     snapshot_id = None
@@ -1025,6 +1037,7 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
             security_group_ids=security_group_ids,
             subnet_id=subnet_id,
             zone=guest_instance.placement,
+            ntp_servers=ntp_servers,
         )
 
 
