@@ -943,6 +943,28 @@ class TestValidation(unittest.TestCase):
         self.assertTrue(
             'encrypted' in brkt_cli._validate_guest_ami(aws_svc, id))
 
+    def test_validate_guest_image(self):
+        """ Test validation of an encrypted guest image.
+        """
+        image = Image()
+        image.id = _new_id()
+        old_encryptor_id = _new_id()
+        new_encryptor_id = _new_id()
+        image.tags[encrypt_ami.TAG_ENCRYPTOR] = 'True'
+        image.tags[encrypt_ami.TAG_ENCRYPTOR_AMI] = old_encryptor_id
+
+        # Missing tag.
+        with self.assertRaises(ValidationError):
+            brkt_cli._validate_guest_encrypted_ami(image, new_encryptor_id)
+
+        # No missing tag.
+        image.tags[encrypt_ami.TAG_ENCRYPTOR_SESSION_ID] = _new_id()
+        brkt_cli._validate_guest_encrypted_ami(image, new_encryptor_id)
+
+        # Attempting to encrypt with the same encryptor AMI.
+        with self.assertRaises(ValidationError):
+            brkt_cli._validate_guest_encrypted_ami(image, old_encryptor_id)
+
     def test_detect_valid_ntp_server(self):
         """ Test that we allow only valid host names or IPv4 addresses to
             to be configured as ntp servers.

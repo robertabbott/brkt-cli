@@ -256,21 +256,30 @@ def _validate_guest_ami(aws_svc, ami_id):
     return None
 
 
-def _validate_guest_encrypted_ami(aws_svc, ami_id):
+def _validate_guest_encrypted_ami(ami, encryptor_ami_id):
     """ Validate that this image was encrypted by Bracket by checking
         tags.
-    :return: None if we recognize the image, or an error string if not
+
+    :raise: ValidationError if validation fails
     """
     # Is this encrypted by Bracket?
-    image = aws_svc.get_image(ami_id)
-    tags = image.tags
+    tags = ami.tags
     expected_tags = (TAG_ENCRYPTOR,
                      TAG_ENCRYPTOR_SESSION_ID,
                      TAG_ENCRYPTOR_AMI)
     missing_tags = set(expected_tags) - set(tags.keys())
     if missing_tags:
-        return 'Missing tags %s' % str(missing_tags)
-    return None
+        raise ValidationError(
+            '%s is missing tags: %s' % (ami.id, ', '.join(missing_tags)))
+
+    # See if this image was already encrypted by the given encryptor AMI.
+    original_encryptor_id = tags.get(TAG_ENCRYPTOR_AMI)
+    if original_encryptor_id == encryptor_ami_id:
+        msg = '%s was already encrypted with Bracket Encryptor %s' % (
+            ami.id,
+            encryptor_ami_id
+        )
+        raise ValidationError(msg)
 
 
 def validate_encryptor_ami(aws_svc, ami_id):
@@ -302,14 +311,12 @@ def command_update_encrypted_ami(values, log):
     _connect_and_validate(aws_svc, values, encryptor_ami)
 
     encrypted_ami = values.ami
+    guest_image = aws_svc.get_image(encrypted_ami)
+
     if values.validate:
-        guest_ami_error = _validate_guest_encrypted_ami(aws_svc, encrypted_ami)
-        if guest_ami_error:
-            raise ValidationError(
-                'Encrypted AMI verification failed: %s' % guest_ami_error)
+        _validate_guest_encrypted_ami(guest_image, encryptor_ami)
     else:
         log.info('skipping AMI verification')
-    guest_image = aws_svc.get_image(encrypted_ami)
     mv_image = aws_svc.get_image(encryptor_ami)
     if (guest_image.virtualization_type !=
         mv_image.virtualization_type):
