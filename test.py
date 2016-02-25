@@ -11,6 +11,8 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
+import json
+
 from boto.ec2.keypair import KeyPair
 from boto.ec2.securitygroup import SecurityGroup
 from boto.exception import EC2ResponseError
@@ -76,6 +78,16 @@ class DummyEncryptorService(encryptor_service.BaseEncryptorService):
         else:
             ret_val['state'] = 'finished'
         return ret_val
+
+
+class RunInstanceArgs(object):
+    def __init__(self):
+        self.image_id = None
+        self.instance_type = None
+        self.ebs_optimized = None
+        self.security_group_ids = None
+        self.subnet_id = None
+        self.user_data = None
 
 
 class DummyAWSService(aws_service.BaseAWSService):
@@ -145,8 +157,14 @@ class DummyAWSService(aws_service.BaseAWSService):
         self.instances[instance.id] = instance
 
         if self.run_instance_callback:
-            self.run_instance_callback(
-                instance_type, ebs_optimized, security_group_ids, subnet_id)
+            args = RunInstanceArgs()
+            args.image_id = image_id
+            args.instance_type = instance_type
+            args.ebs_optimized = ebs_optimized
+            args.security_group_ids = security_group_ids
+            args.subnet_id = subnet_id
+            args.user_data = user_data
+            self.run_instance_callback(args)
 
         return instance
 
@@ -523,18 +541,15 @@ class TestRunEncryption(unittest.TestCase):
         """
         self.call_count = 0
 
-        def run_instance_callback(instance_type,
-                                  ebs_optimized,
-                                  security_group_ids,
-                                  subnet_id):
+        def run_instance_callback(args):
             self.call_count += 1
-            self.assertEqual('subnet-1', subnet_id)
+            self.assertEqual('subnet-1', args.subnet_id)
             if self.call_count == 1:
                 # Snapshotter.
-                self.assertIsNone(security_group_ids)
+                self.assertIsNone(args.security_group_ids)
             elif self.call_count == 2:
                 # Encryptor.
-                self.assertEqual(['sg-1', 'sg-2'], security_group_ids)
+                self.assertEqual(['sg-1', 'sg-2'], args.security_group_ids)
             else:
                 self.fail('Unexpected number of calls to run_instance()')
 
@@ -583,17 +598,14 @@ class TestRunEncryption(unittest.TestCase):
         """
         self.call_count = 0
 
-        def run_instance_callback(instance_type,
-                                  ebs_optimized,
-                                  security_group_ids,
-                                  subnet_id):
+        def run_instance_callback(args):
             self.call_count += 1
             if self.call_count == 1:
-                self.assertEqual('m3.medium', instance_type)
-                self.assertFalse(ebs_optimized)
+                self.assertEqual('m3.medium', args.instance_type)
+                self.assertFalse(args.ebs_optimized)
             elif self.call_count == 2:
-                self.assertEqual('c3.xlarge', instance_type)
-                self.assertTrue(ebs_optimized)
+                self.assertEqual('c3.xlarge', args.instance_type)
+                self.assertTrue(args.ebs_optimized)
             else:
                 self.fail('Unexpected number of calls to run_instance()')
 
@@ -640,6 +652,36 @@ class TestRunEncryption(unittest.TestCase):
 
         self.assertTrue(self.terminate_instance_called)
 
+    def test_brkt_env(self):
+        """ Test that we parse the brkt_env value and pass the correct
+        values to user_data when launching the encryptor instance.
+        """
+
+        api_host_port = 'api.example.com:777'
+        hsmproxy_host_port = 'hsmproxy.example.com:888'
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
+
+        def run_instance_callback(args):
+            if args.image_id == encryptor_image.id:
+                d = json.loads(args.user_data)
+                self.assertEquals(
+                    api_host_port,
+                    d['brkt']['api_host']
+                )
+                self.assertEquals(
+                    hsmproxy_host_port,
+                    d['brkt']['hsmproxy_host']
+                )
+
+        aws_svc.run_instance_callback = run_instance_callback
+        encrypt_ami.encrypt(
+            aws_svc=aws_svc,
+            enc_svc_cls=DummyEncryptorService,
+            image_id=guest_image.id,
+            brkt_env=api_host_port + ',' + hsmproxy_host_port,
+            encryptor_ami=encryptor_image.id
+        )
+
 
 class TestRunUpdate(unittest.TestCase):
 
@@ -662,13 +704,10 @@ class TestRunUpdate(unittest.TestCase):
 
         self.call_count = 0
 
-        def run_instance_callback(instance_type,
-                                  ebs_optimized,
-                                  security_group_ids,
-                                  subnet_id):
+        def run_instance_callback(args):
             self.call_count += 1
-            self.assertEqual('subnet-1', subnet_id)
-            self.assertEqual(['sg-1', 'sg-2'], security_group_ids)
+            self.assertEqual('subnet-1', args.subnet_id)
+            self.assertEqual(['sg-1', 'sg-2'], args.security_group_ids)
 
         aws_svc.run_instance_callback = run_instance_callback
         ami_id = update_ami(
