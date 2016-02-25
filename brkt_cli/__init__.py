@@ -42,7 +42,7 @@ from encrypt_ami import (
 
 from update_ami import update_ami
 
-VERSION = '0.9.12'
+VERSION = '0.9.13pre1'
 
 log = None
 
