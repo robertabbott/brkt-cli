@@ -771,6 +771,10 @@ class TestRunUpdate(unittest.TestCase):
                     hsmproxy_host_port,
                     d['brkt']['hsmproxy_host']
                 )
+                self.assertEquals(
+                    'updater',
+                    d['brkt']['solo_mode']
+                )
 
         aws_svc.run_instance_callback = run_instance_callback
         update_ami(

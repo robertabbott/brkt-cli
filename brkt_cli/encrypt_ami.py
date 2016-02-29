@@ -492,20 +492,24 @@ def create_encryptor_security_group(aws_svc, vpc_id=None):
     return sg
 
 
+def add_brkt_env_to_user_data(brkt_env, user_data):
+    if brkt_env:
+        if 'brkt' not in user_data:
+            user_data['brkt'] = {}
+        api_host_port = '%s:%d' % (brkt_env.api_host, brkt_env.api_port)
+        hsmproxy_host_port = '%s:%d' % (
+            brkt_env.hsmproxy_host, brkt_env.hsmproxy_port)
+        user_data['brkt']['api_host'] = api_host_port
+        user_data['brkt']['hsmproxy_host'] = hsmproxy_host_port
+
+
 def run_encryptor_instance(aws_svc, encryptor_image_id,
            snapshot, root_size,
            guest_image_id, brkt_env=None, security_group_ids=None,
            subnet_id=None, zone=None, ntp_servers=None):
     bdm = BlockDeviceMapping()
     user_data = {}
-    if brkt_env:
-        api_host_port = '%s:%d' % (brkt_env.api_host, brkt_env.api_port)
-        hsmproxy_host_port = '%s:%d' % (
-            brkt_env.hsmproxy_host, brkt_env.hsmproxy_port)
-        user_data['brkt'] = {
-            'api_host': api_host_port,
-            'hsmproxy_host': hsmproxy_host_port
-        }
+    add_brkt_env_to_user_data(brkt_env, user_data)
 
     if ntp_servers:
         user_data['ntp-servers'] = ntp_servers
