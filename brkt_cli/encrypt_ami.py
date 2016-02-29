@@ -139,6 +139,22 @@ class InstanceError(BracketError):
     pass
 
 
+class BracketEnvironment(object):
+    def __init__(self):
+        self.api_host = None
+        self.api_port = None
+        self.hsmproxy_host = None
+        self.hsmproxy_port = None
+
+    def __repr__(self):
+        return '<BracketEnvironment api=%s:%d, hsmproxy=%s:%d>' % (
+            self.api_host,
+            self.api_port,
+            self.hsmproxy_host,
+            self.hsmproxy_port
+        )
+
+
 def get_default_tags(session_id, encryptor_ami):
     default_tags = {
         TAG_ENCRYPTOR: True,
@@ -483,10 +499,12 @@ def run_encryptor_instance(aws_svc, encryptor_image_id,
     bdm = BlockDeviceMapping()
     user_data = {}
     if brkt_env:
-        endpoints = brkt_env.split(',')
+        api_host_port = '%s:%d' % (brkt_env.api_host, brkt_env.api_port)
+        hsmproxy_host_port = '%s:%d' % (
+            brkt_env.hsmproxy_host, brkt_env.hsmproxy_port)
         user_data['brkt'] = {
-            'api_host': endpoints[0],
-            'hsmproxy_host': endpoints[1],
+            'api_host': api_host_port,
+            'hsmproxy_host': hsmproxy_host_port
         }
 
     if ntp_servers:
