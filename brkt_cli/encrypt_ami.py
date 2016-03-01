@@ -139,6 +139,22 @@ class InstanceError(BracketError):
     pass
 
 
+class BracketEnvironment(object):
+    def __init__(self):
+        self.api_host = None
+        self.api_port = None
+        self.hsmproxy_host = None
+        self.hsmproxy_port = None
+
+    def __repr__(self):
+        return '<BracketEnvironment api=%s:%d, hsmproxy=%s:%d>' % (
+            self.api_host,
+            self.api_port,
+            self.hsmproxy_host,
+            self.hsmproxy_port
+        )
+
+
 def get_default_tags(session_id, encryptor_ami):
     default_tags = {
         TAG_ENCRYPTOR: True,
@@ -476,18 +492,24 @@ def create_encryptor_security_group(aws_svc, vpc_id=None):
     return sg
 
 
+def add_brkt_env_to_user_data(brkt_env, user_data):
+    if brkt_env:
+        if 'brkt' not in user_data:
+            user_data['brkt'] = {}
+        api_host_port = '%s:%d' % (brkt_env.api_host, brkt_env.api_port)
+        hsmproxy_host_port = '%s:%d' % (
+            brkt_env.hsmproxy_host, brkt_env.hsmproxy_port)
+        user_data['brkt']['api_host'] = api_host_port
+        user_data['brkt']['hsmproxy_host'] = hsmproxy_host_port
+
+
 def run_encryptor_instance(aws_svc, encryptor_image_id,
            snapshot, root_size,
            guest_image_id, brkt_env=None, security_group_ids=None,
            subnet_id=None, zone=None, ntp_servers=None):
     bdm = BlockDeviceMapping()
     user_data = {}
-    if brkt_env:
-        endpoints = brkt_env.split(',')
-        user_data['brkt'] = {
-            'api_host': endpoints[0],
-            'hsmproxy_host': endpoints[1],
-        }
+    add_brkt_env_to_user_data(brkt_env, user_data)
 
     if ntp_servers:
         user_data['ntp-servers'] = ntp_servers

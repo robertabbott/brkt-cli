@@ -11,6 +11,7 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
+import re
 import time
 import uuid
 
@@ -38,3 +39,19 @@ class Deadline(object):
 def make_nonce():
     """Returns a 32bit nonce in hex encoding"""
     return str(uuid.uuid4()).split('-')[0]
+
+
+def validate_dns_name_ip_address(hostname):
+    """ Verifies that the input hostname is indeed a valid
+    host name or ip address
+
+    :return True if valid, returns False otherwise
+    """
+    # ensure length does not exceed 255 characters
+    if len(hostname) > 255:
+        return False
+    # remove the last dot from the end
+    if hostname[-1] == ".":
+        hostname = hostname[:-1]
+    valid = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
+    return all(valid.match(x) for x in hostname.split("."))

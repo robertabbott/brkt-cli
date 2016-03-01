@@ -281,6 +281,8 @@ class AWSService(BaseAWSService):
                 'Using security groups %s', ', '.join(security_group_ids))
         if subnet_id:
             log.debug('Running instance in %s', subnet_id)
+        if user_data:
+            log.debug('User data: %s', user_data)
 
         try:
             reservation = self.conn.run_instances(

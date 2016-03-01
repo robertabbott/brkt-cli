@@ -652,7 +652,30 @@ class TestRunEncryption(unittest.TestCase):
 
         self.assertTrue(self.terminate_instance_called)
 
-    def test_brkt_env(self):
+
+class TestBrktEnv(unittest.TestCase):
+
+    def setUp(self):
+        encrypt_ami.SLEEP_ENABLED = False
+
+    def test_parse_brkt_env(self):
+        """ Test parsing of the command-line --brkt-env value.
+        """
+        be = brkt_cli._parse_brkt_env(
+            'api.example.com:777,hsmproxy.example.com:888')
+        self.assertEqual('api.example.com', be.api_host)
+        self.assertEqual(777, be.api_port)
+        self.assertEqual('hsmproxy.example.com', be.hsmproxy_host)
+        self.assertEqual(888, be.hsmproxy_port)
+
+        with self.assertRaises(ValidationError):
+            brkt_cli._parse_brkt_env('a')
+        with self.assertRaises(ValidationError):
+            brkt_cli._parse_brkt_env('a:7,b:8:9')
+        with self.assertRaises(ValidationError):
+            brkt_cli._parse_brkt_env('a:7,b?:8')
+
+    def test_brkt_env_encrypt(self):
         """ Test that we parse the brkt_env value and pass the correct
         values to user_data when launching the encryptor instance.
         """
@@ -673,12 +696,14 @@ class TestRunEncryption(unittest.TestCase):
                     d['brkt']['hsmproxy_host']
                 )
 
+        brkt_env = brkt_cli._parse_brkt_env(
+            api_host_port + ',' + hsmproxy_host_port)
         aws_svc.run_instance_callback = run_instance_callback
         encrypt_ami.encrypt(
             aws_svc=aws_svc,
             enc_svc_cls=DummyEncryptorService,
             image_id=guest_image.id,
-            brkt_env=api_host_port + ',' + hsmproxy_host_port,
+            brkt_env=brkt_env,
             encryptor_ami=encryptor_image.id
         )
 
@@ -693,7 +718,6 @@ class TestRunUpdate(unittest.TestCase):
         to run_instance().
         """
         aws_svc, encryptor_image, guest_image = _build_aws_service()
-        encrypt_ami.SLEEP_ENABLED = False
         encrypted_ami_id = encrypt_ami.encrypt(
             aws_svc=aws_svc,
             enc_svc_cls=DummyEncryptorService,
@@ -718,6 +742,46 @@ class TestRunUpdate(unittest.TestCase):
 
         self.assertEqual(2, self.call_count)
         self.assertIsNotNone(ami_id)
+
+    def test_brkt_env_update(self):
+        """ Test that the Bracket environment is through to metavisor user
+        data.
+        """
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
+        encrypted_ami_id = encrypt_ami.encrypt(
+            aws_svc=aws_svc,
+            enc_svc_cls=DummyEncryptorService,
+            image_id=guest_image.id,
+            encryptor_ami=encryptor_image.id
+        )
+
+        api_host_port = 'api.example.com:777'
+        hsmproxy_host_port = 'hsmproxy.example.com:888'
+        brkt_env = brkt_cli._parse_brkt_env(
+            api_host_port + ',' + hsmproxy_host_port)
+
+        def run_instance_callback(args):
+            if args.image_id == encryptor_image.id:
+                d = json.loads(args.user_data)
+                self.assertEquals(
+                    api_host_port,
+                    d['brkt']['api_host']
+                )
+                self.assertEquals(
+                    hsmproxy_host_port,
+                    d['brkt']['hsmproxy_host']
+                )
+                self.assertEquals(
+                    'updater',
+                    d['brkt']['solo_mode']
+                )
+
+        aws_svc.run_instance_callback = run_instance_callback
+        update_ami(
+            aws_svc, encrypted_ami_id, encryptor_image.id, 'Test updated AMI',
+            enc_svc_class=DummyEncryptorService,
+            brkt_env=brkt_env
+        )
 
 
 class ExpiredDeadline(object):

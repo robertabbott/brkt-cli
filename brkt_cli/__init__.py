@@ -15,31 +15,30 @@
 from __future__ import print_function
 
 import argparse
+import logging
+import re
+import sys
 from distutils.version import LooseVersion
 
 import boto
 import boto.ec2
 import boto.vpc
-import logging
-import re
-import sys
-
 import requests
 from boto.exception import EC2ResponseError, NoAuthHandlerFound
 
 from brkt_cli import aws_service
 from brkt_cli import encrypt_ami
 from brkt_cli import encrypt_ami_args
-from brkt_cli import update_encrypted_ami_args
 from brkt_cli import encryptor_service
+from brkt_cli import update_encrypted_ami_args
 from brkt_cli import util
+from brkt_cli.util import validate_dns_name_ip_address
 from brkt_cli.validation import ValidationError
 from encrypt_ami import (
     TAG_ENCRYPTOR,
     TAG_ENCRYPTOR_AMI,
-    TAG_ENCRYPTOR_SESSION_ID
-)
-
+    TAG_ENCRYPTOR_SESSION_ID,
+    BracketEnvironment)
 from update_ami import update_ami
 
 VERSION = '0.9.13pre1'
@@ -93,27 +92,11 @@ def _validate_subnet_and_security_groups(aws_svc,
                 )
 
 
-def _validate_dns_name_ip_address(hostname):
-    """ Verifies that the input hostname is indeed a valid
-    host name or ip address
-
-    :return True if valid, returns False otherwise
-    """
-    # ensure length does not exceed 255 characters
-    if (len(hostname) > 255):
-        return False
-    # remove the last dot from the end
-    if (hostname[-1] == "."):
-        hostname = hostname[:-1]
-    valid = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
-    return all(valid.match(x) for x in hostname.split("."))
-
-
 def _validate_ntp_servers(ntp_servers):
     if ntp_servers is None:
         return
     for server in ntp_servers:
-        if not _validate_dns_name_ip_address(server):
+        if not validate_dns_name_ip_address(server):
             raise ValidationError(
                 'Invalid ntp-server %s specified. '
                 'Should be either a host name or an IPv4 address' % server)
@@ -187,6 +170,34 @@ def _parse_tags(tag_strings):
     return tags
 
 
+def _parse_brkt_env(brkt_env_string):
+    """ Parse the --brkt-env value
+
+    :return: a BracketEnvironment object
+    :raise: ValidationError if brkt_env is malformed
+    """
+    endpoints = brkt_env_string.split(',')
+    if len(endpoints) != 2:
+        raise ValidationError('brkt-env requires two values')
+
+    def _parse_endpoint(endpoint):
+        host_port_pattern = r'([^:]+):(\d+)$'
+        m = re.match(host_port_pattern, endpoint)
+        if not m:
+            raise ValidationError('Malformed endpoint: %s' % endpoints[0])
+        host = m.group(1)
+        port = int(m.group(2))
+
+        if not util.validate_dns_name_ip_address(host):
+            raise ValidationError('Invalid hostname: ' + host)
+        return host, port
+
+    be = BracketEnvironment()
+    (be.api_host, be.api_port) = _parse_endpoint(endpoints[0])
+    (be.hsmproxy_host, be.hsmproxy_port) = _parse_endpoint(endpoints[1])
+    return be
+
+
 def command_encrypt_ami(values, log):
     session_id = util.make_nonce()
 
@@ -210,6 +221,10 @@ def command_encrypt_ami(values, log):
 
     log.info('Starting encryptor session %s', aws_svc.session_id)
 
+    brkt_env = None
+    if values.brkt_env:
+        brkt_env = _parse_brkt_env(values.brkt_env)
+
     encrypted_image_id = encrypt_ami.encrypt(
         aws_svc=aws_svc,
         enc_svc_cls=encryptor_service.EncryptorService,
@@ -218,7 +233,7 @@ def command_encrypt_ami(values, log):
         encrypted_ami_name=values.encrypted_ami_name,
         subnet_id=values.subnet_id,
         security_group_ids=values.security_group_ids,
-        brkt_env=values.brkt_env,
+        brkt_env=brkt_env,
         ntp_servers=values.ntp_servers
     )
     # Print the AMI ID to stdout, in case the caller wants to process
@@ -337,6 +352,11 @@ def command_update_encrypted_ami(values, log):
                     'There is already an image named %s' %
                      encrypted_ami_name
             )
+
+    brkt_env = None
+    if values.brkt_env:
+        brkt_env = _parse_brkt_env(values.brkt_env)
+
     # Initial validation done
     log.info('Updating %s with new metavisor %s', encrypted_ami, encryptor_ami)
 
@@ -344,7 +364,9 @@ def command_update_encrypted_ami(values, log):
         aws_svc, encrypted_ami, encryptor_ami, encrypted_ami_name,
         subnet_id=values.subnet_id,
         security_group_ids=values.security_group_ids,
-        ntp_servers=values.ntp_servers)
+        ntp_servers=values.ntp_servers,
+        brkt_env=brkt_env
+    )
     print(updated_ami_id)
     return 0
 

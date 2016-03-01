@@ -28,7 +28,7 @@ from boto.ec2.blockdevicemapping import EBSBlockDeviceType
 
 from brkt_cli import encryptor_service
 from brkt_cli.util import Deadline
-
+import encrypt_ami
 from encrypt_ami import (
     clean_up,
     create_encryptor_security_group,
@@ -55,7 +55,7 @@ log = logging.getLogger(__name__)
 def update_ami(aws_svc, encrypted_ami, updater_ami,
                encrypted_ami_name, subnet_id=None, security_group_ids=None,
                enc_svc_class=encryptor_service.EncryptorService,
-               ntp_servers=None):
+               ntp_servers=None, brkt_env=None):
     encrypted_guest = None
     updater = None
     mv_root_id = None
@@ -72,7 +72,7 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
         user_data = {'brkt': {'solo_mode': 'updater'}}
         if ntp_servers:
             user_data['ntp-servers'] = ntp_servers
-        user_data = json.dumps(user_data)
+        encrypt_ami.add_brkt_env_to_user_data(brkt_env, user_data)
 
         if not security_group_ids:
             vpc_id = None
@@ -89,7 +89,7 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
             ebs_optimized=False,
             subnet_id=subnet_id,
             security_group_ids=security_group_ids,
-            user_data=user_data)
+            user_data=json.dumps(user_data))
         aws_svc.create_tags(
             encrypted_guest.id,
             name=NAME_GUEST_CREATOR,
@@ -99,7 +99,7 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
         updater = aws_svc.run_instance(
             updater_ami,
             instance_type="m3.medium",
-            user_data=user_data,
+            user_data=json.dumps(user_data),
             ebs_optimized=False,
             subnet_id=subnet_id,
             placement=encrypted_guest.placement,
