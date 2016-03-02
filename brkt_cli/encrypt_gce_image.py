@@ -1,6 +1,7 @@
 
 #!/usr/bin/env python
 
+import datetime
 import logging
 import time
 
@@ -15,7 +16,17 @@ from googleapiclient import discovery
 from oauth2client.client import GoogleCredentials
 
 
+LATEST_IMAGE = 'latest.image.tar.gz'
+
+
 log = logging.getLogger(__name__)
+
+
+brkt_image_buckets = {
+    'prod': 'something',
+    'stage': 'something else',
+    'shared': 'something entirely else'
+}
 
 
 class InstanceError(BracketError):
@@ -29,6 +40,8 @@ class GCEService:
         self.tags = tags
         self.credentials = GoogleCredentials.get_application_default()
         self.compute = discovery.build('compute', 'v1',
+                credentials=self.credentials)
+        self.storage = discovery.build('storage', 'v1',
                 credentials=self.credentials)
         self.gce_res_uri = "https://www.googleapis.com/compute/v1/"
 
@@ -135,7 +148,7 @@ class GCEService:
         body = {
                 "name": name,
                 "zone": base,
-                "type": base + "/diskTypes/pd-standard",
+                "type": base + "/diskTypes/pd-ssd",
                 "sourceSnapshot": "projects/%s/global/snapshots/%s" % (self.project, snapshot),
                 "sizeGb": "25"
         }
@@ -149,13 +162,13 @@ class GCEService:
         body = {
             "name": name,
             "zone": base,
-            "type": base + "/diskTypes/pd-standard",
+            "type": base + "/diskTypes/pd-ssd",
             "sizeGb": str(size)
         }
         self.compute.disks().insert(project=self.project,
                 zone=zone, body=body).execute()
 
-    def create_gce_image(self, zone, image_name, disk_name):
+    def create_gce_image_from_disk(self, zone, image_name, disk_name):
         build_disk = "projects/%s/zones/%s/disks/%s" % (self.project,
                 zone, disk_name)
         self.compute.images().insert(body={"rawdisk": {},
@@ -163,11 +176,66 @@ class GCEService:
             "sourceDisk": build_disk},
             project=self.project).execute()
 
+    def create_gce_image_from_file(self, zone, image_name, file_name, bucket):
+        source = "https://storage.googleapis.com/%s/%s" % (bucket, file_name)
+        self.compute.images().insert(
+            body={
+                "rawdisk": {
+                    "source": source
+                },
+                "name": image_name,
+            },
+            project=self.project).execute()
+
     def wait_image(self, image_name):
         while True:
             if self.compute.images().get(image=image_name, project=self.project).execute()['status'] == 'READY':
                 return
             time.sleep(10)
+
+    def get_younger(self, new, old):
+        new_time = datetime.datetime.strptime(new['timeCreated'],
+                                              "%Y-%m-%dT%H:%M:%S.%fZ")
+        old_time = datetime.datetime.strptime(old['timeCreated'],
+                                              "%Y-%m-%dT%H:%M:%S.%fZ")
+        if new_time > old_time:
+            return new
+        else:
+            return old
+
+    def get_image_file(self, bucket):
+        files = self.storage.objects().list(bucket=bucket).execute()['items']
+        # if LATEST_IMAGE exists return that
+        for f in files:
+            if f['name'] == LATEST_IMAGE:
+                return LATEST_IMAGE
+
+        # else return the newest file that ends in .image.tar.gz
+        youngest = {'timeCreated': '1992-10-01T01:50:02.942Z'}
+        for f in files:
+            if 'image.tar.gz' in f['name']:
+                youngest = self.get_younger(f, youngest)
+
+        return youngest['name']
+
+    def get_latest_encryptor_image(self,
+                                   zone,
+                                   image_name,
+                                   bucket,
+                                   image_file=None):
+        # if image_file is not provided try to get latest.image.tar.gz
+        # if latest.image.tar.gz doesnt exist return the newest image
+        if not image_file:
+            if bucket in brkt_image_buckets:
+                image_file = self.get_image_file(brkt_image_buckets[bucket])
+            else:
+                image_file = self.get_image_file(bucket)
+        self.create_gce_image_from_file(self,
+                                        zone,
+                                        image_name,
+                                        image_file,
+                                        bucket)
+        self.wait_image(image_name)
 
     def run_instance(self,
                      zone,
@@ -315,16 +383,16 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
     # create image from mv root disk and snapshot
     # encrypted guest root disk
     log.info("Creating metavisor image")
-    gce_svc.create_gce_image(zone, encrypted_image_name, encryptor)
+    gce_svc.create_gce_image_from_disk(zone, encrypted_image_name, encryptor)
     #gce_svc.create_gce_image(zone, encrypted_image_name + '-guest', encrypted_image_disk)
     gce_svc.wait_image(encrypted_image_name)
     #gce_svc.wait_image(encrypted_image_name + '-guest')
     gce_svc.wait_snapshot(encrypted_image_name)
     # delete all the disks that were created
     log.info("Cleaning up")
-    cleanup(gce_svc, zone, [instance_name,
-                            encryptor,
-                            encrypted_image_disk])
+    #cleanup(gce_svc, zone, [instance_name,
+    #                        encryptor,
+    #                        encrypted_image_disk])
     log.info("Image %s successfully created!", encrypted_image_name)
     return encrypted_image_name
 

@@ -216,16 +216,32 @@ def command_launch_gce_image(values, log):
 
 def command_encrypt_gce_image(values, log):
     session_id = util.make_nonce()
-    default_tags = encrypt_ami.get_default_tags(session_id,
-                                                values.encryptor_image)
+    default_tags = encrypt_ami.get_default_tags(session_id, "")
     gce_svc = encrypt_gce_image.GCEService(values.project, default_tags, log)
-    log.info('Starting encryptor session %s', gce_svc.get_session_id())
 
+    # use pre-existing image
+    if values.encryptor_image:
+        encryptor = values.encryptor_image
+    # create image from file in GCS bucket
+    else:
+        log.info('Retrieving encryptor image from GCS bucket')
+        encryptor = 'encryptor-%s' % gce_svc.get_session_id()
+        if values.image_file:
+            gce_svc.get_latest_encryptor_image(values.zone,
+                                               encryptor,
+                                               values.bucket,
+                                               image_file=values.image_file)
+        else:
+            gce_svc.get_latest_encryptor_image(values.zone,
+                                               encryptor,
+                                               values.bucket)
+
+    log.info('Starting encryptor session %s', gce_svc.get_session_id())
     encrypted_image_id = encrypt_gce_image.encrypt(
         gce_svc=gce_svc,
         enc_svc_cls=encryptor_service.EncryptorService,
         image_id=values.image,
-        encryptor_image=values.encryptor_image,
+        encryptor_image=encryptor,
         encrypted_image_name=values.encrypted_image_name,
         zone=values.zone,
         brkt_env=values.brkt_env

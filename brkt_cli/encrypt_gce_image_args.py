@@ -31,6 +31,13 @@ def setup_encrypt_gce_image_args(parser):
         required=True
     )
     parser.add_argument(
+        '--encryptor-image-bucket',
+        help='Bucket to retrieve encryptor image from (prod, stage, shared, <custom>)',
+        dest='bucket',
+        default='prod',
+        required=False
+    )
+    parser.add_argument(
         '--project',
         help='GCE project name',
         dest='project',
@@ -39,8 +46,7 @@ def setup_encrypt_gce_image_args(parser):
     parser.add_argument(
         '--encryptor-image',
         dest='encryptor_image',
-        # required until theres a default way to get brkt images
-        required=True
+        required=False
     )
 
     # Optional yeti endpoints. Hidden because it's only used for development.
@@ -50,6 +56,12 @@ def setup_encrypt_gce_image_args(parser):
     parser.add_argument(
         '--brkt-env',
         dest='brkt_env',
+        help=argparse.SUPPRESS
+    )
+    parser.add_argument(
+        '--encryptor-image-file',
+        dest='image_file',
+        required=False,
         help=argparse.SUPPRESS
     )
 

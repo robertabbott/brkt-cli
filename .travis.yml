@@ -1,4 +1,4 @@
 language: python
 python: "2.7"
-install: pip install boto requests
+install: pip install boto requests google-api-python-client
 script: python -m unittest test
