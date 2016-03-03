@@ -2,6 +2,7 @@
 #!/usr/bin/env python
 
 import datetime
+import json
 import logging
 import time
 
@@ -180,7 +181,7 @@ class GCEService:
         source = "https://storage.googleapis.com/%s/%s" % (bucket, file_name)
         self.compute.images().insert(
             body={
-                "rawdisk": {
+                "rawDisk": {
                     "source": source
                 },
                 "name": image_name,
@@ -230,8 +231,7 @@ class GCEService:
                 image_file = self.get_image_file(brkt_image_buckets[bucket])
             else:
                 image_file = self.get_image_file(bucket)
-        self.create_gce_image_from_file(self,
-                                        zone,
+        self.create_gce_image_from_file(zone,
                                         image_name,
                                         image_file,
                                         bucket)
@@ -339,62 +339,65 @@ def wait_for_instance(
 # from GCS bucket which also has yet to be created
 def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
             encrypted_image_name, zone, brkt_env):
-    user_data = {}
-    if brkt_env:
-        endpoints = brkt_env.split(',')
-        user_data['brkt'] = {
-            'api_host': endpoints[0],
-            'hsmproxy_host': endpoints[1],
-        }
-    instance_name = 'brkt-guest-' + gce_svc.get_session_id()
-    encryptor = instance_name + '-encryptor'
-    encrypted_image_disk = 'encrypted-image-' + gce_svc.get_session_id()
+    brkt_data = {}
+    try:
+        encrypt_ami.add_brkt_env_to_user_data(brkt_env, brkt_data)
+        instance_name = 'brkt-guest-' + gce_svc.get_session_id()
+        encryptor = instance_name + '-encryptor'
+        encrypted_image_disk = 'encrypted-image-' + gce_svc.get_session_id()
 
-    gce_svc.run_instance(zone, instance_name, image_id)
-    gce_svc.delete_instance(zone, instance_name)
-    log.info('Guest instance terminated')
-    log.info('Waiting for guest root disk to become ready')
-    gce_svc.wait_for_detach(zone, instance_name)
-    log.info('Launching encryptor instance')
+        gce_svc.run_instance(zone, instance_name, image_id)
+        gce_svc.delete_instance(zone, instance_name)
+        log.info('Guest instance terminated')
+        log.info('Waiting for guest root disk to become ready')
+        gce_svc.wait_for_detach(zone, instance_name)
+        log.info('Launching encryptor instance')
 
-    # create blank disk. the encrypted image will be
-    # dd'd to this disk
-    gce_svc.create_disk(zone, encrypted_image_disk)
+        # create blank disk. the encrypted image will be
+        # dd'd to this disk
+        gce_svc.create_disk(zone, encrypted_image_disk)
 
-    # run encryptor instance with avatar_creator as root,
-    # customer image and blank disk
-    gce_svc.run_instance(zone,
-                         encryptor,
-                         encryptor_image,
-                         disks=[gce_svc.get_disk(zone, instance_name),
-                                gce_svc.get_disk(zone, encrypted_image_disk)],
-                         metadata=user_data)
+        # run encryptor instance with avatar_creator as root,
+        # customer image and blank disk
+        gce_svc.run_instance(zone,
+                             encryptor,
+                             encryptor_image,
+                             disks=[gce_svc.get_disk(zone, instance_name),
+                                    gce_svc.get_disk(zone, encrypted_image_disk)],
+                             metadata=gce_metadata_from_userdata(brkt_data))
 
-    enc_svc = enc_svc_cls([gce_svc.get_instance_ip(encryptor, zone)])
-    wait_for_encryptor_up(enc_svc, Deadline(600))
-    wait_for_encryption(enc_svc)
-    gce_svc.delete_instance(zone, encryptor)
-    # snapshot encrypted guest disk
-    log.info("Creating snapshot of encrypted image disk")
-    gce_svc.create_snapshot(zone, encrypted_image_disk, encrypted_image_name)
-    # create image from encryptor root
-    gce_svc.wait_for_detach(zone, encryptor)
+        enc_svc = enc_svc_cls([gce_svc.get_instance_ip(encryptor, zone)])
+        wait_for_encryptor_up(enc_svc, Deadline(600))
+        wait_for_encryption(enc_svc)
+        gce_svc.delete_instance(zone, encryptor)
+        # snapshot encrypted guest disk
+        log.info("Creating snapshot of encrypted image disk")
+        gce_svc.create_snapshot(zone, encrypted_image_disk, encrypted_image_name)
+        # create image from encryptor root
+        gce_svc.wait_for_detach(zone, encryptor)
 
-    # create image from mv root disk and snapshot
-    # encrypted guest root disk
-    log.info("Creating metavisor image")
-    gce_svc.create_gce_image_from_disk(zone, encrypted_image_name, encryptor)
-    #gce_svc.create_gce_image(zone, encrypted_image_name + '-guest', encrypted_image_disk)
-    gce_svc.wait_image(encrypted_image_name)
-    #gce_svc.wait_image(encrypted_image_name + '-guest')
-    gce_svc.wait_snapshot(encrypted_image_name)
-    # delete all the disks that were created
-    log.info("Cleaning up")
-    #cleanup(gce_svc, zone, [instance_name,
-    #                        encryptor,
-    #                        encrypted_image_disk])
-    log.info("Image %s successfully created!", encrypted_image_name)
-    return encrypted_image_name
+        # create image from mv root disk and snapshot
+        # encrypted guest root disk
+        log.info("Creating metavisor image")
+        gce_svc.create_gce_image_from_disk(zone, encrypted_image_name, encryptor)
+        gce_svc.wait_image(encrypted_image_name)
+        gce_svc.wait_snapshot(encrypted_image_name)
+    finally:
+        # delete all the disks that were created
+        log.info("Cleaning up")
+        cleanup(gce_svc, zone, [instance_name,
+                                encryptor,
+                                encrypted_image_disk])
+        log.info("Image %s successfully created!", encrypted_image_name)
+        return encrypted_image_name
+
+
+def gce_metadata_from_userdata(brkt_data):
+    gce_metadata = {}
+    gce_metadata['items']= [{'key': 'brkt',
+                                  'value': json.dumps(brkt_data)}]
+    return gce_metadata
+
 
 def cleanup(gce_svc, zone, disks):
     for disk in disks:
