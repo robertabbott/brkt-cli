@@ -534,12 +534,6 @@ def main():
         if values.subparser_name == 'encrypt-gce-image':
             log.info('Warning: GCE support is still in development.')
             return command_encrypt_gce_image(values, log)
-        if values.validate_ami:
-            print(
-                'The --validate-ami option has been replaced with --no-validate. '
-                'It will be removed in a future release.', file=sys.stderr
-            )
-            values.validate = True
         try:
             url = 'http://pypi.python.org/pypi/brkt-cli/json'
             r = requests.get(url)
