@@ -219,6 +219,10 @@ def command_encrypt_gce_image(values, log):
     default_tags = encrypt_ami.get_default_tags(session_id, "")
     gce_svc = encrypt_gce_image.GCEService(values.project, default_tags, log)
 
+    brkt_env = None
+    if values.brkt_env:
+        brkt_env = _parse_brkt_env(values.brkt_env)
+
     # use pre-existing image
     if values.encryptor_image:
         encryptor = values.encryptor_image
@@ -230,11 +234,13 @@ def command_encrypt_gce_image(values, log):
             gce_svc.get_latest_encryptor_image(values.zone,
                                                encryptor,
                                                values.bucket,
-                                               image_file=values.image_file)
+                                               image_file=values.image_file,
+                                               brkt_env=brkt_env)
         else:
             gce_svc.get_latest_encryptor_image(values.zone,
                                                encryptor,
-                                               values.bucket)
+                                               values.bucket,
+                                               brkt_env=brkt_env)
 
     log.info('Starting encryptor session %s', gce_svc.get_session_id())
     encrypted_image_id = encrypt_gce_image.encrypt(
@@ -244,7 +250,7 @@ def command_encrypt_gce_image(values, log):
         encryptor_image=encryptor,
         encrypted_image_name=values.encrypted_image_name,
         zone=values.zone,
-        brkt_env=values.brkt_env
+        brkt_env=brkt_env
     )
     # Print the image name to stdout, in case the caller wants to process
     # the output.  Log messages go to stderr.
