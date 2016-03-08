@@ -331,12 +331,21 @@ def _validate_guest_ami(aws_svc, ami_id):
     return None
 
 
-def _validate_guest_encrypted_ami(ami, encryptor_ami_id):
+def _validate_guest_encrypted_ami(aws_svc, ami_id, encryptor_ami_id):
     """ Validate that this image was encrypted by Bracket by checking
         tags.
 
     :raise: ValidationError if validation fails
+    :return: the Image object
     """
+    try:
+        ami = aws_svc.get_image(ami_id)
+    except EC2ResponseError as e:
+        if e.error_code == 'InvalidAMIID.NotFound':
+            raise ValidationError('Could not find %s' % ami_id)
+        else:
+            raise
+
     # Is this encrypted by Bracket?
     tags = ami.tags
     expected_tags = (TAG_ENCRYPTOR,
@@ -355,6 +364,8 @@ def _validate_guest_encrypted_ami(ami, encryptor_ami_id):
             encryptor_ami_id
         )
         raise ValidationError(msg)
+
+    return ami
 
 
 def validate_encryptor_ami(aws_svc, ami_id):
@@ -386,17 +397,19 @@ def command_update_encrypted_ami(values, log):
     _connect_and_validate(aws_svc, values, encryptor_ami)
 
     encrypted_ami = values.ami
-    guest_image = aws_svc.get_image(encrypted_ami)
-
     if values.validate:
-        _validate_guest_encrypted_ami(guest_image, encryptor_ami)
+        guest_image = _validate_guest_encrypted_ami(
+            aws_svc, encrypted_ami, encryptor_ami)
     else:
-        log.info('skipping AMI verification')
+        log.info('Skipping AMI validation.')
+        guest_image = aws_svc.get_image(encrypted_ami)
+
     mv_image = aws_svc.get_image(encryptor_ami)
     if (guest_image.virtualization_type !=
-        mv_image.virtualization_type):
+            mv_image.virtualization_type):
         log.error("Encryptor virtualization_type mismatch")
         return 1
+
     encrypted_ami_name = values.encrypted_ami_name
     if not encrypted_ami_name:
         # Replace nonce in AMI name
