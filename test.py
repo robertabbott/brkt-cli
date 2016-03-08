@@ -291,7 +291,13 @@ class DummyAWSService(aws_service.BaseAWSService):
         pass
 
     def get_image(self, image_id, retry=False):
-        return self.images[image_id]
+        image = self.images.get(image_id)
+        if image:
+            return image
+        else:
+            e = EC2ResponseError(None, None)
+            e.error_code = 'InvalidAMIID.NotFound'
+            raise e
 
     def get_images(self, filters=None):
         # Only filtering by name is currently supported.
@@ -1056,17 +1062,30 @@ class TestValidation(unittest.TestCase):
         image.tags[encrypt_ami.TAG_ENCRYPTOR] = 'True'
         image.tags[encrypt_ami.TAG_ENCRYPTOR_AMI] = old_encryptor_id
 
+        aws_svc = DummyAWSService()
+        aws_svc.images[image.id] = image
+
         # Missing tag.
         with self.assertRaises(ValidationError):
-            brkt_cli._validate_guest_encrypted_ami(image, new_encryptor_id)
+            brkt_cli._validate_guest_encrypted_ami(
+                aws_svc, image.id, new_encryptor_id)
 
         # No missing tag.
         image.tags[encrypt_ami.TAG_ENCRYPTOR_SESSION_ID] = _new_id()
-        brkt_cli._validate_guest_encrypted_ami(image, new_encryptor_id)
+        result = brkt_cli._validate_guest_encrypted_ami(
+            aws_svc, image.id, new_encryptor_id)
+        self.assertEquals(image, result)
 
         # Attempting to encrypt with the same encryptor AMI.
         with self.assertRaises(ValidationError):
-            brkt_cli._validate_guest_encrypted_ami(image, old_encryptor_id)
+            brkt_cli._validate_guest_encrypted_ami(
+                aws_svc, image.id, old_encryptor_id)
+
+        # Invalid image ID.
+        with self.assertRaises(ValidationError):
+            brkt_cli._validate_guest_encrypted_ami(
+                aws_svc, 'ami-123456', new_encryptor_id
+            )
 
     def test_detect_valid_ntp_server(self):
         """ Test that we allow only valid host names or IPv4 addresses to
@@ -1091,6 +1110,7 @@ class TestValidation(unittest.TestCase):
         ntp_servers = ["2001:0db8:0a0b:12f0:0001:0001:0001:0001"]
         with self.assertRaises(ValidationError):
             brkt_cli._validate_ntp_servers(ntp_servers)
+
 
 class TestEncryptAMIBackwardsCompatibility(unittest.TestCase):
 
