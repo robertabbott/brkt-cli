@@ -146,10 +146,10 @@ def _connect_and_validate(aws_svc, values, encryptor_ami_id):
 
         if values.encrypted_ami_name:
             filters = {'name': values.encrypted_ami_name}
-            if aws_svc.get_images(filters=filters):
+            if aws_svc.get_images(filters=filters, owners=['self']):
                 raise ValidationError(
-                        'There is already an image named %s' %
-                        values.encrypted_ami_name
+                    'You already own an image named %s' %
+                    values.encrypted_ami_name
                 )
     except EC2ResponseError as e:
         raise ValidationError(e.message)
@@ -420,11 +420,9 @@ def command_update_encrypted_ami(values, log):
         else:
             encrypted_ami_name = name + ' (encrypted %s)' % (nonce,)
         filters = {'name': encrypted_ami_name}
-        if aws_svc.get_images(filters=filters):
+        if aws_svc.get_images(filters=filters, owners=['self']):
             raise ValidationError(
-                    'There is already an image named %s' %
-                     encrypted_ami_name
-            )
+                'You already own image named %s' % encrypted_ami_name)
 
     brkt_env = None
     if values.brkt_env:

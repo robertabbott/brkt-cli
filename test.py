@@ -299,7 +299,7 @@ class DummyAWSService(aws_service.BaseAWSService):
             e.error_code = 'InvalidAMIID.NotFound'
             raise e
 
-    def get_images(self, filters=None):
+    def get_images(self, filters=None, owners=None):
         # Only filtering by name is currently supported.
         name = filters.get('name', None)
         images = []

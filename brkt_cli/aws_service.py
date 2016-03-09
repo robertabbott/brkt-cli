@@ -118,7 +118,7 @@ class BaseAWSService(object):
         pass
 
     @abc.abstractmethod
-    def get_images(self, filters=None):
+    def get_images(self, filters=None, owners=None):
         pass
 
     @abc.abstractmethod
@@ -391,8 +391,8 @@ class AWSService(BaseAWSService):
             virtualization_type='paravirtual'
         )
 
-    def get_images(self, filters=None):
-        return self.conn.get_all_images(filters=filters)
+    def get_images(self, filters=None, owners=None):
+        return self.conn.get_all_images(filters=filters, owners=owners)
 
     def get_image(self, image_id, retry=False):
         if retry:
