@@ -202,7 +202,8 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
             (mv_root_id, encrypted_guest.id)
         )
         aws_svc.attach_volume(mv_root_id, encrypted_guest.id, root_device_name)
-        encrypted_guest = aws_svc.get_instance(encrypted_guest.id)
+        encrypted_guest = encrypt_ami.wait_for_volume_attached(
+            aws_svc, encrypted_guest.id, root_device_name)
         guest_bdm[root_device_name] = \
             encrypted_guest.block_device_mapping[root_device_name]
         guest_bdm[root_device_name].delete_on_termination = True

@@ -236,8 +236,11 @@ class DummyAWSService(aws_service.BaseAWSService):
         self.snapshots[snapshot.id] = snapshot
         return snapshot
 
-    def attach_volume(self, vol_id, instance_id, device, **kwargs):
-        pass
+    def attach_volume(self, vol_id, instance_id, device):
+        instance = self.get_instance(instance_id)
+        bdt = BlockDeviceType(volume_id=vol_id, size=8)
+        instance.block_device_mapping[device] = bdt
+        return True
 
     def create_image(self, instance_id, name, **kwargs):
         image = Image()
@@ -657,6 +660,25 @@ class TestRunEncryption(unittest.TestCase):
             pass
 
         self.assertTrue(self.terminate_instance_called)
+
+    def test_register_ami_hvm(self):
+        """ Test the new (non-legacy) code path in register_ami().
+        """
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
+        encryptor_instance = aws_svc.run_instance(encryptor_image.id)
+        guest_instance = aws_svc.run_instance(guest_image.id)
+        mv_bdm = encryptor_instance.block_device_mapping
+        mv_root_volume_id = mv_bdm['/dev/sda1'].volume_id
+        encrypt_ami.register_ami(
+            aws_svc,
+            encryptor_instance,
+            encryptor_image,
+            'Name',
+            'Description',
+            legacy=False,
+            guest_instance=guest_instance,
+            mv_root_id=mv_root_volume_id
+        )
 
 
 class TestBrktEnv(unittest.TestCase):

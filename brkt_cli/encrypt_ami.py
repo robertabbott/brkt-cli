@@ -891,9 +891,43 @@ def snapshot_encrypted_instance(aws_svc, enc_svc_cls, encryptor_instance,
     return mv_root_id, new_bdm
 
 
+def wait_for_volume_attached(aws_svc, instance_id, device):
+    """ Wait until the device appears in the block device mapping of the
+    given instance.
+    :return: the Instance object
+    """
+    # Wait for attachment to complete.
+    log.debug(
+        'Waiting for %s in block device mapping of %s.',
+        device,
+        instance_id
+    )
+
+    found = False
+    instance = None
+
+    for _ in xrange(20):
+        instance = aws_svc.get_instance(instance_id)
+        bdm = instance.block_device_mapping
+        log.debug('Found devices: %s', bdm.keys())
+        if device in bdm:
+            found = True
+            break
+        else:
+            sleep(5)
+
+    if not found:
+        raise BracketError(
+            'Timed out waiting for %s to attach to %s' %
+            (device, instance_id)
+        )
+
+    return instance
+
+
 def register_ami(aws_svc, encryptor_instance, encryptor_image, name,
                  description, mv_bdm=None, legacy=False, guest_instance=None,
-                 mv_root_id=None, root_device_name=None):
+                 mv_root_id=None):
     if not mv_bdm:
         mv_bdm = BlockDeviceMapping()
     # Register the new AMI.
@@ -917,15 +951,17 @@ def register_ami(aws_svc, encryptor_instance, encryptor_image, name,
             aws_svc.delete_volume(bdm[d].volume_id)
     else:
         guest_id = guest_instance.id
+        root_device_name = guest_instance.root_device_name
         # Explicitly attach new mv root to guest instance
+        log.info('Attaching %s to %s', mv_root_id, guest_instance.id)
         aws_svc.attach_volume(
             mv_root_id,
             guest_instance.id,
             root_device_name,
         )
-        log.info("Done attaching new root: %s" % (root_device_name,))
-        guest_instance = aws_svc.get_instance(guest_instance.id)
-        bdm = guest_instance.block_device_mapping
+        instance = wait_for_volume_attached(
+            aws_svc, guest_instance.id, root_device_name)
+        bdm = instance.block_device_mapping
         mv_bdm[root_device_name] = bdm[root_device_name]
         mv_bdm[root_device_name].delete_on_termination = True
 
@@ -1047,7 +1083,6 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
             temp_sg_id = create_encryptor_security_group(
                 aws_svc, vpc_id=vpc_id).id
             security_group_ids = [temp_sg_id]
-        root_device_name = guest_instance.root_device_name
 
         encryptor_instance = run_encryptor_instance(
             aws_svc=aws_svc,
@@ -1061,7 +1096,6 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
             zone=guest_instance.placement,
             ntp_servers=ntp_servers,
         )
-
 
         log.debug('Getting image %s', image_id)
         image = aws_svc.get_image(image_id)
@@ -1078,7 +1112,7 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
                 vol_type=vol_type, iops=iops, legacy=legacy)
         ami_info = register_ami(aws_svc, encryptor_instance, mv_image, name,
                 description, legacy=legacy, guest_instance=guest_instance,
-                root_device_name=root_device_name, mv_root_id=mv_root_id,
+                mv_root_id=mv_root_id,
                 mv_bdm=mv_bdm)
         ami = ami_info['ami']
         log.info('Created encrypted AMI %s based on %s', ami, image_id)
