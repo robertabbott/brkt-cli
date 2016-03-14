@@ -407,7 +407,14 @@ def command_update_encrypted_ami(values, log):
     mv_image = aws_svc.get_image(encryptor_ami)
     if (guest_image.virtualization_type !=
             mv_image.virtualization_type):
-        log.error("Encryptor virtualization_type mismatch")
+        log.error(
+            'Virtualization type mismatch.  %s is %s, but encryptor %s is '
+            '%s.',
+            guest_image.id,
+            guest_image.virtualization_type,
+            mv_image.id,
+            mv_image.virtualization_type
+        )
         return 1
 
     encrypted_ami_name = values.encrypted_ami_name
