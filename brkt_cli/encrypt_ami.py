@@ -44,6 +44,7 @@ import string
 import tempfile
 import time
 import urllib2
+from StringIO import StringIO
 
 from boto.exception import EC2ResponseError
 from boto.ec2.blockdevicemapping import (
@@ -58,6 +59,7 @@ from brkt_cli.util import (
     Deadline,
     make_nonce,
 )
+from brkt_cli.user_data import UserDataContainer, BRKT_FILES_CONTENT_TYPE
 
 # End user-visible terminology.  These are resource names and descriptions
 # that the user will see in his or her EC2 console.
@@ -506,7 +508,7 @@ def add_brkt_env_to_user_data(brkt_env, user_data):
 def run_encryptor_instance(aws_svc, encryptor_image_id,
            snapshot, root_size,
            guest_image_id, brkt_env=None, security_group_ids=None,
-           subnet_id=None, zone=None, ntp_servers=None):
+           subnet_id=None, zone=None, ntp_servers=None, proxy_config=None):
     bdm = BlockDeviceMapping()
     user_data = {}
     add_brkt_env_to_user_data(brkt_env, user_data)
@@ -542,9 +544,19 @@ def run_encryptor_instance(aws_svc, encryptor_image_id,
         bdm['/dev/sdf'] = guest_unencrypted_root
         bdm['/dev/sdg'] = guest_encrypted_root
 
+    user_data_string = json.dumps(user_data)
+    if proxy_config:
+        udc = UserDataContainer()
+        udc.add_file(
+            '/var/brkt/ami_config/proxy.yaml',
+            proxy_config,
+            BRKT_FILES_CONTENT_TYPE
+        )
+        user_data_string += '\n' + udc.to_mime_text()
+
     instance = aws_svc.run_instance(encryptor_image_id,
                                     security_group_ids=security_group_ids,
-                                    user_data=json.dumps(user_data),
+                                    user_data=user_data_string,
                                     placement=zone,
                                     block_device_map=bdm,
                                     subnet_id=subnet_id)
@@ -555,6 +567,7 @@ def run_encryptor_instance(aws_svc, encryptor_image_id,
     )
     instance = wait_for_instance(aws_svc, instance.id)
     log.info('Launched encryptor instance %s', instance.id)
+
     # Tag volumes.
     bdm = instance.block_device_mapping
     if virtualization_type == 'paravirtual':
@@ -1023,7 +1036,7 @@ def register_ami(aws_svc, encryptor_instance, encryptor_image, name,
 
 def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
             encrypted_ami_name=None, subnet_id=None, security_group_ids=None,
-            ntp_servers=None):
+            ntp_servers=None, proxy_config=None):
     encryptor_instance = None
     ami = None
     snapshot_id = None
@@ -1095,6 +1108,7 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
             subnet_id=subnet_id,
             zone=guest_instance.placement,
             ntp_servers=ntp_servers,
+            proxy_config=proxy_config
         )
 
         log.debug('Getting image %s', image_id)

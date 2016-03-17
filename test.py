@@ -13,6 +13,7 @@
 # limitations under the License.
 import json
 
+import yaml
 from boto.ec2.keypair import KeyPair
 from boto.ec2.securitygroup import SecurityGroup
 from boto.exception import EC2ResponseError
@@ -20,6 +21,8 @@ from boto.regioninfo import RegionInfo
 from boto.vpc import Subnet, VPC
 
 import brkt_cli
+from brkt_cli.proxy import Proxy
+from brkt_cli.user_data import UserDataContainer
 from brkt_cli.validation import ValidationError
 import inspect
 import logging
@@ -38,6 +41,7 @@ from brkt_cli import (
     update_ami
 )
 from brkt_cli import aws_service
+from brkt_cli import proxy
 
 brkt_cli.log = logging.getLogger(__name__)
 
@@ -1248,3 +1252,55 @@ class TestVersionCheck(unittest.TestCase):
         self.assertFalse(
             brkt_cli._is_later_version_available('0.9.13pre1', supported)
         )
+
+
+class TestProxy(unittest.TestCase):
+
+    def test_parse_proxies(self):
+        """ Test parsing host:port strings to Proxy objects.
+        """
+        # Valid
+        proxies = brkt_cli._parse_proxies(
+            'example1.com:8001',
+            'example2.com:8002'
+        )
+        self.assertEquals(2, len(proxies))
+        p1 = proxies[0]
+        p2 = proxies[1]
+        self.assertEquals('example1.com', p1.host)
+        self.assertEquals(8001, p1.port)
+        self.assertEquals('example2.com', p2.host)
+        self.assertEquals(8002, p2.port)
+
+        # Invalid
+        with self.assertRaises(ValidationError):
+            brkt_cli._parse_proxies('example.com')
+        with self.assertRaises(ValidationError):
+            brkt_cli._parse_proxies('example.com:1:2')
+        with self.assertRaises(ValidationError):
+            brkt_cli._parse_proxies('example.com:1a')
+        with self.assertRaises(ValidationError):
+            brkt_cli._parse_proxies('invalid_hostname.example.com:8001')
+
+    def test_generate_proxy_config(self):
+        p1 = Proxy(host='proxy1.example.com', port=8001)
+        p2 = Proxy(host='proxy2.example.com', port=8002)
+        config_file = proxy.generate_proxy_config(p1, p2)
+        d = yaml.load(config_file)
+
+        self.assertEquals('proxy1.example.com', d['proxies'][0]['host'])
+        self.assertEquals(8001, d['proxies'][0]['port'])
+        self.assertEqual('https', d['proxies'][0]['protocol'])
+        self.assertEqual('encryptor', d['proxies'][0]['usage'])
+
+        self.assertEquals('proxy2.example.com', d['proxies'][1]['host'])
+        self.assertEquals(8002, d['proxies'][1]['port'])
+
+
+class TestUserData(unittest.TestCase):
+
+    def test_user_data_container(self):
+        udc = UserDataContainer()
+        udc.add_file('test.txt', '1 2 3', 'text/plain')
+        mime = udc.to_mime_text()
+        self.assertTrue('test.txt: {contents: 1 2 3}' in mime)

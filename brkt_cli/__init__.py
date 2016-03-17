@@ -36,6 +36,7 @@ from brkt_cli import launch_gce_image
 from brkt_cli import launch_gce_image_args
 from brkt_cli import update_encrypted_ami_args
 from brkt_cli import util
+from brkt_cli.proxy import Proxy
 from brkt_cli.util import validate_dns_name_ip_address
 from brkt_cli.validation import ValidationError
 from encrypt_ami import (
@@ -175,7 +176,9 @@ def _parse_tags(tag_strings):
 
 
 def _parse_brkt_env(brkt_env_string):
-    """ Parse the --brkt-env value
+    """ Parse the --brkt-env value.  The value is in the following format:
+
+    api_host:port,hsmproxy_host:port
 
     :return: a BracketEnvironment object
     :raise: ValidationError if brkt_env is malformed
@@ -258,6 +261,28 @@ def command_encrypt_gce_image(values, log):
     return 0
 
 
+def _parse_proxies(*proxy_host_ports):
+    """ Parse proxies specified on the command line.
+
+    :param proxy_host_ports: a list of strings in "host:port" format
+    :return: a list of Proxy objects
+    :raise: ValidationError if any of the items are malformed
+    """
+    proxies = []
+    for s in proxy_host_ports:
+        m = re.match(r'([^:]+):(\d+)$', s)
+        if not m:
+            raise ValidationError('%s is not in host:port format' % s)
+        host = m.group(1)
+        port = int(m.group(2))
+        if not util.validate_dns_name_ip_address(host):
+            raise ValidationError('%s is not a valid hostname' % host)
+        proxy = Proxy(host, port)
+        proxies.append(proxy)
+
+    return proxies
+
+
 def command_encrypt_ami(values, log):
     session_id = util.make_nonce()
 
@@ -285,6 +310,11 @@ def command_encrypt_ami(values, log):
     if values.brkt_env:
         brkt_env = _parse_brkt_env(values.brkt_env)
 
+    proxy_config = None
+    if values.proxies:
+        proxies = _parse_proxies(*values.proxies)
+        proxy_config = proxy.generate_proxy_config(*proxies)
+
     encrypted_image_id = encrypt_ami.encrypt(
         aws_svc=aws_svc,
         enc_svc_cls=encryptor_service.EncryptorService,
@@ -294,7 +324,8 @@ def command_encrypt_ami(values, log):
         subnet_id=values.subnet_id,
         security_group_ids=values.security_group_ids,
         brkt_env=brkt_env,
-        ntp_servers=values.ntp_servers
+        ntp_servers=values.ntp_servers,
+        proxy_config=proxy_config
     )
     # Print the AMI ID to stdout, in case the caller wants to process
     # the output.  Log messages go to stderr.
