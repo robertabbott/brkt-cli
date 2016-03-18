@@ -1262,15 +1262,18 @@ class TestProxy(unittest.TestCase):
         # Valid
         proxies = brkt_cli._parse_proxies(
             'example1.com:8001',
-            'example2.com:8002'
+            'example2.com:8002',
+            '192.168.1.1:8003'
         )
-        self.assertEquals(2, len(proxies))
-        p1 = proxies[0]
-        p2 = proxies[1]
+        self.assertEquals(3, len(proxies))
+        (p1, p2, p3) = proxies[0:3]
+
         self.assertEquals('example1.com', p1.host)
         self.assertEquals(8001, p1.port)
         self.assertEquals('example2.com', p2.host)
         self.assertEquals(8002, p2.port)
+        self.assertEquals('192.168.1.1', p3.host)
+        self.assertEquals(8003, p3.port)
 
         # Invalid
         with self.assertRaises(ValidationError):
