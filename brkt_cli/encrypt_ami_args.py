@@ -22,6 +22,16 @@ def setup_encrypt_ami_args(parser):
         help="Don't validate AMIs, subnet, and security groups"
     )
     parser.add_argument(
+        '--proxy',
+        metavar='HOST:PORT',
+        help=(
+            'Use this HTTPS proxy during encryption.  '
+            'May be specified multiple times.'
+        ),
+        dest='proxies',
+        action='append'
+    )
+    parser.add_argument(
         '--region',
         metavar='NAME',
         help='AWS region (e.g. us-west-2)',
