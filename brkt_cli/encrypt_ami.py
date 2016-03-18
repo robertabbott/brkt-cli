@@ -37,9 +37,10 @@ AWS_SECRET_ACCESS_KEY environment variables, like you would when
 running the AWS command line utility.
 """
 
+import gzip
 import json
-import os
 import logging
+import os
 import string
 import tempfile
 import time
@@ -59,7 +60,11 @@ from brkt_cli.util import (
     Deadline,
     make_nonce,
 )
-from brkt_cli.user_data import UserDataContainer, BRKT_FILES_CONTENT_TYPE
+from brkt_cli.user_data import (
+    UserDataContainer,
+    BRKT_CONFIG_CONTENT_TYPE,
+    BRKT_FILES_CONTENT_TYPE
+)
 
 # End user-visible terminology.  These are resource names and descriptions
 # that the user will see in his or her EC2 console.
@@ -544,19 +549,27 @@ def run_encryptor_instance(aws_svc, encryptor_image_id,
         bdm['/dev/sdf'] = guest_unencrypted_root
         bdm['/dev/sdg'] = guest_encrypted_root
 
-    user_data_string = json.dumps(user_data)
+    udc = UserDataContainer()
+
+    brkt_config_string = json.dumps(user_data)
+    udc.add_part(BRKT_CONFIG_CONTENT_TYPE, brkt_config_string)
+
     if proxy_config:
-        udc = UserDataContainer()
         udc.add_file(
             '/var/brkt/ami_config/proxy.yaml',
             proxy_config,
             BRKT_FILES_CONTENT_TYPE
         )
-        user_data_string += '\n' + udc.to_mime_text()
+
+    user_data_string = udc.to_mime_text()
+    out = StringIO()
+    with gzip.GzipFile(fileobj=out, mode="w") as f:
+        f.write(user_data_string)
+    compressed_user_data = out.getvalue()
 
     instance = aws_svc.run_instance(encryptor_image_id,
                                     security_group_ids=security_group_ids,
-                                    user_data=user_data_string,
+                                    user_data=compressed_user_data,
                                     placement=zone,
                                     block_device_map=bdm,
                                     subnet_id=subnet_id)

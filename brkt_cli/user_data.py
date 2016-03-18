@@ -23,6 +23,7 @@ import yaml
 # path for all --brkt-files be within this directory.
 BRKT_FILE_PREFIX = '/var/brkt/instance_config'
 
+BRKT_CONFIG_CONTENT_TYPE = 'text/brkt-config'
 BRKT_FILES_CONTENT_TYPE = 'text/brkt-files'
 GUEST_FILES_CONTENT_TYPE = 'text/brkt-guest-files'
 

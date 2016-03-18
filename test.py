@@ -22,13 +22,15 @@ from boto.vpc import Subnet, VPC
 
 import brkt_cli
 from brkt_cli.proxy import Proxy
-from brkt_cli.user_data import UserDataContainer
+from brkt_cli.user_data import UserDataContainer, BRKT_CONFIG_CONTENT_TYPE
 from brkt_cli.validation import ValidationError
+import email
 import inspect
 import logging
 import os
 import unittest
 import uuid
+import zlib
 
 from boto.ec2.blockdevicemapping import BlockDeviceType, BlockDeviceMapping
 from boto.ec2.image import Image
@@ -707,6 +709,15 @@ class TestBrktEnv(unittest.TestCase):
         with self.assertRaises(ValidationError):
             brkt_cli._parse_brkt_env('a:7,b?:8')
 
+    def _get_brkt_config_from_mime(self, compressed_mime_data):
+        """Look for a 'brkt-config' part in the multi-part MIME input"""
+        data = zlib.decompress(compressed_mime_data, 16 + zlib.MAX_WBITS)
+        msg = email.message_from_string(data)
+        for part in msg.walk():
+            if part.get_content_type() == BRKT_CONFIG_CONTENT_TYPE:
+                return part.get_payload(decode=True)
+        self.assertTrue(False, 'Did not find brkt-config part in userdata')
+
     def test_brkt_env_encrypt(self):
         """ Test that we parse the brkt_env value and pass the correct
         values to user_data when launching the encryptor instance.
@@ -718,7 +729,8 @@ class TestBrktEnv(unittest.TestCase):
 
         def run_instance_callback(args):
             if args.image_id == encryptor_image.id:
-                d = json.loads(args.user_data)
+                brkt_config = self._get_brkt_config_from_mime(args.user_data)
+                d = json.loads(brkt_config)
                 self.assertEquals(
                     api_host_port,
                     d['brkt']['api_host']
