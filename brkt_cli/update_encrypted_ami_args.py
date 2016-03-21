@@ -15,6 +15,12 @@ def setup_update_encrypted_ami(parser):
         required=False
     )
     parser.add_argument(
+        '--hvm',
+        action='store_true',
+        help='Use the HVM encryptor (beta)',
+        dest='hvm'
+    )
+    parser.add_argument(
         '--no-validate',
         dest='validate',
         action='store_false',
@@ -90,14 +96,4 @@ def setup_update_encrypted_ami(parser):
         metavar='ID',
         help=argparse.SUPPRESS,
         dest='encryptor_ami'
-    )
-
-    # Use an HVM encryptor AMI. Right now, this is hidden while HVM is in
-    # development. When it is GA, we will remove the flag and assume HVM on
-    # by default
-    parser.add_argument(
-        '--hvm',
-        action='store_true',
-        help=argparse.SUPPRESS,
-        dest='hvm'
     )
