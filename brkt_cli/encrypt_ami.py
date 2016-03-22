@@ -737,6 +737,13 @@ def snapshot_encrypted_instance(aws_svc, enc_svc_cls, encryptor_instance,
         host_ips.append(encryptor_instance.ip_address)
     if encryptor_instance.private_ip_address:
         host_ips.append(encryptor_instance.private_ip_address)
+        log.info('Adding %s to NO_PROXY environment variable' %
+                 encryptor_instance.private_ip_address)
+        if os.environ.get('NO_PROXY', None):
+            os.environ['NO_PROXY'] = encryptor_instance.private_ip_address
+        else:
+            os.environ['NO_PROXY'] = ",%s" % (
+                encryptor_instance.private_ip_address, )
 
     enc_svc = enc_svc_cls(host_ips)
     log.info('Waiting for encryption service on %s (port %s on %s)',
