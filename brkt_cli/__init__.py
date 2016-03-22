@@ -35,6 +35,8 @@ from brkt_cli import encrypt_gce_image_args
 from brkt_cli import launch_gce_image
 from brkt_cli import launch_gce_image_args
 from brkt_cli import update_encrypted_ami_args
+from brkt_cli import update_gce_image
+from brkt_cli import update_encrypted_gce_image_args
 from brkt_cli import util
 from brkt_cli.proxy import Proxy
 from brkt_cli.util import validate_dns_name_ip_address
@@ -48,6 +50,7 @@ from update_ami import update_ami
 
 VERSION = '0.9.13pre1'
 
+GCE_NAME_MAX_LENGTH = 63
 log = None
 
 
@@ -217,6 +220,76 @@ def command_launch_gce_image(values, log):
     return 0
 
 
+def command_update_encrypted_gce_image(values, log):
+    session_id = util.make_nonce()
+    default_tags = encrypt_ami.get_default_tags(session_id, "")
+    gce_svc = encrypt_gce_image.GCEService(values.project, default_tags, log)
+
+    encrypted_image_name = values.encrypted_image_name
+    if not gce_svc.get_image(values.image):
+        raise ValidationError(
+            'Image %s does not exist. Cannot update.' % values.image)
+
+    if not encrypted_image_name:
+        nonce = util.make_nonce()
+        # Replace nonce in image name
+        name = values.image
+        m = re.match('(.+)\-encrypted\-', name)
+        if m:
+            encrypted_image_name = encrypt_ami.append_suffix(
+                    m.group(1),
+                    '-encrypted-%s' % (nonce,),
+                    GCE_NAME_MAX_LENGTH)
+        else:
+            encrypted_image_name = encrypt_ami.append_suffix(
+                    name,
+                    '-encrypted-%s' % (nonce,),
+                    GCE_NAME_MAX_LENGTH)
+
+    try:
+        gce_svc.get_image(encrypted_image_name)
+        # raise exception if image exists
+        raise ValidationError(
+            'Image %s already exists.' % encrypted_image_name)
+    except:
+        # Ignore exception if the image does not exist.
+        # This is what should happen
+        pass
+
+    log.info('Starting updater session %s', gce_svc.get_session_id())
+
+    brkt_env = None
+    if values.brkt_env:
+        brkt_env = _parse_brkt_env(values.brkt_env)
+
+    # use pre-existing image
+    if values.encryptor_image:
+        encryptor = values.encryptor_image
+    # create image from file in GCS bucket
+    else:
+        log.info('Retrieving encryptor image from GCS bucket')
+        encryptor = 'encryptor-%s' % gce_svc.get_session_id()
+        if values.image_file:
+            gce_svc.get_latest_encryptor_image(values.zone,
+                                               encryptor,
+                                               values.bucket,
+                                               image_file=values.image_file)
+        else:
+            gce_svc.get_latest_encryptor_image(values.zone,
+                                               encryptor,
+                                               values.bucket)
+    update_gce_image.update_gce_image(
+        gce_svc=gce_svc,
+        enc_svc_cls=encryptor_service.EncryptorService,
+        image_id=values.image,
+        encryptor_image=encryptor,
+        encrypted_image_name=encrypted_image_name,
+        zone=values.zone,
+        brkt_env=brkt_env
+    )
+    return 0
+
+
 def command_encrypt_gce_image(values, log):
     session_id = util.make_nonce()
     default_tags = encrypt_ami.get_default_tags(session_id, "")
@@ -237,13 +310,11 @@ def command_encrypt_gce_image(values, log):
             gce_svc.get_latest_encryptor_image(values.zone,
                                                encryptor,
                                                values.bucket,
-                                               image_file=values.image_file,
-                                               brkt_env=brkt_env)
+                                               image_file=values.image_file)
         else:
             gce_svc.get_latest_encryptor_image(values.zone,
                                                encryptor,
-                                               values.bucket,
-                                               brkt_env=brkt_env)
+                                               values.bucket)
 
     log.info('Starting encryptor session %s', gce_svc.get_session_id())
     encrypted_image_id = encrypt_gce_image.encrypt(
@@ -548,6 +619,9 @@ def main():
     launch_gce_image_parser = subparsers.add_parser('launch-gce-image')
     launch_gce_image_args.setup_launch_gce_image_args(launch_gce_image_parser)
 
+    update_gce_image_parser = subparsers.add_parser('update-gce-image')
+    update_encrypted_gce_image_args.setup_update_gce_image_args(update_gce_image_parser)
+
     update_encrypted_ami_parser = \
         subparsers.add_parser(
             'update-encrypted-ami',
@@ -589,6 +663,9 @@ def main():
         if values.subparser_name == 'encrypt-gce-image':
             log.info('Warning: GCE support is still in development.')
             return command_encrypt_gce_image(values, log)
+        if values.subparser_name == 'update-gce-image':
+            log.info('Warning: GCE support is still in development.')
+            return command_update_encrypted_gce_image(values, log)
         try:
             url = 'http://pypi.python.org/pypi/brkt-cli/json'
             r = requests.get(url)
