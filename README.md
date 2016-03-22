@@ -80,11 +80,16 @@ optional arguments:
   -h, --help            show this help message and exit
   --encrypted-ami-name NAME
                         Specify the name of the generated encrypted AMI
+  --hvm                 Use the HVM encryptor (beta)
   --no-validate         Don't validate AMIs, subnet, and security groups
+  --proxy HOST:PORT     Use this HTTPS proxy during encryption. May be
+                        specified multiple times.
   --region NAME         AWS region (e.g. us-west-2)
   --security-group ID   Use this security group when running the encryptor
                         instance. May be specified multiple times.
   --subnet ID           Launch instances in this subnet
+  --tag KEY=VALUE       Custom tag for resources created during encryption.
+                        May be specified multiple times.
 ```
 ```
 $ brkt update-encrypted-ami --help
@@ -102,11 +107,14 @@ optional arguments:
   -h, --help            show this help message and exit
   --encrypted-ami-name NAME
                         Specify the name of the generated encrypted AMI
+  --hvm                 Use the HVM encryptor (beta)
   --no-validate         Don't validate AMIs, subnet, and security groups
   --region REGION       AWS region (e.g. us-west-2)
   --security-group ID   Use this security group when running the encryptor
                         instance. May be specified multiple times.
   --subnet ID           Launch instances in this subnet
+  --tag KEY=VALUE       Custom tag for resources created during encryption.
+                        May be specified multiple times.
 ```
 
 ## Configuration
