@@ -799,8 +799,8 @@ def snapshot_encrypted_instance(aws_svc, enc_svc_cls, encryptor_instance,
         log.info('Adding %s to NO_PROXY environment variable' %
                  encryptor_instance.private_ip_address)
         if os.environ.get('NO_PROXY'):
-            os.environ['NO_PROXY'] += ",%s" % (
-                encryptor_instance.private_ip_address, )
+            os.environ['NO_PROXY'] += "," + \
+                encryptor_instance.private_ip_address
         else:
             os.environ['NO_PROXY'] = encryptor_instance.private_ip_address
 
