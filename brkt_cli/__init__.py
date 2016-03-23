@@ -46,7 +46,7 @@ from encrypt_ami import (
     BracketEnvironment)
 from update_ami import update_ami
 
-VERSION = '0.9.13pre1'
+VERSION = '0.9.14pre1'
 
 log = None
 
