@@ -115,11 +115,11 @@ class GCEService:
 
     def wait_for_disk(self, zone, diskName):
         while True:
+            self.log.info("Waiting for disk to become ready")
             if 'READY' == self.compute.disks().get(zone=zone,
                     project=self.project, disk=diskName).execute()['status']:
                 return
             time.sleep(10)
-            self.log.info("Waiting for disk to become ready")
 
     def wait_for_detach(self, zone, diskName):
         while True:
@@ -141,6 +141,9 @@ class GCEService:
         disk_url = "projects/%s/zones/%s/disks/%s" % (self.project, zone, disk)
         body = {'sourceDisk':disk_url, 'name':snapshot_name}
         self.compute.disks().createSnapshot(project=self.project, disk=disk, body=body, zone=zone).execute()
+
+    def delete_snapshot(self, snapshot_name):
+        self.compute.snapshots().delete(project=self.project, snapshot=snapshot_name).execute()
 
     def disk_from_snapshot(self, zone, snapshot, name):
         if self.disk_exists(zone, name):
@@ -351,14 +354,15 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         log.info('Guest instance terminated')
         log.info('Waiting for guest root disk to become ready')
         gce_svc.wait_for_detach(zone, instance_name)
-        log.info('Launching encryptor instance')
 
         # create blank disk. the encrypted image will be
         # dd'd to this disk
+        log.info('Creating disk for encrypted image')
         gce_svc.create_disk(zone, encrypted_image_disk)
 
         # run encryptor instance with avatar_creator as root,
         # customer image and blank disk
+        log.info('Launching encryptor instance')
         gce_svc.run_instance(zone,
                              encryptor,
                              encryptor_image,
