@@ -11,7 +11,9 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
+import yaml
 
+from brkt_cli.validation import ValidationError
 
 PROXY_ITEM_TEMPLATE = """  - host: %(host)s
     port: %(port)d
@@ -41,3 +43,28 @@ def generate_proxy_config(*proxies):
         contents += item
 
     return contents
+
+
+def validate_proxy_config(proxy_yaml):
+    """ Check that the given content is valid YAML and contains the
+    expected fields.
+    :return: a dictionary that represents the YAML content
+    :raise: ValidationError if parsing or validation fails
+    """
+    try:
+        d = yaml.safe_load(proxy_yaml)
+    except yaml.YAMLError as e:
+        raise ValidationError('Unable to parse proxy config: %s', e.message)
+
+    if 'proxies' not in d:
+        raise ValidationError('Could not find "proxies" section')
+    if len(d['proxies']) < 1:
+        raise ValidationError(
+            'The "proxies" section must contain at least one entry')
+    for i, p in enumerate(d['proxies']):
+        if 'host' not in p:
+            raise ValidationError('host not specified for proxy %d' % i)
+        if 'port' not in p:
+            raise ValidationError('port not specified for proxy %d' % i)
+
+    return d

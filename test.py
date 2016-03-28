@@ -1298,10 +1298,13 @@ class TestProxy(unittest.TestCase):
             brkt_cli._parse_proxies('invalid_hostname.example.com:8001')
 
     def test_generate_proxy_config(self):
+        """ Test generating proxy.yaml from Proxy objects.
+        """
         p1 = Proxy(host='proxy1.example.com', port=8001)
         p2 = Proxy(host='proxy2.example.com', port=8002)
-        config_file = proxy.generate_proxy_config(p1, p2)
-        d = yaml.load(config_file)
+        proxy_yaml = proxy.generate_proxy_config(p1, p2)
+        proxy.validate_proxy_config(proxy_yaml)
+        d = yaml.load(proxy_yaml)
 
         self.assertEquals('proxy1.example.com', d['proxies'][0]['host'])
         self.assertEquals(8001, d['proxies'][0]['port'])
@@ -1310,6 +1313,30 @@ class TestProxy(unittest.TestCase):
 
         self.assertEquals('proxy2.example.com', d['proxies'][1]['host'])
         self.assertEquals(8002, d['proxies'][1]['port'])
+
+    def test_validate_proxy_config(self):
+        """ Test that proxy.yaml validation fails unless we specify at least
+        one complete proxy configuration.
+        """
+        d = {}
+        with self.assertRaises(ValidationError):
+            proxy.validate_proxy_config(yaml.dump(d))
+
+        d['proxies'] = []
+        with self.assertRaises(ValidationError):
+            proxy.validate_proxy_config(yaml.dump(d))
+
+        proxies = {}
+        d['proxies'].append(proxies)
+        with self.assertRaises(ValidationError):
+            proxy.validate_proxy_config(yaml.dump(d))
+
+        proxies['host'] = 'proxy.example.com'
+        with self.assertRaises(ValidationError):
+            proxy.validate_proxy_config(yaml.dump(d))
+
+        proxies['port'] = 8001
+        proxy.validate_proxy_config(yaml.dump(d))
 
 
 class TestUserData(unittest.TestCase):

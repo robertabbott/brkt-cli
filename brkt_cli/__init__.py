@@ -381,8 +381,19 @@ def command_encrypt_ami(values, log):
     if values.brkt_env:
         brkt_env = _parse_brkt_env(values.brkt_env)
 
+    # Handle proxy config.
     proxy_config = None
-    if values.proxies:
+    if values.proxy_config_file:
+        path = values.proxy_config_file
+        log.debug('Loading proxy config from %s', path)
+        try:
+            with open(path) as f:
+                proxy_config = f.read()
+        except IOError as e:
+            log.debug('Unable to read %s', path, e)
+            raise ValidationError('Unable to read %s' % path)
+        proxy.validate_proxy_config(proxy_config)
+    elif values.proxies:
         proxies = _parse_proxies(*values.proxies)
         proxy_config = proxy.generate_proxy_config(*proxies)
 
