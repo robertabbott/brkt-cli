@@ -27,7 +27,9 @@ def setup_encrypt_ami_args(parser):
         default=True,
         help="Don't validate AMIs, subnet, and security groups"
     )
-    parser.add_argument(
+
+    proxy_group = parser.add_mutually_exclusive_group()
+    proxy_group.add_argument(
         '--proxy',
         metavar='HOST:PORT',
         help=(
@@ -37,6 +39,13 @@ def setup_encrypt_ami_args(parser):
         dest='proxies',
         action='append'
     )
+    proxy_group.add_argument(
+        '--proxy-config-file',
+        metavar='PATH',
+        help='Path to proxy.yaml file that will be used during encryption',
+        dest='proxy_config_file'
+    )
+
     parser.add_argument(
         '--region',
         metavar='NAME',
