@@ -152,13 +152,15 @@ class GCEService:
     def disk_from_snapshot(self, zone, snapshot, name):
         if self.disk_exists(zone, name):
             return
+        snap_info = self.compute.snapshots().get(project=self.project,
+                                                 snapshot=snapshot).execute()
         base = "projects/%s/zones/%s" % (self.project, zone)
         body = {
                 "name": name,
                 "zone": base,
                 "type": base + "/diskTypes/pd-ssd",
                 "sourceSnapshot": "projects/%s/global/snapshots/%s" % (self.project, snapshot),
-                "sizeGb": "25"
+                "sizeGb": snap_info['diskSizeGb']
         }
         self.compute.disks().insert(project=self.project,
                 zone=zone, body=body).execute()

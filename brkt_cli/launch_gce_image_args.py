@@ -17,6 +17,13 @@ def setup_launch_gce_image_args(parser):
         required=True
     )
     parser.add_argument(
+        '--instance-type',
+        help='Instance type',
+        dest='instance_type',
+        default='n1-standard-1',
+        required=False
+    )
+    parser.add_argument(
         '--no-validate',
         dest='validate',
         action='store_false',
@@ -28,7 +35,7 @@ def setup_launch_gce_image_args(parser):
         help='GCE zone to operate in',
         dest='zone',
         default='us-central1-a',
-        required=True
+        required=False
     )
     parser.add_argument(
         '--delete-boot',
