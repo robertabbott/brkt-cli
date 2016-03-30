@@ -121,6 +121,10 @@ class GCEService:
                 return
             time.sleep(10)
 
+    def get_disk_size(self, zone, diskName):
+        disk_info = self.compute.disks().get(zone=zone, project=self.project, disk=diskName).execute()
+        return int(disk_info['sizeGb'])
+
     def wait_for_detach(self, zone, diskName):
         while True:
             if "users" not in self.compute.disks().get(zone=zone,
@@ -356,10 +360,12 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         log.info('Waiting for guest root disk to become ready')
         gce_svc.wait_for_detach(zone, instance_name)
 
+        guest_size = gce_svc.get_disk_size(zone, instance_name)
         # create blank disk. the encrypted image will be
-        # dd'd to this disk
+        # dd'd to this disk. Blank disk should be 2x the size
+        # of the unencrypted guest root
         log.info('Creating disk for encrypted image')
-        gce_svc.create_disk(zone, encrypted_image_disk)
+        gce_svc.create_disk(zone, encrypted_image_disk, guest_size * 2 + 1)
 
         # run encryptor instance with avatar_creator as root,
         # customer image and blank disk
@@ -388,6 +394,7 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         gce_svc.create_gce_image_from_disk(zone, encrypted_image_name, encryptor)
         gce_svc.wait_image(encrypted_image_name)
         gce_svc.wait_snapshot(encrypted_image_name)
+        log.info("Image %s successfully created!", encrypted_image_name)
     finally:
         if not deleted:
             gce_svc.delete_instance(zone, encryptor)
@@ -397,7 +404,6 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
                                 encryptor,
                                 encrypted_image_disk])
 
-        log.info("Image %s successfully created!", encrypted_image_name)
         return encrypted_image_name
 
 
