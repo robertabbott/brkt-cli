@@ -14,6 +14,8 @@
 
 import abc
 import re
+import tempfile
+
 import boto
 import boto.sts
 import logging
@@ -281,8 +283,13 @@ class AWSService(BaseAWSService):
                 'Using security groups %s', ', '.join(security_group_ids))
         if subnet_id:
             log.debug('Running instance in %s', subnet_id)
-        if user_data:
-            log.debug('User data: %s', user_data)
+        if user_data and log.isEnabledFor(logging.DEBUG):
+            with tempfile.NamedTemporaryFile(
+                prefix='user-data-',
+                delete=False
+            ) as f:
+                log.debug('Writing instance user data to %s', f.name)
+                f.write(user_data)
 
         try:
             reservation = self.conn.run_instances(
@@ -297,7 +304,9 @@ class AWSService(BaseAWSService):
                 user_data=user_data,
                 instance_profile_name=instance_profile_name
             )
-            return reservation.instances[0]
+            instance = reservation.instances[0]
+            log.debug('Launched instance %s', instance.id)
+            return instance
         except EC2ResponseError:
             log.debug('Failed to launch instance for %s', image_id)
             raise
