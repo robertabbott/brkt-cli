@@ -216,6 +216,7 @@ def command_launch_gce_image(values, log):
                             values.instance_name,
                             values.zone,
                             values.delete_boot,
+                            values.instance_type,
                             {})
     return 0
 

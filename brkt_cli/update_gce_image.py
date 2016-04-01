@@ -35,6 +35,7 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
             encrypted_image_name, zone, brkt_env):
     snap_created = None
     instance = None
+
     try:
         instance_name = 'brkt-updater-' + gce_svc.get_session_id()
         updater = instance_name + '-metavisor'

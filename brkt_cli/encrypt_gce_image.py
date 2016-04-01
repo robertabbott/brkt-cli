@@ -24,9 +24,9 @@ log = logging.getLogger(__name__)
 
 
 brkt_image_buckets = {
-    'prod': 'something',
-    'stage': 'something else',
-    'shared': 'something entirely else'
+    'prod': 'brkt-prod-images',
+    'stage': 'brkt-stage-images',
+    'shared': 'brkt-shared-images'
 }
 
 
@@ -121,6 +121,10 @@ class GCEService:
                 return
             time.sleep(10)
 
+    def get_disk_size(self, zone, diskName):
+        disk_info = self.compute.disks().get(zone=zone, project=self.project, disk=diskName).execute()
+        return int(disk_info['sizeGb'])
+
     def wait_for_detach(self, zone, diskName):
         while True:
             if "users" not in self.compute.disks().get(zone=zone,
@@ -148,13 +152,15 @@ class GCEService:
     def disk_from_snapshot(self, zone, snapshot, name):
         if self.disk_exists(zone, name):
             return
+        snap_info = self.compute.snapshots().get(project=self.project,
+                                                 snapshot=snapshot).execute()
         base = "projects/%s/zones/%s" % (self.project, zone)
         body = {
                 "name": name,
                 "zone": base,
                 "type": base + "/diskTypes/pd-ssd",
                 "sourceSnapshot": "projects/%s/global/snapshots/%s" % (self.project, snapshot),
-                "sizeGb": "25"
+                "sizeGb": snap_info['diskSizeGb']
         }
         self.compute.disks().insert(project=self.project,
                 zone=zone, body=body).execute()
@@ -171,6 +177,7 @@ class GCEService:
         }
         self.compute.disks().insert(project=self.project,
                 zone=zone, body=body).execute()
+        self.wait_for_disk(zone, name)
 
     def create_gce_image_from_disk(self, zone, image_name, disk_name):
         build_disk = "projects/%s/zones/%s/disks/%s" % (self.project,
@@ -193,7 +200,8 @@ class GCEService:
 
     def wait_image(self, image_name):
         while True:
-            if self.compute.images().get(image=image_name, project=self.project).execute()['status'] == 'READY':
+            if self.compute.images().get(image=image_name,
+                    project=self.project).execute()['status'] == 'READY':
                 return
             time.sleep(10)
 
@@ -227,13 +235,13 @@ class GCEService:
                                    image_name,
                                    bucket,
                                    image_file=None):
+        if bucket in brkt_image_buckets:
+            bucket = brkt_image_buckets[bucket]
+
         # if image_file is not provided try to get latest.image.tar.gz
         # if latest.image.tar.gz doesnt exist return the newest image
         if not image_file:
-            if bucket in brkt_image_buckets:
-                image_file = self.get_image_file(brkt_image_buckets[bucket])
-            else:
-                image_file = self.get_image_file(bucket)
+            image_file = self.get_image_file(bucket)
         self.create_gce_image_from_file(zone,
                                         image_name,
                                         image_file,
@@ -338,11 +346,10 @@ def wait_for_instance(
     )
 
 
-# TODO if no encryptor image is provided get a metavisor image
-# from GCS bucket which also has yet to be created
 def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
             encrypted_image_name, zone, brkt_env):
     brkt_data = {}
+    deleted = None
     try:
         encrypt_ami.add_brkt_env_to_user_data(brkt_env, brkt_data)
         instance_name = 'brkt-guest-' + gce_svc.get_session_id()
@@ -355,10 +362,12 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         log.info('Waiting for guest root disk to become ready')
         gce_svc.wait_for_detach(zone, instance_name)
 
+        guest_size = gce_svc.get_disk_size(zone, instance_name)
         # create blank disk. the encrypted image will be
-        # dd'd to this disk
+        # dd'd to this disk. Blank disk should be 2x the size
+        # of the unencrypted guest root
         log.info('Creating disk for encrypted image')
-        gce_svc.create_disk(zone, encrypted_image_disk)
+        gce_svc.create_disk(zone, encrypted_image_disk, guest_size * 2 + 1)
 
         # run encryptor instance with avatar_creator as root,
         # customer image and blank disk
@@ -374,6 +383,7 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         wait_for_encryptor_up(enc_svc, Deadline(600))
         wait_for_encryption(enc_svc)
         gce_svc.delete_instance(zone, encryptor)
+        deleted = True
         # snapshot encrypted guest disk
         log.info("Creating snapshot of encrypted image disk")
         gce_svc.create_snapshot(zone, encrypted_image_disk, encrypted_image_name)
@@ -386,13 +396,16 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         gce_svc.create_gce_image_from_disk(zone, encrypted_image_name, encryptor)
         gce_svc.wait_image(encrypted_image_name)
         gce_svc.wait_snapshot(encrypted_image_name)
+        log.info("Image %s successfully created!", encrypted_image_name)
     finally:
+        if not deleted:
+            gce_svc.delete_instance(zone, encryptor)
         # delete all the disks that were created
         log.info("Cleaning up")
         cleanup(gce_svc, zone, [instance_name,
                                 encryptor,
                                 encrypted_image_disk])
-        log.info("Image %s successfully created!", encrypted_image_name)
+
         return encrypted_image_name
 
 
@@ -405,5 +418,6 @@ def gce_metadata_from_userdata(brkt_data):
 
 def cleanup(gce_svc, zone, disks):
     for disk in disks:
-        gce_svc.wait_for_detach(zone, disk)
-        gce_svc.delete_disk(zone, disk)
+        if gce_svc.disk_exists(zone, disk):
+            gce_svc.wait_for_detach(zone, disk)
+            gce_svc.delete_disk(zone, disk)
