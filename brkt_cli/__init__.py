@@ -48,7 +48,7 @@ from encrypt_ami import (
     BracketEnvironment)
 from update_ami import update_ami
 
-VERSION = '0.9.14'
+VERSION = '0.9.15pre1'
 
 GCE_NAME_MAX_LENGTH = 63
 log = None
