@@ -692,23 +692,6 @@ class TestBrktEnv(unittest.TestCase):
     def setUp(self):
         encrypt_ami.SLEEP_ENABLED = False
 
-    def test_parse_brkt_env(self):
-        """ Test parsing of the command-line --brkt-env value.
-        """
-        be = brkt_cli._parse_brkt_env(
-            'api.example.com:777,hsmproxy.example.com:888')
-        self.assertEqual('api.example.com', be.api_host)
-        self.assertEqual(777, be.api_port)
-        self.assertEqual('hsmproxy.example.com', be.hsmproxy_host)
-        self.assertEqual(888, be.hsmproxy_port)
-
-        with self.assertRaises(ValidationError):
-            brkt_cli._parse_brkt_env('a')
-        with self.assertRaises(ValidationError):
-            brkt_cli._parse_brkt_env('a:7,b:8:9')
-        with self.assertRaises(ValidationError):
-            brkt_cli._parse_brkt_env('a:7,b?:8')
-
     def _get_brkt_config_from_mime(self, compressed_mime_data):
         """Look for a 'brkt-config' part in the multi-part MIME input"""
         data = zlib.decompress(compressed_mime_data, 16 + zlib.MAX_WBITS)
@@ -1218,16 +1201,6 @@ class TestCustomTags(unittest.TestCase):
         with self.assertRaises(ValidationError):
             aws_service.validate_tag_value('aws:foobar')
 
-    def test_parse_tags(self):
-        # Valid tag strings
-        self.assertEquals(
-            {'a': 'b', 'foo': 'bar'},
-            brkt_cli._parse_tags(['a=b', 'foo=bar']))
-
-        # Invalid tag string
-        with self.assertRaises(ValidationError):
-            brkt_cli._parse_tags(['abc'])
-
 
 class TestVersionCheck(unittest.TestCase):
 
@@ -1267,35 +1240,6 @@ class TestVersionCheck(unittest.TestCase):
 
 
 class TestProxy(unittest.TestCase):
-
-    def test_parse_proxies(self):
-        """ Test parsing host:port strings to Proxy objects.
-        """
-        # Valid
-        proxies = brkt_cli._parse_proxies(
-            'example1.com:8001',
-            'example2.com:8002',
-            '192.168.1.1:8003'
-        )
-        self.assertEquals(3, len(proxies))
-        (p1, p2, p3) = proxies[0:3]
-
-        self.assertEquals('example1.com', p1.host)
-        self.assertEquals(8001, p1.port)
-        self.assertEquals('example2.com', p2.host)
-        self.assertEquals(8002, p2.port)
-        self.assertEquals('192.168.1.1', p3.host)
-        self.assertEquals(8003, p3.port)
-
-        # Invalid
-        with self.assertRaises(ValidationError):
-            brkt_cli._parse_proxies('example.com')
-        with self.assertRaises(ValidationError):
-            brkt_cli._parse_proxies('example.com:1:2')
-        with self.assertRaises(ValidationError):
-            brkt_cli._parse_proxies('example.com:1a')
-        with self.assertRaises(ValidationError):
-            brkt_cli._parse_proxies('invalid_hostname.example.com:8001')
 
     def test_generate_proxy_config(self):
         """ Test generating proxy.yaml from Proxy objects.
@@ -1346,3 +1290,64 @@ class TestUserData(unittest.TestCase):
         udc.add_file('test.txt', '1 2 3', 'text/plain')
         mime = udc.to_mime_text()
         self.assertTrue('test.txt: {contents: 1 2 3}' in mime)
+
+
+class TestCommandLineOptions(unittest.TestCase):
+    """ Test handling of command line options."""
+
+    def test_parse_tags(self):
+        # Valid tag strings
+        self.assertEquals(
+            {'a': 'b', 'foo': 'bar'},
+            brkt_cli._parse_tags(['a=b', 'foo=bar']))
+
+        # Invalid tag string
+        with self.assertRaises(ValidationError):
+            brkt_cli._parse_tags(['abc'])
+
+    def test_parse_proxies(self):
+        """ Test parsing host:port strings to Proxy objects.
+        """
+        # Valid
+        proxies = brkt_cli._parse_proxies(
+            'example1.com:8001',
+            'example2.com:8002',
+            '192.168.1.1:8003'
+        )
+        self.assertEquals(3, len(proxies))
+        (p1, p2, p3) = proxies[0:3]
+
+        self.assertEquals('example1.com', p1.host)
+        self.assertEquals(8001, p1.port)
+        self.assertEquals('example2.com', p2.host)
+        self.assertEquals(8002, p2.port)
+        self.assertEquals('192.168.1.1', p3.host)
+        self.assertEquals(8003, p3.port)
+
+        # Invalid
+        with self.assertRaises(ValidationError):
+            brkt_cli._parse_proxies('example.com')
+        with self.assertRaises(ValidationError):
+            brkt_cli._parse_proxies('example.com:1:2')
+        with self.assertRaises(ValidationError):
+            brkt_cli._parse_proxies('example.com:1a')
+        with self.assertRaises(ValidationError):
+            brkt_cli._parse_proxies('invalid_hostname.example.com:8001')
+
+    def test_parse_brkt_env(self):
+        """ Test parsing of the command-line --brkt-env value.
+        """
+        be = brkt_cli._parse_brkt_env(
+            'api.example.com:777,hsmproxy.example.com:888')
+        self.assertEqual('api.example.com', be.api_host)
+        self.assertEqual(777, be.api_port)
+        self.assertEqual('hsmproxy.example.com', be.hsmproxy_host)
+        self.assertEqual(888, be.hsmproxy_port)
+
+        with self.assertRaises(ValidationError):
+            brkt_cli._parse_brkt_env('a')
+        with self.assertRaises(ValidationError):
+            brkt_cli._parse_brkt_env('a:7,b:8:9')
+        with self.assertRaises(ValidationError):
+            brkt_cli._parse_brkt_env('a:7,b?:8')
+
