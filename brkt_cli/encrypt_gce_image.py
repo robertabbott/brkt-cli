@@ -351,7 +351,7 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
     brkt_data = {}
     deleted = None
     try:
-        encrypt_ami.add_brkt_env_to_user_data(brkt_env, brkt_data)
+        encrypt_ami.add_brkt_env_to_brkt_config(brkt_env, brkt_data)
         instance_name = 'brkt-guest-' + gce_svc.get_session_id()
         encryptor = instance_name + '-encryptor'
         encrypted_image_disk = 'encrypted-image-' + gce_svc.get_session_id()

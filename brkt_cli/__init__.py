@@ -355,6 +355,32 @@ def _parse_proxies(*proxy_host_ports):
     return proxies
 
 
+def _get_proxy_config(values):
+    """ Read proxy config specified by either the --proxy or
+    --proxy-config-file option.
+
+    @return: the contents of the proxy.yaml file, or None if not specified
+    @raise ValidationError if the file cannot be read or is malformed
+    """
+    proxy_config = None
+    if values.proxy_config_file:
+        path = values.proxy_config_file
+        log.debug('Loading proxy config from %s', path)
+        try:
+            with open(path) as f:
+                proxy_config = f.read()
+        except IOError as e:
+            log.debug('Unable to read %s', path, e)
+            raise ValidationError('Unable to read %s' % path)
+        proxy.validate_proxy_config(proxy_config)
+    elif values.proxies:
+        proxies = _parse_proxies(*values.proxies)
+        proxy_config = proxy.generate_proxy_config(*proxies)
+        log.debug('Using proxy configuration:\n%s', proxy_config)
+
+    return proxy_config
+
+
 def command_encrypt_ami(values, log):
     session_id = util.make_nonce()
 
@@ -382,21 +408,7 @@ def command_encrypt_ami(values, log):
     if values.brkt_env:
         brkt_env = _parse_brkt_env(values.brkt_env)
 
-    # Handle proxy config.
-    proxy_config = None
-    if values.proxy_config_file:
-        path = values.proxy_config_file
-        log.debug('Loading proxy config from %s', path)
-        try:
-            with open(path) as f:
-                proxy_config = f.read()
-        except IOError as e:
-            log.debug('Unable to read %s', path, e)
-            raise ValidationError('Unable to read %s' % path)
-        proxy.validate_proxy_config(proxy_config)
-    elif values.proxies:
-        proxies = _parse_proxies(*values.proxies)
-        proxy_config = proxy.generate_proxy_config(*proxies)
+    proxy_config = _get_proxy_config(values)
 
     encrypted_image_id = encrypt_ami.encrypt(
         aws_svc=aws_svc,
@@ -548,6 +560,7 @@ def command_update_encrypted_ami(values, log):
     brkt_env = None
     if values.brkt_env:
         brkt_env = _parse_brkt_env(values.brkt_env)
+    proxy_config = _get_proxy_config(values)
 
     # Initial validation done
     log.info('Updating %s with new metavisor %s', encrypted_ami, encryptor_ami)
@@ -557,7 +570,8 @@ def command_update_encrypted_ami(values, log):
         subnet_id=values.subnet_id,
         security_group_ids=values.security_group_ids,
         ntp_servers=values.ntp_servers,
-        brkt_env=brkt_env
+        brkt_env=brkt_env,
+        proxy_config=proxy_config
     )
     print(updated_ami_id)
     return 0
