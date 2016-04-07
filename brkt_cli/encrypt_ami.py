@@ -499,15 +499,44 @@ def create_encryptor_security_group(aws_svc, vpc_id=None):
     return sg
 
 
-def add_brkt_env_to_user_data(brkt_env, user_data):
+def add_brkt_env_to_brkt_config(brkt_env, brkt_config):
     if brkt_env:
-        if 'brkt' not in user_data:
-            user_data['brkt'] = {}
+        if 'brkt' not in brkt_config:
+            brkt_config['brkt'] = {}
         api_host_port = '%s:%d' % (brkt_env.api_host, brkt_env.api_port)
         hsmproxy_host_port = '%s:%d' % (
             brkt_env.hsmproxy_host, brkt_env.hsmproxy_port)
-        user_data['brkt']['api_host'] = api_host_port
-        user_data['brkt']['hsmproxy_host'] = hsmproxy_host_port
+        brkt_config['brkt']['api_host'] = api_host_port
+        brkt_config['brkt']['hsmproxy_host'] = hsmproxy_host_port
+
+
+def combine_user_data(brkt_config=None, proxy_config=None):
+    """ Combine the user data dictionary with the given proxy configuration
+    into the gzipped multipart MIME binary that will be sent to the
+    metavisor instance.
+
+    :param brkt_config: dictionary of Bracket config values
+    :param proxy_config: proxy.yaml contents
+    :return: a gzipped multipart MIME binary
+    """
+    udc = UserDataContainer()
+
+    brkt_config = brkt_config or {}
+    brkt_config_string = json.dumps(brkt_config)
+    udc.add_part(BRKT_CONFIG_CONTENT_TYPE, brkt_config_string)
+
+    if proxy_config:
+        udc.add_file(
+            '/var/brkt/ami_config/proxy.yaml',
+            proxy_config,
+            BRKT_FILES_CONTENT_TYPE
+        )
+
+    user_data_string = udc.to_mime_text()
+    out = StringIO()
+    with gzip.GzipFile(fileobj=out, mode="w") as f:
+        f.write(user_data_string)
+    return out.getvalue()
 
 
 def run_encryptor_instance(aws_svc, encryptor_image_id,
@@ -515,11 +544,11 @@ def run_encryptor_instance(aws_svc, encryptor_image_id,
            guest_image_id, brkt_env=None, security_group_ids=None,
            subnet_id=None, zone=None, ntp_servers=None, proxy_config=None):
     bdm = BlockDeviceMapping()
-    user_data = {}
-    add_brkt_env_to_user_data(brkt_env, user_data)
+    brkt_config = {}
+    add_brkt_env_to_brkt_config(brkt_env, brkt_config)
 
     if ntp_servers:
-        user_data['ntp-servers'] = ntp_servers
+        brkt_config['ntp-servers'] = ntp_servers
 
     image = aws_svc.get_image(encryptor_image_id)
     virtualization_type = image.virtualization_type
@@ -549,24 +578,7 @@ def run_encryptor_instance(aws_svc, encryptor_image_id,
         bdm['/dev/sdf'] = guest_unencrypted_root
         bdm['/dev/sdg'] = guest_encrypted_root
 
-    udc = UserDataContainer()
-
-    brkt_config_string = json.dumps(user_data)
-    udc.add_part(BRKT_CONFIG_CONTENT_TYPE, brkt_config_string)
-
-    if proxy_config:
-        udc.add_file(
-            '/var/brkt/ami_config/proxy.yaml',
-            proxy_config,
-            BRKT_FILES_CONTENT_TYPE
-        )
-
-    user_data_string = udc.to_mime_text()
-    out = StringIO()
-    with gzip.GzipFile(fileobj=out, mode="w") as f:
-        f.write(user_data_string)
-    compressed_user_data = out.getvalue()
-
+    compressed_user_data = combine_user_data(brkt_config, proxy_config)
     instance = aws_svc.run_instance(encryptor_image_id,
                                     security_group_ids=security_group_ids,
                                     user_data=compressed_user_data,
