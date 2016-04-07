@@ -56,7 +56,7 @@ log = logging.getLogger(__name__)
 def update_ami(aws_svc, encrypted_ami, updater_ami,
                encrypted_ami_name, subnet_id=None, security_group_ids=None,
                enc_svc_class=encryptor_service.EncryptorService,
-               ntp_servers=None, brkt_env=None, proxy_config=None):
+               ntp_servers=None, brkt_env=None):
     encrypted_guest = None
     updater = None
     mv_root_id = None
@@ -70,10 +70,10 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
         # base to create a new AMI and preserve license
         # information embedded in the guest AMI
         log.info("Launching encrypted guest/updater")
-        brkt_config = {'brkt': {'solo_mode': 'updater'}}
+        user_data = {'brkt': {'solo_mode': 'updater'}}
         if ntp_servers:
-            brkt_config['ntp-servers'] = ntp_servers
-        encrypt_ami.add_brkt_env_to_brkt_config(brkt_env, brkt_config)
+            user_data['ntp-servers'] = ntp_servers
+        encrypt_ami.add_brkt_env_to_user_data(brkt_env, user_data)
 
         if not security_group_ids:
             vpc_id = None
@@ -90,20 +90,17 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
             ebs_optimized=False,
             subnet_id=subnet_id,
             security_group_ids=security_group_ids,
-            user_data=json.dumps(brkt_config))
+            user_data=json.dumps(user_data))
         aws_svc.create_tags(
             encrypted_guest.id,
             name=NAME_GUEST_CREATOR,
             description=DESCRIPTION_GUEST_CREATOR % {'image_id': encrypted_ami}
         )
-
         # Run updater in same zone as guest so we can swap volumes
-        compressed_user_data = encrypt_ami.combine_user_data(
-            brkt_config, proxy_config)
         updater = aws_svc.run_instance(
             updater_ami,
             instance_type="m3.medium",
-            user_data=compressed_user_data,
+            user_data=json.dumps(user_data),
             ebs_optimized=False,
             subnet_id=subnet_id,
             placement=encrypted_guest.placement,

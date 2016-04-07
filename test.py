@@ -22,17 +22,12 @@ from boto.vpc import Subnet, VPC
 
 import brkt_cli
 from brkt_cli.proxy import Proxy
-from brkt_cli.user_data import (
-    UserDataContainer,
-    BRKT_CONFIG_CONTENT_TYPE,
-    BRKT_FILES_CONTENT_TYPE
-)
+from brkt_cli.user_data import UserDataContainer, BRKT_CONFIG_CONTENT_TYPE
 from brkt_cli.validation import ValidationError
 import email
 import inspect
 import logging
 import os
-import tempfile
 import unittest
 import uuid
 import zlib
@@ -739,47 +734,6 @@ class TestBrktEnv(unittest.TestCase):
             encryptor_ami=encryptor_image.id
         )
 
-    def test_brkt_env_update(self):
-        """ Test that the Bracket environment is passed through to metavisor
-        user data.
-        """
-        aws_svc, encryptor_image, guest_image = _build_aws_service()
-        encrypted_ami_id = encrypt_ami.encrypt(
-            aws_svc=aws_svc,
-            enc_svc_cls=DummyEncryptorService,
-            image_id=guest_image.id,
-            encryptor_ami=encryptor_image.id
-        )
-
-        api_host_port = 'api.example.com:777'
-        hsmproxy_host_port = 'hsmproxy.example.com:888'
-        brkt_env = brkt_cli._parse_brkt_env(
-            api_host_port + ',' + hsmproxy_host_port)
-
-        def run_instance_callback(args):
-            if args.image_id == encryptor_image.id:
-                brkt_config = self._get_brkt_config_from_mime(args.user_data)
-                d = json.loads(brkt_config)
-                self.assertEquals(
-                    api_host_port,
-                    d['brkt']['api_host']
-                )
-                self.assertEquals(
-                    hsmproxy_host_port,
-                    d['brkt']['hsmproxy_host']
-                )
-                self.assertEquals(
-                    'updater',
-                    d['brkt']['solo_mode']
-                )
-
-        aws_svc.run_instance_callback = run_instance_callback
-        update_ami(
-            aws_svc, encrypted_ami_id, encryptor_image.id, 'Test updated AMI',
-            enc_svc_class=DummyEncryptorService,
-            brkt_env=brkt_env
-        )
-
 
 class TestRunUpdate(unittest.TestCase):
 
@@ -815,6 +769,46 @@ class TestRunUpdate(unittest.TestCase):
 
         self.assertEqual(2, self.call_count)
         self.assertIsNotNone(ami_id)
+
+    def test_brkt_env_update(self):
+        """ Test that the Bracket environment is through to metavisor user
+        data.
+        """
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
+        encrypted_ami_id = encrypt_ami.encrypt(
+            aws_svc=aws_svc,
+            enc_svc_cls=DummyEncryptorService,
+            image_id=guest_image.id,
+            encryptor_ami=encryptor_image.id
+        )
+
+        api_host_port = 'api.example.com:777'
+        hsmproxy_host_port = 'hsmproxy.example.com:888'
+        brkt_env = brkt_cli._parse_brkt_env(
+            api_host_port + ',' + hsmproxy_host_port)
+
+        def run_instance_callback(args):
+            if args.image_id == encryptor_image.id:
+                d = json.loads(args.user_data)
+                self.assertEquals(
+                    api_host_port,
+                    d['brkt']['api_host']
+                )
+                self.assertEquals(
+                    hsmproxy_host_port,
+                    d['brkt']['hsmproxy_host']
+                )
+                self.assertEquals(
+                    'updater',
+                    d['brkt']['solo_mode']
+                )
+
+        aws_svc.run_instance_callback = run_instance_callback
+        update_ami(
+            aws_svc, encrypted_ami_id, encryptor_image.id, 'Test updated AMI',
+            enc_svc_class=DummyEncryptorService,
+            brkt_env=brkt_env
+        )
 
 
 class ExpiredDeadline(object):
@@ -971,8 +965,6 @@ class DummyValues(object):
         self.validate = True
         self.ami = None
         self.encryptor_ami = None
-        self.proxies = []
-        self.proxy_config_file = None
 
 
 class TestValidation(unittest.TestCase):
@@ -1299,35 +1291,6 @@ class TestUserData(unittest.TestCase):
         mime = udc.to_mime_text()
         self.assertTrue('test.txt: {contents: 1 2 3}' in mime)
 
-    def test_combine_user_data(self):
-        """ Test combining Bracket config data with HTTP proxy config data.
-        """
-        brkt_config = {'foo': 'bar'}
-        p = Proxy(host='proxy1.example.com', port=8001)
-        proxy_config = proxy.generate_proxy_config(p)
-        compressed_mime_data = encrypt_ami.combine_user_data(
-            brkt_config,
-            proxy_config
-        )
-        mime_data = zlib.decompress(compressed_mime_data, 16 + zlib.MAX_WBITS)
-
-        msg = email.message_from_string(mime_data)
-        found_brkt_config = False
-        found_brkt_files = False
-
-        for part in msg.walk():
-            if part.get_content_type() == BRKT_CONFIG_CONTENT_TYPE:
-                found_brkt_config = True
-                content = part.get_payload(decode=True)
-                self.assertEqual('{"foo": "bar"}', content)
-            if part.get_content_type() == BRKT_FILES_CONTENT_TYPE:
-                found_brkt_files = True
-                content = part.get_payload(decode=True)
-                self.assertTrue('/var/brkt/ami_config/proxy.yaml:' in content)
-
-        self.assertTrue(found_brkt_config)
-        self.assertTrue(found_brkt_files)
-
 
 class TestCommandLineOptions(unittest.TestCase):
     """ Test handling of command line options."""
@@ -1388,32 +1351,3 @@ class TestCommandLineOptions(unittest.TestCase):
         with self.assertRaises(ValidationError):
             brkt_cli._parse_brkt_env('a:7,b?:8')
 
-    def test_get_proxy_config(self):
-        """ Test reading proxy config from the --proxy and --proxy-config-file
-        command line options.
-        """
-        # No proxy.
-        values = DummyValues()
-        self.assertIsNone(brkt_cli._get_proxy_config(values))
-
-        # --proxy specified.
-        values.proxies = ['proxy.example.com:8000']
-        proxy_yaml = brkt_cli._get_proxy_config(values)
-        d = yaml.load(proxy_yaml)
-        self.assertEquals('proxy.example.com', d['proxies'][0]['host'])
-
-        # --proxy-config-file references a file that doesn't exist.
-        values.proxy = None
-        values.proxy_config_file = 'bogus.yaml'
-        with self.assertRaises(ValidationError):
-            brkt_cli._get_proxy_config(values)
-
-        # --proxy-config-file references a valid file.
-        with tempfile.NamedTemporaryFile() as f:
-            f.write(proxy_yaml)
-            f.flush()
-            values.proxy_config_file = f.name
-            proxy_yaml = brkt_cli._get_proxy_config(values)
-
-        d = yaml.load(proxy_yaml)
-        self.assertEquals('proxy.example.com', d['proxies'][0]['host'])
