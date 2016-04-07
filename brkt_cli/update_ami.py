@@ -21,8 +21,9 @@ AWS_SECRET_ACCESS_KEY environment variables, like you would when
 running the AWS command line utility.
 """
 
-import logging
 import json
+import logging
+import os
 
 from boto.ec2.blockdevicemapping import EBSBlockDeviceType
 
@@ -126,6 +127,13 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
             host_ips.append(updater.ip_address)
         if updater.private_ip_address:
             host_ips.append(updater.private_ip_address)
+            log.info('Adding %s to NO_PROXY environment variable' %
+                 updater.private_ip_address)
+            if os.environ.get('NO_PROXY'):
+                os.environ['NO_PROXY'] += "," + \
+                    updater.private_ip_address
+            else:
+                os.environ['NO_PROXY'] = updater.private_ip_address
 
         enc_svc = enc_svc_class(host_ips)
         log.info('Waiting for updater service on %s (port %s on %s)',
