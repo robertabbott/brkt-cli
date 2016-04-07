@@ -1108,6 +1108,34 @@ class TestValidation(unittest.TestCase):
                 aws_svc, 'ami-123456', new_encryptor_id
             )
 
+    def test_validate_encryptor_ami(self):
+        """ Test validation of the encryptor AMI.
+        """
+        aws_svc = DummyAWSService()
+        image = Image()
+        image.id = _new_id()
+        image.name = 'brkt-avatar'
+        aws_svc.images[image.id] = image
+
+        # Valid image.
+        brkt_cli._validate_encryptor_ami(aws_svc, image.id)
+
+        # Unexpected name.
+        image.name = 'foobar'
+        with self.assertRaises(ValidationError):
+            brkt_cli._validate_encryptor_ami(aws_svc, image.id)
+
+        # Invalid id.
+        id = _new_id()
+        with self.assertRaises(ValidationError):
+            brkt_cli._validate_encryptor_ami(aws_svc, id)
+
+        # Service returned None.  Apparently this can happen when the account
+        # does not have access to the image.
+        aws_svc.images[id] = None
+        with self.assertRaises(ValidationError):
+            brkt_cli._validate_encryptor_ami(aws_svc, id)
+
     def test_detect_valid_ntp_server(self):
         """ Test that we allow only valid host names or IPv4 addresses to
             to be configured as ntp servers.
