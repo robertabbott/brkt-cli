@@ -30,6 +30,7 @@ from brkt_cli import aws_service
 from brkt_cli import encrypt_ami
 from brkt_cli import encrypt_ami_args
 from brkt_cli import encryptor_service
+from brkt_cli import gce_service
 from brkt_cli import encrypt_gce_image
 from brkt_cli import encrypt_gce_image_args
 from brkt_cli import launch_gce_image
@@ -50,7 +51,6 @@ from update_ami import update_ami
 
 VERSION = '0.9.15pre1'
 
-GCE_NAME_MAX_LENGTH = 63
 log = None
 
 
@@ -206,7 +206,7 @@ def _parse_brkt_env(brkt_env_string):
 
 
 def command_launch_gce_image(values, log):
-    gce_svc = encrypt_gce_image.GCEService(values.project, None, log)
+    gce_svc = gce_service.GCEService(values.project, None, log)
     launch_gce_image.launch(log,
                             gce_svc,
                             values.image,
@@ -221,28 +221,12 @@ def command_launch_gce_image(values, log):
 def command_update_encrypted_gce_image(values, log):
     session_id = util.make_nonce()
     default_tags = encrypt_ami.get_default_tags(session_id, "")
-    gce_svc = encrypt_gce_image.GCEService(values.project, default_tags, log)
+    gce_svc = gce_service.GCEService(values.project, default_tags, log)
 
-    encrypted_image_name = values.encrypted_image_name
+    encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
     if not gce_svc.get_image(values.image):
         raise ValidationError(
             'Image %s does not exist. Cannot update.' % values.image)
-
-    if not encrypted_image_name:
-        nonce = util.make_nonce()
-        # Replace nonce in image name
-        name = values.image
-        m = re.match('(.+)\-encrypted\-', name)
-        if m:
-            encrypted_image_name = encrypt_ami.append_suffix(
-                    m.group(1),
-                    '-encrypted-%s' % (nonce,),
-                    GCE_NAME_MAX_LENGTH)
-        else:
-            encrypted_image_name = encrypt_ami.append_suffix(
-                    name,
-                    '-encrypted-%s' % (nonce,),
-                    GCE_NAME_MAX_LENGTH)
 
     try:
         gce_svc.get_image(encrypted_image_name)
@@ -291,12 +275,13 @@ def command_update_encrypted_gce_image(values, log):
 def command_encrypt_gce_image(values, log):
     session_id = util.make_nonce()
     default_tags = encrypt_ami.get_default_tags(session_id, "")
-    gce_svc = encrypt_gce_image.GCEService(values.project, default_tags, log)
+    gce_svc = gce_service.GCEService(values.project, default_tags, log)
 
     brkt_env = None
     if values.brkt_env:
         brkt_env = _parse_brkt_env(values.brkt_env)
 
+    encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
     # use pre-existing image
     if values.encryptor_image:
         encryptor = values.encryptor_image
@@ -320,7 +305,7 @@ def command_encrypt_gce_image(values, log):
         enc_svc_cls=encryptor_service.EncryptorService,
         image_id=values.image,
         encryptor_image=encryptor,
-        encrypted_image_name=values.encrypted_image_name,
+        encrypted_image_name=encrypted_image_name,
         zone=values.zone,
         brkt_env=brkt_env
     )

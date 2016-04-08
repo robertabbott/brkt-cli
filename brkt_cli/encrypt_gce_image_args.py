@@ -17,13 +17,6 @@ def setup_encrypt_gce_image_args(parser):
         required=False
     )
     parser.add_argument(
-        '--no-validate',
-        dest='validate',
-        action='store_false',
-        default=True,
-        help="Don't validate images"
-    )
-    parser.add_argument(
         '--zone',
         help='GCE zone to operate in',
         dest='zone',
