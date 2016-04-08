@@ -141,10 +141,7 @@ def _connect_and_validate(aws_svc, values, encryptor_ami_id):
         if values.validate:
             _validate_subnet_and_security_groups(
                 aws_svc, values.subnet_id, values.security_group_ids)
-
-            error_msg = validate_encryptor_ami(aws_svc, encryptor_ami_id)
-            if error_msg:
-                raise ValidationError(error_msg)
+            _validate_encryptor_ami(aws_svc, encryptor_ami_id)
         else:
             log.debug('Skipping validation')
 
@@ -416,19 +413,30 @@ def command_encrypt_ami(values, log):
     return 0
 
 
+def _validate_ami(aws_svc, ami_id):
+    """
+    @return the Image object
+    @raise ValidationError if the image doesn't exist
+    """
+    try:
+        image = aws_svc.get_image(ami_id)
+    except EC2ResponseError, e:
+        if e.error_code.startswith('InvalidAMIID'):
+            raise ValidationError(
+                'Could not find ' + ami_id + ': ' + e.error_code)
+        else:
+            raise ValidationError(e.error_message)
+    if not image:
+        raise ValidationError('Could not find ' + ami_id)
+    return image
+
+
 def _validate_guest_ami(aws_svc, ami_id):
     """ Validate that we are able to encrypt this image.
 
     :return: None if the image is valid, or an error string if not
     """
-    try:
-        image = aws_svc.get_image(ami_id)
-    except EC2ResponseError, e:
-        if e.error_code == 'InvalidAMIID.NotFound':
-            return e.error_message
-        else:
-            raise
-
+    image = _validate_ami(aws_svc, ami_id)
     if TAG_ENCRYPTOR in image.tags:
         return '%s is already an encrypted image' % ami_id
 
@@ -452,13 +460,7 @@ def _validate_guest_encrypted_ami(aws_svc, ami_id, encryptor_ami_id):
     :raise: ValidationError if validation fails
     :return: the Image object
     """
-    try:
-        ami = aws_svc.get_image(ami_id)
-    except EC2ResponseError as e:
-        if e.error_code == 'InvalidAMIID.NotFound':
-            raise ValidationError('Could not find %s' % ami_id)
-        else:
-            raise
+    ami = _validate_ami(aws_svc, ami_id)
 
     # Is this encrypted by Bracket?
     tags = ami.tags
@@ -482,14 +484,16 @@ def _validate_guest_encrypted_ami(aws_svc, ami_id, encryptor_ami_id):
     return ami
 
 
-def validate_encryptor_ami(aws_svc, ami_id):
-    try:
-        image = aws_svc.get_image(ami_id)
-    except EC2ResponseError, e:
-        return e.error_message
+def _validate_encryptor_ami(aws_svc, ami_id):
+    """ Validate that the image exists and is a Bracket encryptor image.
+
+    @raise ValidationError if validation fails
+    """
+    image = _validate_ami(aws_svc, ami_id)
     if 'brkt-avatar' not in image.name:
-        return '%s (%s) is not a Bracket Encryptor image' % (
-            ami_id, image.name)
+        raise ValidationError(
+            '%s (%s) is not a Bracket Encryptor image' % (ami_id, image.name)
+        )
     return None
 
 
