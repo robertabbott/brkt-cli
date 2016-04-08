@@ -20,7 +20,7 @@ from brkt_cli.util import (
 import encrypt_ami
 from encrypt_ami import wait_for_encryption
 from encrypt_ami import wait_for_encryptor_up
-from encrypt_gce_image import gce_metadata_from_userdata
+from gce_service import gce_metadata_from_userdata
 from encrypt_gce_image import cleanup
 
 """
