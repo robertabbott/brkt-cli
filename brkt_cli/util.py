@@ -55,3 +55,17 @@ def validate_dns_name_ip_address(hostname):
         hostname = hostname[:-1]
     valid = re.compile("(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
     return all(valid.match(x) for x in hostname.split("."))
+
+
+def append_suffix(name, suffix, max_length=None):
+    """ Append the suffix to the given name.  If the appended length exceeds
+    max_length, truncate the name to make room for the suffix.
+
+    :return: The possibly truncated name with the suffix appended
+    """
+    if not suffix:
+        return name
+    if max_length:
+        truncated_length = max_length - len(suffix)
+        name = name[:truncated_length]
+    return name + suffix

@@ -47,24 +47,24 @@ import time
 import urllib2
 from StringIO import StringIO
 
-from boto.exception import EC2ResponseError
 from boto.ec2.blockdevicemapping import (
     BlockDeviceMapping,
     EBSBlockDeviceType,
 )
 from boto.ec2.instance import InstanceAttribute
+from boto.exception import EC2ResponseError
 
 from brkt_cli import encryptor_service
-from brkt_cli.util import (
-    BracketError,
-    Deadline,
-    make_nonce,
-)
 from brkt_cli.user_data import (
     UserDataContainer,
     BRKT_CONFIG_CONTENT_TYPE,
     BRKT_FILES_CONTENT_TYPE
 )
+from brkt_cli.util import (
+    BracketError,
+    Deadline,
+    make_nonce,
+    append_suffix)
 
 # End user-visible terminology.  These are resource names and descriptions
 # that the user will see in his or her EC2 console.
@@ -351,20 +351,6 @@ def get_encrypted_suffix():
     the suffix is necessary because Amazon requires image names to be unique.
     """
     return NAME_ENCRYPTED_IMAGE_SUFFIX % {'nonce': make_nonce()}
-
-
-def append_suffix(name, suffix, max_length=None):
-    """ Append the suffix to the given name.  If the appended length exceeds
-    max_length, truncate the name to make room for the suffix.
-
-    :return: The possibly truncated name with the suffix appended
-    """
-    if not suffix:
-        return name
-    if max_length:
-        truncated_length = max_length - len(suffix)
-        name = name[:truncated_length]
-    return name + suffix
 
 
 def get_encryptor_ami(region, hvm=False):

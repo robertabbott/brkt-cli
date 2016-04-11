@@ -26,6 +26,7 @@ import boto.vpc
 import requests
 from boto.exception import EC2ResponseError, NoAuthHandlerFound
 
+import brkt_cli.util
 from brkt_cli import aws_service
 from brkt_cli import encrypt_ami
 from brkt_cli import encrypt_ami_args
@@ -221,7 +222,6 @@ def command_launch_gce_image(values, log):
 def command_update_encrypted_gce_image(values, log):
     session_id = util.make_nonce()
     default_tags = encrypt_ami.get_default_tags(session_id, "")
-    gce_svc = gce_service.GCEService(values.project, default_tags, log)
 
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
     # check that image to be updated exists
@@ -487,6 +487,24 @@ def _validate_encryptor_ami(aws_svc, ami_id):
     return None
 
 
+def _get_updated_image_name(image_name, session_id):
+    """ Generate a new name, based on the existing name of the encrypted
+    image and the session id.
+
+    @return the new name
+    """
+    # Replace session id in the image name.
+    m = re.match('(.+) \(encrypted (\S+)\)', image_name)
+    suffix = ' (encrypted %s)' % session_id
+    if m:
+        encrypted_ami_name = util.append_suffix(
+            m.group(1), suffix, max_length=128)
+    else:
+        encrypted_ami_name = util.append_suffix(
+            image_name, suffix, max_length=128)
+    return encrypted_ami_name
+
+
 def command_update_encrypted_ami(values, log):
     nonce = util.make_nonce()
 
@@ -526,18 +544,16 @@ def command_update_encrypted_ami(values, log):
         return 1
 
     encrypted_ami_name = values.encrypted_ami_name
-    if not encrypted_ami_name:
-        # Replace nonce in AMI name
-        name = guest_image.name
-        m = re.match('(.+) \(encrypted (\S+)\)', name)
-        if m:
-            encrypted_ami_name = m.group(1) + ' (encrypted %s)' % (nonce,)
-        else:
-            encrypted_ami_name = name + ' (encrypted %s)' % (nonce,)
+    if encrypted_ami_name:
+        # Check for name collision.
         filters = {'name': encrypted_ami_name}
         if aws_svc.get_images(filters=filters, owners=['self']):
             raise ValidationError(
                 'You already own image named %s' % encrypted_ami_name)
+    else:
+        encrypted_ami_name = _get_updated_image_name(guest_image.name, nonce)
+    log.debug('Image name: %s', encrypted_ami_name)
+    aws_service.validate_image_name(encrypted_ami_name)
 
     brkt_env = None
     if values.brkt_env:

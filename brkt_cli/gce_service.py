@@ -10,6 +10,7 @@ from brkt_cli.util import (
     BracketError,
     Deadline,
     make_nonce,
+    append_suffix
 )
 from brkt_cli import encrypt_ami
 from googleapiclient import discovery
@@ -366,12 +367,12 @@ def get_image_name(encrypted_image_name, name):
     # Replace nonce in image name
     m = re.match('(.+)\-encrypted\-', name)
     if m:
-        encrypted_image_name = encrypt_ami.append_suffix(
+        encrypted_image_name = append_suffix(
                 m.group(1),
                 '-encrypted-%s' % (nonce,),
                 GCE_NAME_MAX_LENGTH)
     else:
-        encrypted_image_name = encrypt_ami.append_suffix(
+        encrypted_image_name = append_suffix(
                 name,
                 '-encrypted-%s' % (nonce,),
                 GCE_NAME_MAX_LENGTH)
