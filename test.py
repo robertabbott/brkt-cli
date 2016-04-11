@@ -21,6 +21,7 @@ from boto.regioninfo import RegionInfo
 from boto.vpc import Subnet, VPC
 
 import brkt_cli
+import brkt_cli.util
 from brkt_cli.proxy import Proxy
 from brkt_cli.user_data import UserDataContainer, BRKT_CONFIG_CONTENT_TYPE
 from brkt_cli.validation import ValidationError
@@ -398,14 +399,14 @@ class TestEncryptedImageName(unittest.TestCase):
         """
         name = 'Boogie nights are always the best in town'
         suffix = ' (except Tuesday)'
-        encrypted_name = encrypt_ami.append_suffix(
+        encrypted_name = brkt_cli.util.append_suffix(
             name, suffix, max_length=128)
         self.assertTrue(encrypted_name.startswith(name))
         self.assertTrue(encrypted_name.endswith(suffix))
 
         # Make sure we truncate the original name when it's too long.
         name += ('X' * 100)
-        encrypted_name = encrypt_ami.append_suffix(
+        encrypted_name = brkt_cli.util.append_suffix(
             name, suffix, max_length=128)
         self.assertEqual(128, len(encrypted_name))
         self.assertTrue(encrypted_name.startswith('Boogie nights'))
@@ -1159,6 +1160,34 @@ class TestValidation(unittest.TestCase):
         ntp_servers = ["2001:0db8:0a0b:12f0:0001:0001:0001:0001"]
         with self.assertRaises(ValidationError):
             brkt_cli._validate_ntp_servers(ntp_servers)
+
+    def test_updated_image_name(self):
+        """ Test updating the name of an encrypted image.
+        """
+        # Existing image name contains the session id.
+        self.assertEquals(
+            'abc (encrypted 456)',
+            brkt_cli._get_updated_image_name('abc (encrypted 123)', '456')
+        )
+
+        # Long name, contains session id.
+        existing = 'x' * 112 + ' (encrypted 123)'
+        self.assertEquals(
+            'x' * 109 + ' (encrypted 123456)',
+            brkt_cli._get_updated_image_name(existing, '123456')
+        )
+
+        # Existing image name doesn't contain the session id.
+        self.assertEquals(
+            'abc (encrypted 123)',
+            brkt_cli._get_updated_image_name('abc', '123')
+        )
+
+        # Long name, does not contain session id.
+        self.assertEquals(
+            'x' * 112 + ' (encrypted 123)',
+            brkt_cli._get_updated_image_name('x' * 128, '123')
+        )
 
 
 class TestEncryptAMIBackwardsCompatibility(unittest.TestCase):
