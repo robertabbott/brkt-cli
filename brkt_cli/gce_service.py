@@ -74,6 +74,13 @@ class GCEService:
         return self.compute.images().get(project=self.project,
                image=image).execute()
 
+    def image_exists(self, image):
+        try:
+            self.get_image(image)
+        except:
+            return False
+        return True
+
     def delete_instance(self, zone, instance):
         return self.compute.instances().delete(project=self.project,
                zone=zone, instance=instance).execute()
