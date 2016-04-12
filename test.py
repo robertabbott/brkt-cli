@@ -58,6 +58,10 @@ def _new_id():
     return uuid.uuid4().hex[:6]
 
 
+class TestException(Exception):
+    pass
+
+
 class DummyEncryptorService(encryptor_service.BaseEncryptorService):
 
     def __init__(self, hostnames=['test-host'], port=8000):
@@ -124,6 +128,9 @@ class DummyAWSService(aws_service.BaseAWSService):
         self.create_security_group_callback = None
         self.get_instance_callback = None
         self.terminate_instance_callback = None
+        self.create_snapshot_callback = None
+        self.get_snapshot_callback = None
+        self.delete_snapshot_callback = None
 
     def get_regions(self):
         return self.regions
@@ -234,6 +241,10 @@ class DummyAWSService(aws_service.BaseAWSService):
             else:
                 # Transition to completed next time.
                 self.transition_to_completed[snapshot_id] = True
+
+        if self.get_snapshot_callback:
+            self.get_snapshot_callback(snapshot)
+
         return snapshot
 
     def create_snapshot(self, volume_id, name=None, description=None):
@@ -241,6 +252,10 @@ class DummyAWSService(aws_service.BaseAWSService):
         snapshot.id = _new_id()
         snapshot.status = 'pending'
         self.snapshots[snapshot.id] = snapshot
+
+        if self.create_snapshot_callback:
+            self.create_snapshot_callback(volume_id, snapshot)
+
         return snapshot
 
     def attach_volume(self, vol_id, instance_id, device):
@@ -321,6 +336,8 @@ class DummyAWSService(aws_service.BaseAWSService):
 
     def delete_snapshot(self, snapshot_id):
         del(self.snapshots[snapshot_id])
+        if self.delete_snapshot_callback:
+            self.delete_snapshot_callback(snapshot_id)
 
     def create_security_group(self, name, description, vpc_id=None):
         if self.create_security_group_callback:
@@ -641,9 +658,6 @@ class TestRunEncryption(unittest.TestCase):
         self.terminate_instance_called = False
         self.instance_id = None
 
-        class TestException(Exception):
-            pass
-
         def get_instance_callback(instance):
             self.instance_id = instance.id
             raise TestException('Test')
@@ -686,6 +700,37 @@ class TestRunEncryption(unittest.TestCase):
             guest_instance=guest_instance,
             mv_root_id=mv_root_volume_id
         )
+
+    def test_clean_up_root_snapshot(self):
+        """ Test that we clean up the root snapshot if an exception is
+        raised while waiting for it to complete.
+        """
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
+        guest_instance = aws_svc.run_instance(guest_image.id)
+        self.snapshot = None
+        self.snapshot_was_deleted = False
+
+        def get_snapshot_callback(snapshot):
+            """ Simulate an exception being raised while waiting for the
+            snapshot to complete.
+            """
+            raise TestException()
+
+        def create_snapshot_callback(volume_id, snapshot):
+            self.snapshot = snapshot
+
+        def delete_snapshot_callback(snapshot_id):
+            self.assertEqual(self.snapshot.id, snapshot_id)
+            self.snapshot_was_deleted = True
+
+        aws_svc.get_snapshot_callback = get_snapshot_callback
+        aws_svc.create_snapshot_callback = create_snapshot_callback
+        aws_svc.delete_snapshot_callback = delete_snapshot_callback
+
+        with self.assertRaises(TestException):
+            encrypt_ami._snapshot_root_volume(
+                aws_svc, guest_instance, guest_image.id)
+        self.assertTrue(self.snapshot_was_deleted)
 
 
 class TestBrktEnv(unittest.TestCase):
