@@ -8,7 +8,6 @@ import time
 
 from brkt_cli.util import (
     BracketError,
-    Deadline,
     make_nonce,
     append_suffix
 )
@@ -52,10 +51,6 @@ class GCEService:
             zones.append(item['name'])
 
         return zones
-
-    # TODO have do something
-    def get_instance_status(self):
-        return 'running'
 
     def get_session_id(self):
         return self.tags[encrypt_ami.TAG_ENCRYPTOR_SESSION_ID]
@@ -319,37 +314,6 @@ class GCEService:
             'autoDelete': False,
             'source': self.gce_res_uri + source_disk,
             }
-
-
-def wait_for_instance(
-        gce_svc, instance_name, timeout=300, state='running'):
-    """ Wait for up to timeout seconds for an instance to be in the
-        'running' state.  Sleep for 2 seconds between checks.
-    :return: The Instance object, or None if a timeout occurred
-    :raises InstanceError if a timeout occurs or the instance unexpectedly
-        goes into an error or terminated state
-    """
-
-    deadline = Deadline(timeout)
-    while not deadline.is_expired():
-        status = gce_svc.get_instance_status(instance_name)
-        log.info('Instance %s state=%s' % instance_name, status)
-        if status == state:
-            return status
-        if status == 'error':
-            raise InstanceError(
-                'Instance %s is in an error state.  Cannot proceed.' %
-                instance_name
-            )
-        if state != 'terminated' and status == 'terminated':
-            raise InstanceError(
-                'Instance %s was unexpectedly terminated.' % instance_name
-            )
-        time.sleep(2)
-    raise InstanceError(
-        'Timed out waiting for %s to be in the %s state' %
-        (instance_name, status)
-    )
 
 
 def gce_metadata_from_userdata(brkt_data):
