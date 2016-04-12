@@ -16,6 +16,9 @@ import time
 import uuid
 
 
+SLEEP_ENABLED = True
+
+
 class BracketError(Exception):
     pass
 
@@ -34,6 +37,22 @@ class Deadline(object):
             True if the deadline has passed. False otherwise.
         """
         return self.clock.time() >= self.deadline
+
+
+def sleep(seconds):
+    if SLEEP_ENABLED:
+        time.sleep(seconds)
+
+
+def add_brkt_env_to_user_data(brkt_env, user_data):
+    if brkt_env:
+        if 'brkt' not in user_data:
+            user_data['brkt'] = {}
+        api_host_port = '%s:%d' % (brkt_env.api_host, brkt_env.api_port)
+        hsmproxy_host_port = '%s:%d' % (
+            brkt_env.hsmproxy_host, brkt_env.hsmproxy_port)
+        user_data['brkt']['api_host'] = api_host_port
+        user_data['brkt']['hsmproxy_host'] = hsmproxy_host_port
 
 
 def make_nonce():

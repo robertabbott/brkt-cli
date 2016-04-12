@@ -26,7 +26,6 @@ import boto.vpc
 import requests
 from boto.exception import EC2ResponseError, NoAuthHandlerFound
 
-import brkt_cli.util
 from brkt_cli import aws_service
 from brkt_cli import encrypt_ami
 from brkt_cli import encrypt_ami_args
@@ -46,8 +45,8 @@ from brkt_cli.validation import ValidationError
 from encrypt_ami import (
     TAG_ENCRYPTOR,
     TAG_ENCRYPTOR_AMI,
-    TAG_ENCRYPTOR_SESSION_ID,
-    BracketEnvironment)
+    TAG_ENCRYPTOR_SESSION_ID)
+from encryptor_service import BracketEnvironment
 from update_ami import update_ami
 
 VERSION = '0.9.15pre1'
@@ -221,8 +220,7 @@ def command_launch_gce_image(values, log):
 
 def command_update_encrypted_gce_image(values, log):
     session_id = util.make_nonce()
-    default_tags = encrypt_ami.get_default_tags(session_id, "")
-
+    gce_svc = gce_service.GCEService(values.project, session_id, log)
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
     # check that image to be updated exists
     if not gce_svc.image_exists(values.image):
@@ -272,8 +270,7 @@ def command_update_encrypted_gce_image(values, log):
 
 def command_encrypt_gce_image(values, log):
     session_id = util.make_nonce()
-    default_tags = encrypt_ami.get_default_tags(session_id, "")
-    gce_svc = gce_service.GCEService(values.project, default_tags, log)
+    gce_svc = gce_service.GCEService(values.project, session_id, log)
 
     brkt_env = None
     if values.brkt_env:

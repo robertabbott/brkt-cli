@@ -3,13 +3,13 @@
 import logging
 
 from brkt_cli.util import (
+    add_brkt_env_to_user_data,
     Deadline,
 )
 
 from gce_service import gce_metadata_from_userdata
-from brkt_cli import encrypt_ami
-from encrypt_ami import wait_for_encryption
-from encrypt_ami import wait_for_encryptor_up
+from encryptor_service import wait_for_encryption
+from encryptor_service import wait_for_encryptor_up
 
 
 log = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
     brkt_data = {}
     deleted = None
     try:
-        encrypt_ami.add_brkt_env_to_user_data(brkt_env, brkt_data)
+        add_brkt_env_to_user_data(brkt_env, brkt_data)
         instance_name = 'brkt-guest-' + gce_svc.get_session_id()
         encryptor = instance_name + '-encryptor'
         encrypted_image_disk = 'encrypted-image-' + gce_svc.get_session_id()

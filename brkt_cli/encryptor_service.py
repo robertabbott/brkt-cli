@@ -15,10 +15,19 @@
 import abc
 import json
 import logging
+import time
 import urllib2
+
+
+from brkt_cli.util import (
+        BracketError,
+        Deadline,
+        sleep
+)
 
 ENCRYPT_INITIALIZING = 'initial'
 ENCRYPT_DOWNLOADING = 'downloading'
+ENCRYPTION_PROGRESS_TIMEOUT = 10 * 60  # 10 minutes
 ENCRYPT_RUNNING = 'encrypting'
 ENCRYPT_SUCCESSFUL = 'finished'
 ENCRYPT_FAILED = 'failed'
@@ -29,6 +38,40 @@ FAILURE_CODE_AWS_PERMISSIONS = 'insufficient_aws_permissions'
 FAILURE_CODE_INVALID_NTP_SERVERS = 'invalid_ntp_servers'
 
 log = logging.getLogger(__name__)
+
+
+class BracketEnvironment(object):
+    def __init__(self):
+        self.api_host = None
+        self.api_port = None
+        self.hsmproxy_host = None
+        self.hsmproxy_port = None
+
+    def __repr__(self):
+        return '<BracketEnvironment api=%s:%d, hsmproxy=%s:%d>' % (
+            self.api_host,
+            self.api_port,
+            self.hsmproxy_host,
+            self.hsmproxy_port
+        )
+
+
+class EncryptionError(BracketError):
+    def __init__(self, message):
+        super(EncryptionError, self).__init__(message)
+        self.console_output_file = None
+
+
+class UnsupportedGuestError(BracketError):
+    pass
+
+
+class AWSPermissionsError(BracketError):
+    pass
+
+
+class InvalidNtpServerError(BracketError):
+    pass
 
 
 class BaseEncryptorService(object):
@@ -109,3 +152,93 @@ class EncryptorService(BaseEncryptorService):
             return info
         else:
             raise EncryptorConnectionError(self.port, exceptions_by_host)
+
+
+def wait_for_encryptor_up(enc_svc, deadline):
+    start = time.time()
+    while not deadline.is_expired():
+        if enc_svc.is_encryptor_up():
+            log.debug(
+                'Encryption service is up after %.1f seconds',
+                time.time() - start
+            )
+            return
+        sleep(5)
+    raise BracketError(
+        'Unable to contact encryptor instance at %s.' %
+        ', '.join(enc_svc.hostnames)
+    )
+
+
+def wait_for_encryption(enc_svc,
+                        progress_timeout=ENCRYPTION_PROGRESS_TIMEOUT):
+    err_count = 0
+    max_errs = 10
+    start_time = time.time()
+    last_log_time = start_time
+    progress_deadline = Deadline(progress_timeout)
+    last_progress = 0
+    last_state = ''
+
+    while err_count < max_errs:
+        try:
+            status = enc_svc.get_status()
+            err_count = 0
+        except Exception as e:
+            log.warn("Failed getting encryption status: %s", e)
+            log.warn("Retrying. . .")
+            err_count += 1
+            sleep(10)
+            continue
+
+        state = status['state']
+        percent_complete = status['percent_complete']
+        log.debug('state=%s, percent_complete=%d', state, percent_complete)
+
+        # Make sure that encryption progress hasn't stalled.
+        if progress_deadline.is_expired():
+            raise EncryptionError(
+                'Waited for encryption progress for longer than %s seconds' %
+                progress_timeout
+            )
+        if percent_complete > last_progress or state != last_state:
+            last_progress = percent_complete
+            last_state = state
+            progress_deadline = Deadline(progress_timeout)
+
+        # Log progress once a minute.
+        now = time.time()
+        if now - last_log_time >= 60:
+            if state == ENCRYPT_INITIALIZING:
+                log.info('Encryption process is initializing')
+            else:
+                state_display = 'Encryption'
+                if state == ENCRYPT_DOWNLOADING:
+                    state_display = 'Download from S3'
+                log.info(
+                    '%s is %d%% complete', state_display, percent_complete)
+            last_log_time = now
+
+        if state == ENCRYPT_SUCCESSFUL:
+            log.info('Encrypted root drive created.')
+            return
+        elif state == ENCRYPT_FAILED:
+            failure_code = status.get('failure_code')
+            log.debug('failure_code=%s', failure_code)
+            if failure_code == \
+                    FAILURE_CODE_UNSUPPORTED_GUEST:
+                raise UnsupportedGuestError(
+                    'The specified AMI uses an unsupported operating system')
+            if failure_code == FAILURE_CODE_AWS_PERMISSIONS:
+                raise AWSPermissionsError(
+                    'The specified IAM profile has insufficient permissions')
+            if failure_code == \
+                    FAILURE_CODE_INVALID_NTP_SERVERS:
+                raise InvalidNtpServerError(
+                    'Invalid NTP servers provided.')
+            raise EncryptionError('Encryption failed')
+
+        sleep(10)
+    # We've failed to get encryption status for _max_errs_ consecutive tries.
+    # Assume that the server has crashed.
+    raise EncryptionError('Encryption service unavailable')
