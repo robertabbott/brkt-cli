@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import abc
 import datetime
 import logging
 import json
@@ -31,17 +32,163 @@ class InstanceError(BracketError):
     pass
 
 
-class GCEService:
+class BaseGCEService(object):
+    __metaclass__ = abc.ABCMeta
+
     def __init__(self, project, session_id, logger):
         self.log = logger
         self.project = project
         self.session_id = session_id
+        self.gce_res_uri = "https://www.googleapis.com/compute/v1/"
+        self.disks = []
+        self.instances = []
+
+    @abc.abstractmethod
+    def list_zones(self):
+        pass
+
+    @abc.abstractmethod
+    def get_session_id(self):
+        pass
+
+    @abc.abstractmethod
+    def get_snapshot(self, name):
+        pass
+
+    @abc.abstractmethod
+    def wait_snapshot(self, snapshot):
+        pass
+
+    @abc.abstractmethod
+    def get_image(self, image):
+        pass
+
+    @abc.abstractmethod
+    def image_exists(self, image):
+        pass
+
+    @abc.abstractmethod
+    def delete_instance(self, zone, instance):
+        pass
+
+    @abc.abstractmethod
+    def delete_disk(self, zone, disk):
+        pass
+
+    @abc.abstractmethod
+    def wait_instance(self, name, zone):
+        pass
+
+    @abc.abstractmethod
+    def get_instance_ip(self, name, zone):
+        pass
+
+    @abc.abstractmethod
+    def detach_disk(self, zone, instance, diskName):
+        pass
+
+    @abc.abstractmethod
+    def wait_for_disk(self, zone, diskName):
+        pass
+
+    @abc.abstractmethod
+    def get_disk_size(self, zone, diskName):
+        pass
+
+    @abc.abstractmethod
+    def wait_for_detach(self, zone, diskName):
+        pass
+
+    @abc.abstractmethod
+    def disk_exists(self, zone, name):
+        pass
+
+    @abc.abstractmethod
+    def create_snapshot(self, zone, disk, snapshot_name):
+        pass
+
+    @abc.abstractmethod
+    def delete_snapshot(self, snapshot_name):
+        pass
+
+    @abc.abstractmethod
+    def disk_from_snapshot(self, zone, snapshot, name):
+        pass
+
+    @abc.abstractmethod
+    def create_disk(self, zone, name, size):
+        pass
+
+    @abc.abstractmethod
+    def create_gce_image_from_disk(self, zone, image_name, disk_name):
+        pass
+
+    @abc.abstractmethod
+    def create_gce_image_from_file(self, zone, image_name, file_name, bucket):
+        pass
+
+    @abc.abstractmethod
+    def wait_image(self, image_name):
+        pass
+
+    @abc.abstractmethod
+    def get_younger(self, new, old):
+        pass
+
+    @abc.abstractmethod
+    def get_image_file(self, bucket):
+        pass
+
+    @abc.abstractmethod
+    def get_latest_encryptor_image(self,
+                                   zone,
+                                   image_name,
+                                   bucket,
+                                   image_file=None):
+        pass
+
+    @abc.abstractmethod
+    def run_instance(self,
+                     zone,
+                     name,
+                     image,
+                     disks,
+                     metadata,
+                     delete_boot,
+                     instance_type):
+        pass
+
+    @abc.abstractmethod
+    def get_disk(self, zone, disk_name):
+        pass
+
+    @abc.abstractmethod
+    def cleanup(self, zone):
+        pass
+
+
+class GCEService(BaseGCEService):
+    def __init__(self, project, session_id, logger):
+        super(GCEService, self).__init__(project, session_id, logger)
         self.credentials = GoogleCredentials.get_application_default()
         self.compute = discovery.build('compute', 'v1',
                 credentials=self.credentials)
         self.storage = discovery.build('storage', 'v1',
                 credentials=self.credentials)
-        self.gce_res_uri = "https://www.googleapis.com/compute/v1/"
+
+    def cleanup(self, zone):
+        try:
+            for instance in self.instances[:]:
+                log.info('deleting instance %s' % instance)
+                self.delete_instance(zone, instance)
+            for disk in self.disks[:]:
+                log.info('deleting disk %s' % disk)
+                if self.disk_exists(zone, disk):
+                    self.wait_for_detach(zone, disk)
+                    self.delete_disk(zone, disk)
+        except:
+            log.exception('Cleanup failed')
+
 
     def list_zones(self):
         zones = []
@@ -76,10 +223,15 @@ class GCEService:
         return True
 
     def delete_instance(self, zone, instance):
+        if instance in self.instances:
+            self.instances.remove(instance)
         return self.compute.instances().delete(project=self.project,
                zone=zone, instance=instance).execute()
 
     def delete_disk(self, zone, disk):
+        # remove disk if we're tracking it
+        if disk in self.disks:
+            self.disks.remove(disk)
         return self.compute.disks().delete(project=self.project,
                zone=zone, disk=disk).execute()
 
@@ -164,10 +316,14 @@ class GCEService:
         }
         self.compute.disks().insert(project=self.project,
                 zone=zone, body=body).execute()
+        self.disks.append(name)
 
     def create_disk(self, zone, name, size=25):
+        if name not in self.disks:
+            self.disks.append(name)
         if self.disk_exists(zone, name):
             return
+
         base = "projects/%s/zones/%s" % (self.project, zone)
         body = {
             "name": name,
@@ -256,6 +412,10 @@ class GCEService:
                      metadata={},
                      delete_boot=False,
                      instance_type='n1-standard-4'):
+        self.instances.append(name)
+        # if boot disk doesn't autodelete we need to track it
+        if not delete_boot:
+            self.disks.append(name)
         source_disk_image = "projects/%s/global/images/%s" % (self.project,
                 image)
         machine_type = "zones/%s/machineTypes/%s" % (zone, instance_type)
