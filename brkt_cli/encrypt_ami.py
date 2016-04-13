@@ -636,20 +636,24 @@ def _snapshot_root_volume(aws_svc, instance, image_id):
         'Creating snapshot %s of root volume for instance %s',
         snapshot.id, instance.id
     )
-    wait_for_snapshots(aws_svc, snapshot.id)
 
-    # Now try to detach the root volume.
-    log.info('Detaching root volume %s from %s' %
-         (root_vol.volume_id, instance.id)
-    )
-    aws_svc.detach_volume(
-        root_vol.volume_id,
-        instance_id=instance.id,
-        force=True
-    )
-    # And now delete it
-    log.info('Deleting root volume %s' % (root_vol.volume_id,))
-    aws_svc.delete_volume(root_vol.volume_id)
+    try:
+        wait_for_snapshots(aws_svc, snapshot.id)
+
+        # Now try to detach the root volume.
+        log.info('Detaching root volume %s from %s',
+                 root_vol.volume_id, instance.id)
+        aws_svc.detach_volume(
+            root_vol.volume_id,
+            instance_id=instance.id,
+            force=True
+        )
+        # And now delete it
+        log.info('Deleting root volume %s', root_vol.volume_id)
+        aws_svc.delete_volume(root_vol.volume_id)
+    except:
+        clean_up(aws_svc, snapshot_ids=[snapshot.id])
+        raise
 
     ret_values = (
         snapshot.id, root_dev, vol.size, vol.type, root_vol.iops)
