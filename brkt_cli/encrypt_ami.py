@@ -61,9 +61,11 @@ from brkt_cli.user_data import (
     BRKT_FILES_CONTENT_TYPE
 )
 from brkt_cli.util import (
+    add_brkt_env_to_user_data,
     BracketError,
     Deadline,
     make_nonce,
+    sleep,
     append_suffix)
 
 # End user-visible terminology.  These are resource names and descriptions
@@ -127,7 +129,6 @@ BRACKET_ENVIRONMENT = "prod"
 ENCRYPTOR_AMIS_URL = "http://solo-brkt-%s-net.s3.amazonaws.com/amis.json"
 HVM_ENCRYPTOR_AMIS_URL = \
     "http://solo-brkt-%s-net.s3.amazonaws.com/hvm_amis.json"
-ENCRYPTION_PROGRESS_TIMEOUT = 10 * 60  # 10 minutes
 
 log = logging.getLogger(__name__)
 
@@ -136,30 +137,6 @@ log = logging.getLogger(__name__)
 # queried for as metavisor does not support sriovNet
 if 'sriovNetSupport' not in InstanceAttribute.ValidValues:
     InstanceAttribute.ValidValues.append('sriovNetSupport')
-
-
-class SnapshotError(BracketError):
-    pass
-
-
-class InstanceError(BracketError):
-    pass
-
-
-class BracketEnvironment(object):
-    def __init__(self):
-        self.api_host = None
-        self.api_port = None
-        self.hsmproxy_host = None
-        self.hsmproxy_port = None
-
-    def __repr__(self):
-        return '<BracketEnvironment api=%s:%d, hsmproxy=%s:%d>' % (
-            self.api_host,
-            self.api_port,
-            self.hsmproxy_host,
-            self.hsmproxy_port
-        )
 
 
 def get_default_tags(session_id, encryptor_ami):
@@ -171,17 +148,20 @@ def get_default_tags(session_id, encryptor_ami):
     return default_tags
 
 
+class SnapshotError(BracketError):
+    pass
+
+
+class InstanceError(BracketError):
+    pass
+
+
 def _get_snapshot_progress_text(snapshots):
     elements = [
         '%s: %s' % (str(s.id), str(s.progress))
         for s in snapshots
     ]
     return ', '.join(elements)
-
-
-def sleep(seconds):
-    if SLEEP_ENABLED:
-        time.sleep(seconds)
 
 
 def wait_for_instance(
@@ -237,114 +217,6 @@ def wait_for_volume(
     )
 
 
-def wait_for_encryptor_up(enc_svc, deadline):
-    start = time.time()
-    while not deadline.is_expired():
-        if enc_svc.is_encryptor_up():
-            log.debug(
-                'Encryption service is up after %.1f seconds',
-                time.time() - start
-            )
-            return
-        sleep(5)
-    raise BracketError(
-        'Unable to contact encryptor instance at %s.' %
-        ', '.join(enc_svc.hostnames)
-    )
-
-
-class EncryptionError(BracketError):
-    def __init__(self, message):
-        super(EncryptionError, self).__init__(message)
-        self.console_output_file = None
-
-
-class UnsupportedGuestError(BracketError):
-    pass
-
-
-class AWSPermissionsError(BracketError):
-    pass
-
-
-class InvalidNtpServerError(BracketError):
-    pass
-
-
-def wait_for_encryption(enc_svc,
-                        progress_timeout=ENCRYPTION_PROGRESS_TIMEOUT):
-    err_count = 0
-    max_errs = 10
-    start_time = time.time()
-    last_log_time = start_time
-    progress_deadline = Deadline(progress_timeout)
-    last_progress = 0
-    last_state = ''
-
-    while err_count < max_errs:
-        try:
-            status = enc_svc.get_status()
-            err_count = 0
-        except Exception as e:
-            log.warn("Failed getting encryption status: %s", e)
-            log.warn("Retrying. . .")
-            err_count += 1
-            sleep(10)
-            continue
-
-        state = status['state']
-        percent_complete = status['percent_complete']
-        log.debug('state=%s, percent_complete=%d', state, percent_complete)
-
-        # Make sure that encryption progress hasn't stalled.
-        if progress_deadline.is_expired():
-            raise EncryptionError(
-                'Waited for encryption progress for longer than %s seconds' %
-                progress_timeout
-            )
-        if percent_complete > last_progress or state != last_state:
-            last_progress = percent_complete
-            last_state = state
-            progress_deadline = Deadline(progress_timeout)
-
-        # Log progress once a minute.
-        now = time.time()
-        if now - last_log_time >= 60:
-            if state == encryptor_service.ENCRYPT_INITIALIZING:
-                log.info('Encryption process is initializing')
-            else:
-                state_display = 'Encryption'
-                if state == encryptor_service.ENCRYPT_DOWNLOADING:
-                    state_display = 'Download from S3'
-                log.info(
-                    '%s is %d%% complete', state_display, percent_complete)
-            last_log_time = now
-
-        if state == encryptor_service.ENCRYPT_SUCCESSFUL:
-            log.info('Encrypted root drive created.')
-            return
-        elif state == encryptor_service.ENCRYPT_FAILED:
-            failure_code = status.get('failure_code')
-            log.debug('failure_code=%s', failure_code)
-            if failure_code == \
-                    encryptor_service.FAILURE_CODE_UNSUPPORTED_GUEST:
-                raise UnsupportedGuestError(
-                    'The specified AMI uses an unsupported operating system')
-            if failure_code == encryptor_service.FAILURE_CODE_AWS_PERMISSIONS:
-                raise AWSPermissionsError(
-                    'The specified IAM profile has insufficient permissions')
-            if failure_code == \
-                    encryptor_service.FAILURE_CODE_INVALID_NTP_SERVERS:
-                raise InvalidNtpServerError(
-                    'Invalid NTP servers provided.')
-            raise EncryptionError('Encryption failed')
-
-        sleep(10)
-    # We've failed to get encryption status for _max_errs_ consecutive tries.
-    # Assume that the server has crashed.
-    raise EncryptionError('Encryption service unavailable')
-
-
 def get_encrypted_suffix():
     """ Return a suffix that will be appended to the encrypted image name.
     The suffix is in the format "(encrypted 787ace7a)".  The nonce portion of
@@ -395,12 +267,12 @@ def get_description_from_image(image):
     return description
 
 
-def wait_for_image(amazon_svc, image_id):
+def wait_for_image(aws_svc, image_id):
     log.debug('Waiting for %s to become available.', image_id)
     for i in range(180):
         sleep(5)
         try:
-            image = amazon_svc.get_image(image_id)
+            image = aws_svc.get_image(image_id)
         except EC2ResponseError, e:
             if e.error_code == 'InvalidAMIID.NotFound':
                 log.debug('AWS threw a NotFound, ignoring')
@@ -422,7 +294,7 @@ def wait_for_image(amazon_svc, image_id):
             'Image failed to become available (%s)' % (image.state,))
 
 
-def wait_for_snapshots(svc, *snapshot_ids):
+def wait_for_snapshots(aws_svc, *snapshot_ids):
     log.debug('Waiting for status "completed" for %s', str(snapshot_ids))
     last_progress_log = time.time()
 
@@ -431,7 +303,7 @@ def wait_for_snapshots(svc, *snapshot_ids):
     sleep(20)
 
     while True:
-        snapshots = svc.get_snapshots(*snapshot_ids)
+        snapshots = aws_svc.get_snapshots(*snapshot_ids)
         log.debug('%s', {s.id: s.status for s in snapshots})
 
         done = True
@@ -483,17 +355,6 @@ def create_encryptor_security_group(aws_svc, vpc_id=None):
 
     aws_svc.create_tags(sg.id)
     return sg
-
-
-def add_brkt_env_to_user_data(brkt_env, user_data):
-    if brkt_env:
-        if 'brkt' not in user_data:
-            user_data['brkt'] = {}
-        api_host_port = '%s:%d' % (brkt_env.api_host, brkt_env.api_port)
-        hsmproxy_host_port = '%s:%d' % (
-            brkt_env.hsmproxy_host, brkt_env.hsmproxy_port)
-        user_data['brkt']['api_host'] = api_host_port
-        user_data['brkt']['hsmproxy_host'] = hsmproxy_host_port
 
 
 def run_encryptor_instance(aws_svc, encryptor_image_id,
@@ -797,12 +658,12 @@ def snapshot_encrypted_instance(aws_svc, enc_svc_cls, encryptor_instance,
     enc_svc = enc_svc_cls(host_ips)
     log.info('Waiting for encryption service on %s (port %s on %s)',
              encryptor_instance.id, enc_svc.port, ', '.join(host_ips))
-    wait_for_encryptor_up(enc_svc, Deadline(600))
+    encryptor_service.wait_for_encryptor_up(enc_svc, Deadline(600))
 
     log.info('Creating encrypted root drive.')
     try:
-        wait_for_encryption(enc_svc)
-    except EncryptionError as e:
+        encryptor_service.wait_for_encryption(enc_svc)
+    except encryptor_service.EncryptionError as e:
         log_exception_console(aws_svc, e, encryptor_instance.id)
         raise e
 

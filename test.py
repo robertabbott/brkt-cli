@@ -467,7 +467,7 @@ def _build_aws_service():
 class TestRunEncryption(unittest.TestCase):
 
     def setUp(self):
-        encrypt_ami.SLEEP_ENABLED = False
+        brkt_cli.util.SLEEP_ENABLED = False
 
     def test_smoke(self):
         """ Run the entire process and test that nothing obvious is broken.
@@ -496,7 +496,7 @@ class TestRunEncryption(unittest.TestCase):
                 encryptor_ami=encryptor_image.id
             )
             self.fail('Encryption should have failed')
-        except encrypt_ami.EncryptionError as e:
+        except encryptor_service.EncryptionError as e:
             with open(e.console_output_file.name) as f:
                 content = f.read()
                 self.assertEquals(CONSOLE_OUTPUT_TEXT, content)
@@ -518,7 +518,7 @@ class TestRunEncryption(unittest.TestCase):
                 encryptor_ami=encryptor_image.id
             )
             self.fail('Encryption should have failed')
-        except encrypt_ami.EncryptionError as e:
+        except encryptor_service.EncryptionError as e:
             self.assertIsNone(e.console_output_file)
 
     def test_delete_orphaned_volumes(self):
@@ -736,7 +736,7 @@ class TestRunEncryption(unittest.TestCase):
 class TestBrktEnv(unittest.TestCase):
 
     def setUp(self):
-        encrypt_ami.SLEEP_ENABLED = False
+        brkt_cli.util.SLEEP_ENABLED = False
 
     def _get_brkt_config_from_mime(self, compressed_mime_data):
         """Look for a 'brkt-config' part in the multi-part MIME input"""
@@ -784,7 +784,7 @@ class TestBrktEnv(unittest.TestCase):
 class TestRunUpdate(unittest.TestCase):
 
     def setUp(self):
-        encrypt_ami.SLEEP_ENABLED = False
+        brkt_cli.util.SLEEP_ENABLED = False
 
     def test_subnet_and_security_groups(self):
         """ Test that the subnet and security group ids are passed through
@@ -876,19 +876,19 @@ class FailedEncryptionService(encryptor_service.BaseEncryptorService):
 class TestEncryptionService(unittest.TestCase):
 
     def setUp(self):
-        encrypt_ami.SLEEP_ENABLED = False
+        brkt_cli.util.SLEEP_ENABLED = False
 
     def test_service_fails_to_come_up(self):
         svc = DummyEncryptorService()
         deadline = ExpiredDeadline()
         with self.assertRaisesRegexp(Exception, 'Unable to contact'):
-            encrypt_ami.wait_for_encryptor_up(svc, deadline)
+            encryptor_service.wait_for_encryptor_up(svc, deadline)
 
     def test_encryption_fails(self):
         svc = FailedEncryptionService('192.168.1.1')
         with self.assertRaisesRegexp(
-                encrypt_ami.EncryptionError, 'Encryption failed'):
-            encrypt_ami.wait_for_encryption(svc)
+                encryptor_service.EncryptionError, 'Encryption failed'):
+            encryptor_service.wait_for_encryption(svc)
 
     def test_unsupported_guest(self):
         class UnsupportedGuestService(encryptor_service.BaseEncryptorService):
@@ -906,8 +906,8 @@ class TestEncryptionService(unittest.TestCase):
                     'percent_complete': 0
                 }
 
-        with self.assertRaises(encrypt_ami.UnsupportedGuestError):
-            encrypt_ami.wait_for_encryption(UnsupportedGuestService())
+        with self.assertRaises(encryptor_service.UnsupportedGuestError):
+            encryptor_service.wait_for_encryption(UnsupportedGuestService())
 
     def test_encryption_progress_timeout(self):
         class NoProgressService(encryptor_service.BaseEncryptorService):
@@ -923,8 +923,8 @@ class TestEncryptionService(unittest.TestCase):
                     'percent_complete': 0
                 }
 
-        with self.assertRaises(encrypt_ami.EncryptionError):
-            encrypt_ami.wait_for_encryption(
+        with self.assertRaises(encryptor_service.EncryptionError):
+            encryptor_service.wait_for_encryption(
                 NoProgressService(),
                 progress_timeout=0.100
             )
@@ -962,7 +962,7 @@ class TestRetry(unittest.TestCase):
 class TestInstance(unittest.TestCase):
 
     def setUp(self):
-        encrypt_ami.SLEEP_ENABLED = False
+        brkt_cli.util.SLEEP_ENABLED = False
 
     def test_wait_for_instance_terminated(self):
         """ Test waiting for an instance to terminate.

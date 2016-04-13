@@ -28,8 +28,15 @@ import os
 from boto.ec2.blockdevicemapping import EBSBlockDeviceType
 
 from brkt_cli import encryptor_service
-from brkt_cli.util import Deadline
+from brkt_cli.util import (
+        add_brkt_env_to_user_data,
+        Deadline
+)
 import encrypt_ami
+from encryptor_service import (
+    wait_for_encryptor_up,
+    wait_for_encryption,
+)
 from encrypt_ami import (
     clean_up,
     create_encryptor_security_group,
@@ -37,8 +44,6 @@ from encrypt_ami import (
     wait_for_instance,
     wait_for_image,
     wait_for_snapshots,
-    wait_for_encryptor_up,
-    wait_for_encryption,
     DESCRIPTION_GUEST_CREATOR,
     DESCRIPTION_METAVISOR_UPDATER,
     DESCRIPTION_SNAPSHOT,
@@ -73,7 +78,7 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
         user_data = {'brkt': {'solo_mode': 'updater'}}
         if ntp_servers:
             user_data['ntp-servers'] = ntp_servers
-        encrypt_ami.add_brkt_env_to_user_data(brkt_env, user_data)
+        add_brkt_env_to_user_data(brkt_env, user_data)
 
         if not security_group_ids:
             vpc_id = None

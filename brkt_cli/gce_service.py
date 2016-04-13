@@ -11,7 +11,6 @@ from brkt_cli.util import (
     make_nonce,
     append_suffix
 )
-from brkt_cli import encrypt_ami
 from googleapiclient import discovery
 from oauth2client.client import GoogleCredentials
 
@@ -21,10 +20,6 @@ LATEST_IMAGE = 'latest.image.tar.gz'
 log = logging.getLogger(__name__)
 
 
-class InstanceError(BracketError):
-    pass
-
-
 brkt_image_buckets = {
     'prod': 'brkt-prod-images',
     'stage': 'brkt-stage-images',
@@ -32,11 +27,15 @@ brkt_image_buckets = {
 }
 
 
+class InstanceError(BracketError):
+    pass
+
+
 class GCEService:
-    def __init__(self, project, tags, logger):
+    def __init__(self, project, session_id, logger):
         self.log = logger
         self.project = project
-        self.tags = tags
+        self.session_id = session_id
         self.credentials = GoogleCredentials.get_application_default()
         self.compute = discovery.build('compute', 'v1',
                 credentials=self.credentials)
@@ -53,7 +52,7 @@ class GCEService:
         return zones
 
     def get_session_id(self):
-        return self.tags[encrypt_ami.TAG_ENCRYPTOR_SESSION_ID]
+        return self.session_id
 
     def get_snapshot(self, name):
         return self.compute.snapshots().get(project=self.project,
