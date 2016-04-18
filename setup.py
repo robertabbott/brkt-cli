@@ -53,5 +53,5 @@ setup(
     },
     package_dir={'brkt_cli': 'brkt_cli'},
     package_data={'brkt_cli': ['assets/ca_cert.pem']},
-    test_suite='test'
+    test_suite='test test_gce'
 )
