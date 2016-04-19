@@ -5,7 +5,7 @@ def setup_encrypt_ami_args(parser):
     parser.add_argument(
         'ami',
         metavar='ID',
-        help='The AMI that will be encrypted'
+        help='The guest AMI that will be encrypted'
     )
     parser.add_argument(
         '--encrypted-ami-name',
@@ -13,6 +13,15 @@ def setup_encrypt_ami_args(parser):
         dest='encrypted_ami_name',
         help='Specify the name of the generated encrypted AMI',
         required=False
+    )
+    parser.add_argument(
+        '--guest-instance-type',
+        metavar='TYPE',
+        dest='guest_instance_type',
+        help=(
+            'The instance type to use when running the unencrypted guest '
+            'instance'),
+        default='m3.medium'
     )
     parser.add_argument(
         '--hvm',

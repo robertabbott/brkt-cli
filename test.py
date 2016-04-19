@@ -629,26 +629,43 @@ class TestRunEncryption(unittest.TestCase):
         """ Test that we launch the guest as m3.medium and the encryptor
         as c3.xlarge.
         """
-        self.call_count = 0
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
 
         def run_instance_callback(args):
-            self.call_count += 1
-            if self.call_count == 1:
+            if args.image_id == guest_image.id:
                 self.assertEqual('m3.medium', args.instance_type)
                 self.assertFalse(args.ebs_optimized)
-            elif self.call_count == 2:
+            elif args.image_id == encryptor_image.id:
                 self.assertEqual('c3.xlarge', args.instance_type)
                 self.assertTrue(args.ebs_optimized)
             else:
-                self.fail('Unexpected number of calls to run_instance()')
+                self.fail('Unexpected image id: ' + args.image_id)
 
-        aws_svc, encryptor_image, guest_image = _build_aws_service()
         aws_svc.run_instance_callback = run_instance_callback
         encrypt_ami.encrypt(
             aws_svc=aws_svc,
             enc_svc_cls=DummyEncryptorService,
             image_id=guest_image.id,
             encryptor_ami=encryptor_image.id
+        )
+
+    def test_guest_instance_type(self):
+        """ Test that we use the specified instance type to launch the guest
+        instance.
+        """
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
+
+        def run_instance_callback(args):
+            if args.image_id == guest_image.id:
+                self.assertEqual('t2.micro', args.instance_type)
+
+        aws_svc.run_instance_callback = run_instance_callback
+        encrypt_ami.encrypt(
+            aws_svc=aws_svc,
+            enc_svc_cls=DummyEncryptorService,
+            image_id=guest_image.id,
+            encryptor_ami=encryptor_image.id,
+            guest_instance_type='t2.micro'
         )
 
     def test_terminate_guest(self):
@@ -854,6 +871,34 @@ class TestRunUpdate(unittest.TestCase):
             aws_svc, encrypted_ami_id, encryptor_image.id, 'Test updated AMI',
             enc_svc_class=DummyEncryptorService,
             brkt_env=brkt_env
+        )
+
+    def test_guest_instance_type(self):
+        """ Test that the guest instance type is passed through
+        to run_instance().
+        """
+        aws_svc, encryptor_image, guest_image = _build_aws_service()
+        encrypted_ami_id = encrypt_ami.encrypt(
+            aws_svc=aws_svc,
+            enc_svc_cls=DummyEncryptorService,
+            image_id=guest_image.id,
+            brkt_env=None,
+            encryptor_ami=encryptor_image.id
+        )
+
+        def run_instance_callback(args):
+            if args.image_id == encrypted_ami_id:
+                self.assertEqual('t2.micro', args.instance_type)
+            elif args.image_id == encryptor_image.id:
+                self.assertEqual('m3.medium', args.instance_type)
+            else:
+                self.fail('Unexpected image: ' + args.image_id)
+
+        aws_svc.run_instance_callback = run_instance_callback
+        ami_id = update_ami(
+            aws_svc, encrypted_ami_id, encryptor_image.id, 'Test updated AMI',
+            subnet_id='subnet-1', security_group_ids=['sg-1', 'sg-2'],
+            enc_svc_class=DummyEncryptorService, guest_instance_type='t2.micro'
         )
 
 

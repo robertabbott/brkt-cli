@@ -277,12 +277,11 @@ class AWSService(BaseAWSService):
                      instance_profile_name=None):
         if security_group_ids is None:
             security_group_ids = []
-        log.debug('Starting a new instance based on %s', image_id)
-        if security_group_ids:
-            log.debug(
-                'Using security groups %s', ', '.join(security_group_ids))
-        if subnet_id:
-            log.debug('Running instance in %s', subnet_id)
+        log.debug(
+            'run_instance: %s, security groups=%s, subnet=%s, '
+            'type=%s',
+            image_id, security_group_ids, subnet_id, instance_type
+        )
         if user_data and log.isEnabledFor(logging.DEBUG):
             with tempfile.NamedTemporaryFile(
                 prefix='user-data-',

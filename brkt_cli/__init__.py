@@ -392,7 +392,8 @@ def command_encrypt_ami(values, log):
         security_group_ids=values.security_group_ids,
         brkt_env=brkt_env,
         ntp_servers=values.ntp_servers,
-        proxy_config=proxy_config
+        proxy_config=proxy_config,
+        guest_instance_type=values.guest_instance_type
     )
     # Print the AMI ID to stdout, in case the caller wants to process
     # the output.  Log messages go to stderr.
@@ -564,7 +565,8 @@ def command_update_encrypted_ami(values, log):
         subnet_id=values.subnet_id,
         security_group_ids=values.security_group_ids,
         ntp_servers=values.ntp_servers,
-        brkt_env=brkt_env
+        brkt_env=brkt_env,
+        guest_instance_type=values.guest_instance_type
     )
     print(updated_ami_id)
     return 0
