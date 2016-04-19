@@ -222,12 +222,6 @@ def command_update_encrypted_gce_image(values, log):
     session_id = util.make_nonce()
     gce_svc = gce_service.GCEService(values.project, session_id, log)
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
-    # check that image to be updated exists
-    if not gce_svc.image_exists(values.image):
-        raise ValidationError('Image %s does not exist. Cannot update.' % values.image)
-    # check that there is no existing image named encrypted_image_name
-    if gce_svc.image_exists(encrypted_image_name):
-        raise ValidationError('An image already exists with name %s. Update failed.' % encrypted_image_name)
 
     log.info('Starting updater session %s', gce_svc.get_session_id())
 
@@ -252,10 +246,7 @@ def command_update_encrypted_gce_image(values, log):
                                                encryptor,
                                                values.bucket)
 
-    # check that encryptor exists
-    if not gce_svc.image_exists(encryptor):
-        raise ValidationError('Encryptor image %s does not exist. Update failed.' % encryptor)
-
+    encrypt_gce_image.validate_images(gce_svc, encrypted_image_name, encryptor, values.image)
     update_gce_image.update_gce_image(
         gce_svc=gce_svc,
         enc_svc_cls=encryptor_service.EncryptorService,
@@ -294,14 +285,9 @@ def command_encrypt_gce_image(values, log):
                                                encryptor,
                                                values.bucket)
 
-    log.info('Starting encryptor session %s', gce_svc.get_session_id())
-    # check that encryptor exists
-    if not gce_svc.image_exists(encryptor):
-        raise ValidationError('Encryptor image %s does not exist. Encryption failed.' % encryptor)
-    # check that there is no existing image named encrypted_image_name
-    if gce_svc.image_exists(encrypted_image_name):
-        raise ValidationError('An image already exists with name %s. Encryption Failed.' % encrypted_image_name)
+    encrypt_gce_image.validate_images(gce_svc, encrypted_image_name, encryptor, values.image)
 
+    log.info('Starting encryptor session %s', gce_svc.get_session_id())
     encrypted_image_id = encrypt_gce_image.encrypt(
         gce_svc=gce_svc,
         enc_svc_cls=encryptor_service.EncryptorService,

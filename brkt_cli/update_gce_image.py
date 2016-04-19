@@ -21,7 +21,6 @@ from brkt_cli.util import (
 from encryptor_service import wait_for_encryption
 from encryptor_service import wait_for_encryptor_up
 from gce_service import gce_metadata_from_userdata
-from encrypt_gce_image import cleanup
 
 """
 Create an encrypted GCE image (with new metavisor) based
@@ -30,12 +29,9 @@ on an existing encrypted GCE image.
 
 log = logging.getLogger(__name__)
 
-
 def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
             encrypted_image_name, zone, brkt_env):
     snap_created = None
-    instance = None
-
     try:
         instance_name = 'brkt-updater-' + gce_svc.get_session_id()
         updater = instance_name + '-metavisor'
@@ -59,7 +55,6 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
                              encryptor_image,
                              disks=[],
                              metadata=user_data)
-        instance = True
         enc_svc = enc_svc_cls([gce_svc.get_instance_ip(updater, zone)])
 
         # wait for updater to finish and guest root disk
@@ -72,7 +67,6 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
         # delete updater instance
         log.info('Deleting updater instance')
         gce_svc.delete_instance(zone, updater)
-        instance = None
 
         # wait for updater root disk
         gce_svc.wait_for_detach(zone, updater)
@@ -87,9 +81,8 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
         log.info("Update failed. Cleaning up")
         if snap_created:
             gce_svc.delete_snapshot(encrypted_image_name)
-        if instance:
-            gce_svc.delete_instance(zone, updater)
-        cleanup(gce_svc, zone, [updater, encrypted_image_disk])
+        gce_svc.cleanup(zone)
         raise
     finally:
-        cleanup(gce_svc, zone, [updater, encrypted_image_disk])
+        gce_svc.cleanup(zone)
+    return encrypted_image_name

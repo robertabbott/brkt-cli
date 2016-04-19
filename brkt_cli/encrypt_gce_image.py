@@ -7,6 +7,7 @@ from brkt_cli.util import (
     Deadline,
 )
 
+from brkt_cli.validation import ValidationError
 from gce_service import gce_metadata_from_userdata
 from encryptor_service import wait_for_encryption
 from encryptor_service import wait_for_encryptor_up
@@ -14,11 +15,23 @@ from encryptor_service import wait_for_encryptor_up
 
 log = logging.getLogger(__name__)
 
+def validate_images(gce_svc, encrypted_image_name,  encryptor, guest_image):
+    # check that image to be updated exists
+    if not gce_svc.image_exists(guest_image):
+        raise ValidationError('Image %s does not exist. Cannot update.' % guest_image)
+
+    # check that encryptor exists
+    if not gce_svc.image_exists(encryptor):
+        raise ValidationError('Encryptor image %s does not exist. Encryption failed.' % encryptor)
+
+    # check that there is no existing image named encrypted_image_name
+    if gce_svc.image_exists(encrypted_image_name):
+        raise ValidationError('An image already exists with name %s. Encryption Failed.' % encrypted_image_name)
+
 
 def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
             encrypted_image_name, zone, brkt_env):
     brkt_data = {}
-    deleted = None
     try:
         add_brkt_env_to_user_data(brkt_env, brkt_data)
         instance_name = 'brkt-guest-' + gce_svc.get_session_id()
@@ -37,9 +50,14 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         # of the unencrypted guest root
         log.info('Creating disk for encrypted image')
         gce_svc.create_disk(zone, encrypted_image_disk, guest_size * 2 + 1)
+    except Exception as e:
+        gce_svc.cleanup(zone)
+        log.info('Encryption setup failed')
+        raise e
 
-        # run encryptor instance with avatar_creator as root,
-        # customer image and blank disk
+    # run encryptor instance with avatar_creator as root,
+    # customer image and blank disk
+    try:
         log.info('Launching encryptor instance')
         gce_svc.run_instance(zone,
                              encryptor,
@@ -49,10 +67,17 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
                              metadata=gce_metadata_from_userdata(brkt_data))
 
         enc_svc = enc_svc_cls([gce_svc.get_instance_ip(encryptor, zone)])
+
         wait_for_encryptor_up(enc_svc, Deadline(600))
         wait_for_encryption(enc_svc)
         gce_svc.delete_instance(zone, encryptor)
-        deleted = True
+    except Exception as e:
+        gce_svc.cleanup(zone)
+        raise e
+
+
+    # create image
+    try:
         # snapshot encrypted guest disk
         log.info("Creating snapshot of encrypted image disk")
         gce_svc.create_snapshot(zone, encrypted_image_disk, encrypted_image_name)
@@ -66,20 +91,10 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         gce_svc.wait_image(encrypted_image_name)
         gce_svc.wait_snapshot(encrypted_image_name)
         log.info("Image %s successfully created!", encrypted_image_name)
-    finally:
-        if not deleted:
-            gce_svc.delete_instance(zone, encryptor)
-        # delete all the disks that were created
-        log.info("Cleaning up")
-        cleanup(gce_svc, zone, [instance_name,
-                                encryptor,
-                                encrypted_image_disk])
+    except Exception as e:
+        log.info('Image creation failed')
+        raise e
 
-        return encrypted_image_name
-
-
-def cleanup(gce_svc, zone, disks):
-    for disk in disks:
-        if gce_svc.disk_exists(zone, disk):
-            gce_svc.wait_for_detach(zone, disk)
-            gce_svc.delete_disk(zone, disk)
+    log.info("Cleaning up")
+    gce_svc.cleanup(zone)
+    return encrypted_image_name
