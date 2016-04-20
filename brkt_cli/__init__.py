@@ -222,6 +222,9 @@ def command_update_encrypted_gce_image(values, log):
     session_id = util.make_nonce()
     gce_svc = gce_service.GCEService(values.project, session_id, log)
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
+    
+    if not encrypted_image_name.islower():
+        raise ValidationError('GCE image name must be in lower case')
 
     log.info('Starting updater session %s', gce_svc.get_session_id())
 
@@ -268,6 +271,8 @@ def command_encrypt_gce_image(values, log):
         brkt_env = _parse_brkt_env(values.brkt_env)
 
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
+    if not encrypted_image_name.islower():
+        raise ValidationError('GCE image name must be in lower case')
     # use pre-existing image
     if values.encryptor_image:
         encryptor = values.encryptor_image
