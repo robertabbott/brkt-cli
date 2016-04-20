@@ -448,10 +448,11 @@ def run_encryptor_instance(aws_svc, encryptor_image_id,
     return instance
 
 
-def run_guest_instance(aws_svc, image_id, subnet_id=None):
+def run_guest_instance(aws_svc, image_id, subnet_id=None,
+                       instance_type='m3.medium'):
     instance = aws_svc.run_instance(
         image_id, subnet_id=subnet_id,
-        instance_type='m3.medium', ebs_optimized=False)
+        instance_type=instance_type, ebs_optimized=False)
     log.info(
         'Launching instance %s to snapshot root disk for %s',
         instance.id, image_id)
@@ -907,7 +908,8 @@ def register_ami(aws_svc, encryptor_instance, encryptor_image, name,
 
 def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
             encrypted_ami_name=None, subnet_id=None, security_group_ids=None,
-            ntp_servers=None, proxy_config=None):
+            ntp_servers=None, proxy_config=None,
+            guest_instance_type='m3.medium'):
     encryptor_instance = None
     ami = None
     snapshot_id = None
@@ -944,7 +946,7 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
         legacy = True
     try:
         guest_instance = run_guest_instance(aws_svc,
-            image_id, subnet_id=subnet_id)
+            image_id, subnet_id=subnet_id, instance_type=guest_instance_type)
         wait_for_instance(aws_svc, guest_instance.id)
         snapshot_id, root_dev, size, vol_type, iops = _snapshot_root_volume(
             aws_svc, guest_instance, image_id
