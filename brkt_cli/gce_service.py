@@ -211,13 +211,17 @@ class GCEService(BaseGCEService):
                 return
             time.sleep(5)
 
-    def get_image(self, image):
-        return self.compute.images().get(project=self.project,
+    def get_image(self, image, image_project=None):
+        if image_project:
+            return self.compute.images().get(project=image_project,
+                image=image).execute()
+        else:
+            return self.compute.images().get(project=self.project,
                image=image).execute()
 
-    def image_exists(self, image):
+    def image_exists(self, image, image_project=None):
         try:
-            self.get_image(image)
+            self.get_image(image, image_project)
         except:
             return False
         return True
@@ -408,6 +412,7 @@ class GCEService(BaseGCEService):
                      zone,
                      name,
                      image,
+                     image_project=None,
                      disks=[],
                      metadata={},
                      delete_boot=False,
@@ -416,7 +421,11 @@ class GCEService(BaseGCEService):
         # if boot disk doesn't autodelete we need to track it
         if not delete_boot:
             self.disks.append(name)
-        source_disk_image = "projects/%s/global/images/%s" % (self.project,
+        if image_project:
+            source_disk_image = "projects/%s/global/images/%s" % (image_project,
+                image)
+        else:
+            source_disk_image = "projects/%s/global/images/%s" % (self.project,
                 image)
         machine_type = "zones/%s/machineTypes/%s" % (zone, instance_type)
 
