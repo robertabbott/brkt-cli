@@ -234,7 +234,8 @@ class TestImageValidation(unittest.TestCase):
                 guest_image='test-ubuntu',
                 # encrypted_image_name shouldn't exist
                 encrypted_image_name=NONEXISTANT_IMAGE,
-                encryptor=NONEXISTANT_IMAGE
+                encryptor=NONEXISTANT_IMAGE,
+                image_project=None
             )
 
     def test_nonexistant_guest(self):
@@ -244,7 +245,8 @@ class TestImageValidation(unittest.TestCase):
                 gce_svc=gce_svc,
                 guest_image=NONEXISTANT_IMAGE,
                 encryptor='americium',
-                encrypted_image_name=NONEXISTANT_IMAGE
+                encrypted_image_name=NONEXISTANT_IMAGE,
+                image_project=None
             )
 
     def test_desired_output_image_exists(self):
@@ -254,7 +256,8 @@ class TestImageValidation(unittest.TestCase):
                 gce_svc=gce_svc,
                 guest_image='test-ubuntu',
                 encryptor='americium',
-                encrypted_image_name='deuterium'
+                encrypted_image_name='deuterium',
+                image_project=None
             )
 
 
