@@ -295,7 +295,8 @@ def command_encrypt_gce_image(values, log):
                                                encryptor,
                                                values.bucket)
 
-    encrypt_gce_image.validate_images(gce_svc, encrypted_image_name, encryptor, values.image)
+    encrypt_gce_image.validate_images(gce_svc, encrypted_image_name, encryptor,
+                                      values.image, values.image_project)
 
     log.info('Starting encryptor session %s', gce_svc.get_session_id())
     encrypted_image_id = encrypt_gce_image.encrypt(
@@ -305,7 +306,8 @@ def command_encrypt_gce_image(values, log):
         encryptor_image=encryptor,
         encrypted_image_name=encrypted_image_name,
         zone=values.zone,
-        brkt_env=brkt_env
+        brkt_env=brkt_env,
+        image_project=values.image_project
     )
     # Print the image name to stdout, in case the caller wants to process
     # the output.  Log messages go to stderr.

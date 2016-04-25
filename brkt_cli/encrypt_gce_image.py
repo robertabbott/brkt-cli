@@ -15,9 +15,9 @@ from encryptor_service import wait_for_encryptor_up
 
 log = logging.getLogger(__name__)
 
-def validate_images(gce_svc, encrypted_image_name,  encryptor, guest_image):
+def validate_images(gce_svc, encrypted_image_name,  encryptor, guest_image, image_project=None):
     # check that image to be updated exists
-    if not gce_svc.image_exists(guest_image):
+    if not gce_svc.image_exists(guest_image, image_project):
         raise ValidationError('Image %s does not exist. Cannot update.' % guest_image)
 
     # check that encryptor exists
@@ -30,7 +30,7 @@ def validate_images(gce_svc, encrypted_image_name,  encryptor, guest_image):
 
 
 def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
-            encrypted_image_name, zone, brkt_env):
+            encrypted_image_name, zone, brkt_env, image_project=None):
     brkt_data = {}
     try:
         add_brkt_env_to_user_data(brkt_env, brkt_data)
@@ -38,7 +38,7 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         encryptor = instance_name + '-encryptor'
         encrypted_image_disk = 'encrypted-image-' + gce_svc.get_session_id()
 
-        gce_svc.run_instance(zone, instance_name, image_id)
+        gce_svc.run_instance(zone, instance_name, image_id, image_project)
         gce_svc.delete_instance(zone, instance_name)
         log.info('Guest instance terminated')
         log.info('Waiting for guest root disk to become ready')
