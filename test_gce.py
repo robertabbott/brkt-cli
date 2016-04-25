@@ -13,6 +13,7 @@ from brkt_cli import update_gce_image
 from brkt_cli import gce_service
 
 NONEXISTANT_IMAGE = 'image'
+NONEXISTANT_PROJECT = 'project'
 
 log = logging.getLogger(__name__)
 
@@ -50,11 +51,11 @@ class DummyGCEService(gce_service.BaseGCEService):
     def get_image(self, image, image_project):
         if image == NONEXISTANT_IMAGE:
             raise
-        if image_project == NONEXISTANT_IMAGE:
+        if image_project and image_project == NONEXISTANT_PROJECT:
             raise
         return True
 
-    def image_exists(self, image, image_project):
+    def image_exists(self, image, image_project=None):
         try:
             self.get_image(image, image_project)
         except:
