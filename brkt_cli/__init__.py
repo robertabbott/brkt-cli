@@ -50,6 +50,7 @@ from encryptor_service import BracketEnvironment
 from update_ami import update_ami
 
 VERSION = '0.9.15pre1'
+BRKT_ENV_PROD = 'yetiapi.mgmt.brkt.com:443,hsmproxy.mgmt.brkt.com:443'
 
 log = None
 
@@ -222,7 +223,7 @@ def command_update_encrypted_gce_image(values, log):
     session_id = util.make_nonce()
     gce_svc = gce_service.GCEService(values.project, session_id, log)
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
-    
+
     if not encrypted_image_name.islower():
         raise ValidationError('GCE image name must be in lower case')
 
@@ -231,6 +232,8 @@ def command_update_encrypted_gce_image(values, log):
     brkt_env = None
     if values.brkt_env:
         brkt_env = _parse_brkt_env(values.brkt_env)
+    else:
+        brkt_env = _parse_brkt_env(BRKT_ENV_PROD)
 
     # use pre-existing image
     if values.encryptor_image:
@@ -269,6 +272,8 @@ def command_encrypt_gce_image(values, log):
     brkt_env = None
     if values.brkt_env:
         brkt_env = _parse_brkt_env(values.brkt_env)
+    else:
+        brkt_env = _parse_brkt_env(BRKT_ENV_PROD)
 
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
     if not encrypted_image_name.islower():
