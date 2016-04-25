@@ -39,7 +39,7 @@ def setup_encrypt_gce_image_args(parser):
     parser.add_argument(
         '--image-project',
         metavar='NAME',
-        help='GCE project name which owns the image (for e.g. centos-cloud)',
+        help='GCE project name which owns the image (e.g. centos-cloud)',
         dest='image_project',
         required=False
     )
