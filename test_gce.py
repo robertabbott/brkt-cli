@@ -263,14 +263,14 @@ class TestImageValidation(unittest.TestCase):
             )
             
     def test_nonexistant_image_project(self):
-+        gce_svc = DummyGCEService()
-+        with self.assertRaises(ValidationError):
-+            encrypt_gce_image.validate_images(
-+                gce_svc=gce_svc,
-+                guest_image='test-ubuntu',
-+                encryptor='americium',
-+                encrypted_image_name='deuterium',
-+                image_project=NONEXISTANT_IMAGE
+        gce_svc = DummyGCEService()
+        with self.assertRaises(ValidationError):
+            encrypt_gce_image.validate_images(
+                gce_svc=gce_svc,
+                guest_image='test-ubuntu',
+                encryptor='americium',
+                encrypted_image_name='deuterium',
+                image_project=NONEXISTANT_IMAGE
              )
 
 
