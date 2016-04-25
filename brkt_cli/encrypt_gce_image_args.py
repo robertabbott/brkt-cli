@@ -37,6 +37,12 @@ def setup_encrypt_gce_image_args(parser):
         required=True
     )
     parser.add_argument(
+        '--image-project',
+        help='GCE project which owns the image',
+        dest='image_project',
+        required=False
+    )
+    parser.add_argument(
         '--encryptor-image',
         dest='encryptor_image',
         required=False
