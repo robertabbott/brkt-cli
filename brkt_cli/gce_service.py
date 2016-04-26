@@ -412,11 +412,11 @@ class GCEService(BaseGCEService):
                      zone,
                      name,
                      image,
-                     image_project=None,
                      disks=[],
                      metadata={},
                      delete_boot=False,
-                     instance_type='n1-standard-4'):
+                     instance_type='n1-standard-4',
+                     image_project=None):
         self.instances.append(name)
         # if boot disk doesn't autodelete we need to track it
         if not delete_boot:
