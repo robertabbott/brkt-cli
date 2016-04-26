@@ -42,9 +42,13 @@ def setup_launch_gce_image_args(parser):
         dest='project',
         required=True
     )
+
+    # Optional startup script. Hidden because it is only used for development
+    # and testing. It should be passed as a string containing a multi-line
+    # script (bash, python etc.)
     parser.add_argument(
         '--startup-script',
-        help='GCE instance startup script',
+        help=argsparse.SUPPRESS,
         dest='startup_script',
         metavar='SCRIPT',
         required=False
