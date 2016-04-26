@@ -137,7 +137,8 @@ class DummyGCEService(gce_service.BaseGCEService):
                      disks=[],
                      metadata={},
                      delete_boot=False,
-                     instance_type='n1-standard-4'):
+                     instance_type='n1-standard-4',
+                     image_project=None):
         self.instances.append(name)
         if not delete_boot:
             self.disks.append(name)
