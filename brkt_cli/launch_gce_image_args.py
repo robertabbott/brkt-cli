@@ -42,6 +42,13 @@ def setup_launch_gce_image_args(parser):
         dest='project',
         required=True
     )
+    parser.add_argument(
+        '--startup-script',
+        help='GCE instance startup script',
+        dest='startup_script',
+        metavar='SCRIPT',
+        required=False
+    )
 
     # Optional yeti endpoints. Hidden because it's only used for development.
     # If you're using this option, it should be passed as a comma separated
