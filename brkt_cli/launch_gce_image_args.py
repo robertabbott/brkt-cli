@@ -43,6 +43,17 @@ def setup_launch_gce_image_args(parser):
         required=True
     )
 
+    # Optional startup script. Hidden because it is only used for development
+    # and testing. It should be passed as a string containing a multi-line
+    # script (bash, python etc.)
+    parser.add_argument(
+        '--startup-script',
+        help=argparse.SUPPRESS,
+        dest='startup_script',
+        metavar='SCRIPT',
+        required=False
+    )
+
     # Optional yeti endpoints. Hidden because it's only used for development.
     # If you're using this option, it should be passed as a comma separated
     # list of endpoints. ie blb.*.*.brkt.net:7002,blb.*.*.brkt.net:7001 the

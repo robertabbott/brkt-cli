@@ -208,6 +208,10 @@ def _parse_brkt_env(brkt_env_string):
 
 def command_launch_gce_image(values, log):
     gce_svc = gce_service.GCEService(values.project, None, log)
+    if values.startup_script:
+        metadata = {'items': [{'key': 'startup-script', 'value': values.startup_script}]}
+    else:
+        metadata = {}
     launch_gce_image.launch(log,
                             gce_svc,
                             values.image,
@@ -215,7 +219,7 @@ def command_launch_gce_image(values, log):
                             values.zone,
                             values.delete_boot,
                             values.instance_type,
-                            {})
+                            metadata)
     return 0
 
 
