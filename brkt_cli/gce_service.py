@@ -8,9 +8,10 @@ import re
 import time
 
 from brkt_cli.util import (
+    append_suffix,
     BracketError,
     make_nonce,
-    append_suffix
+    retry
 )
 from googleapiclient import discovery
 from oauth2client.client import GoogleCredentials
@@ -26,6 +27,9 @@ brkt_image_buckets = {
     'stage': 'brkt-stage-images',
     'shared': 'brkt-shared-images'
 }
+
+def execute_gce_api_call(gce_object):
+    return gce_object.execute()
 
 
 class InstanceError(BracketError):
@@ -202,8 +206,9 @@ class GCEService(BaseGCEService):
         return self.session_id
 
     def get_snapshot(self, name):
-        return self.compute.snapshots().get(project=self.project,
-                snapshot=name).execute()
+        snap_req = self.compute.snapshots().get(project=self.project,
+                snapshot=name)
+        return retry(execute_gce_api_call)(snap_req)
 
     def wait_snapshot(self, snapshot):
         while True:
@@ -240,9 +245,10 @@ class GCEService(BaseGCEService):
                zone=zone, disk=disk).execute()
 
     def wait_instance(self, name, zone):
+        instance = self.compute.instances().list(project=self.project,
+                zone=zone)
         while True:
-            instance_data = self.compute.instances().list(project=self.project,
-                    zone=zone).execute()
+            instance_data = retry(execute_gce_api_call)(instance)
             if 'items' in instance_data:
                 for i in instance_data['items']:
                     if name == i['name'] and i['status'] == 'RUNNING':
@@ -253,10 +259,11 @@ class GCEService(BaseGCEService):
     def get_instance_ip(self, name, zone):
         for i in range(60):
             time.sleep(5)
+            instance_req = self.compute.instances().get(project=self.project,
+                    zone=zone, instance=name)
             try:
                 nw = 'networkInterfaces'
-                instance = self.compute.instances().get(project=self.project,
-                        zone=zone, instance=name).execute()
+                instance = retry(execute_gce_api_call)(instance_req)
                 if instance[nw][0]['accessConfigs'][0]['natIP']:
                     return instance[nw][0]['accessConfigs'][0]['natIP']
             except:
@@ -264,16 +271,19 @@ class GCEService(BaseGCEService):
         self.log.info("Couldn't find an IP address for this instance.")
 
     def detach_disk(self, zone, instance, diskName):
-        self.compute.instances().detachDisk(project=self.project,
-                instance=instance, zone=zone, deviceName=diskName).execute()
+        detach_req = self.compute.instances().detachDisk(project=self.project,
+                instance=instance, zone=zone, deviceName=diskName)
+        retry(execute_gce_api_call)(detach_req)
         # wait for disk ready
         return self.wait_for_detach(zone, diskName)
 
     def wait_for_disk(self, zone, diskName):
+        disk_req = self.compute.disks().get(zone=zone,
+                                            project=self.project,
+                                            disk=diskName)
         while True:
             self.log.info("Waiting for disk to become ready")
-            if 'READY' == self.compute.disks().get(zone=zone,
-                    project=self.project, disk=diskName).execute()['status']:
+            if 'READY' == retry(execute_gce_api_call)(disk_req)['status']:
                 return
             time.sleep(10)
 
@@ -282,9 +292,11 @@ class GCEService(BaseGCEService):
         return int(disk_info['sizeGb'])
 
     def wait_for_detach(self, zone, diskName):
+        detach_req = self.compute.disks().get(zone=zone,
+                                              project=self.project,
+                                              disk=diskName)
         while True:
-            if "users" not in self.compute.disks().get(zone=zone,
-                    project=self.project, disk=diskName).execute():
+            if "users" not in retry(execute_gce_api_call)(detach_req):
                 return
             time.sleep(10)
             self.log.info("Waiting for disk to detach from instance")
@@ -359,9 +371,9 @@ class GCEService(BaseGCEService):
             project=self.project).execute()
 
     def wait_image(self, image_name):
+        image_req = self.compute.images().get(image=image_name, project=self.project)
         while True:
-            if self.compute.images().get(image=image_name,
-                    project=self.project).execute()['status'] == 'READY':
+            if retry(execute_gce_api_call)(image_req)['status'] == 'READY':
                 return
             time.sleep(10)
 
