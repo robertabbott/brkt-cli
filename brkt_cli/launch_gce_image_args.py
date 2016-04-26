@@ -48,7 +48,7 @@ def setup_launch_gce_image_args(parser):
     # script (bash, python etc.)
     parser.add_argument(
         '--startup-script',
-        help=argsparse.SUPPRESS,
+        help=argparse.SUPPRESS,
         dest='startup_script',
         metavar='SCRIPT',
         required=False
