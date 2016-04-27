@@ -175,6 +175,23 @@ class TestEncryptedImageName(unittest.TestCase):
         self.assertEqual(n1, n2)
         self.assertEqual(n1, encrypted_image_name)
 
+    def test_image_name(self):
+        encrypted_image_name = 'valid-name'
+        self.assertEquals(encrypted_image_name,
+            gce_service.validate_image_name(encrypted_image_name))
+        with self.assertRaises(ValidationError):
+            gce_service.validate_image_name(None)
+        with self.assertRaises(ValidationError):
+            gce_service.validate_image_name('Valid-Name')
+        with self.assertRaises(ValidationError):
+            gce_service.validate_image_name('validname-')
+        with self.assertRaises(ValidationError):
+            gce_service.validate_image_name('a' * 64)
+        for c in '?!#$%^&*~`{}\|"<>()[]./\'@_':
+            with self.assertRaises(ValidationError):
+                gce_service.validate_image_name('valid' + c)
+
+
 class TestRunEncryption(unittest.TestCase):
 
     def setUp(self):
