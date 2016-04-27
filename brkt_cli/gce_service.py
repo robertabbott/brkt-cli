@@ -16,6 +16,8 @@ from brkt_cli.util import (
 from googleapiclient import discovery
 from oauth2client.client import GoogleCredentials
 
+from validation import ValidationError
+
 
 GCE_NAME_MAX_LENGTH = 63
 LATEST_IMAGE = 'latest.image.tar.gz'
@@ -521,3 +523,22 @@ def get_image_name(encrypted_image_name, name):
                 '-encrypted-%s' % (nonce,),
                 GCE_NAME_MAX_LENGTH)
     return encrypted_image_name
+
+
+def validate_image_name(name):
+    """ Verify that the name is a valid GCE image name. Return the name
+        if it is valid.
+
+    : raises ValidationError if name is invalid
+    """
+    if not (name and len(name) <= 63):
+        raise ValidationError(
+            'Image name may be at most 63 characters')
+
+    m = re.match(r'[a-z0-9\-]*[a-z0-9]$', name)
+    if not m:
+        raise ValidationError(
+            "GCE image must be lower case letters, numbers and hyphens "
+            "and must end with a lower case letter or a number"
+        )
+    return name
