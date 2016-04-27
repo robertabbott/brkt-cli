@@ -38,6 +38,7 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         encryptor = instance_name + '-encryptor'
         encrypted_image_disk = 'encrypted-image-' + gce_svc.get_session_id()
 
+        log.info('Launching guest instance')
         gce_svc.run_instance(zone, instance_name, image_id, image_project=image_project)
         gce_svc.delete_instance(zone, instance_name)
         log.info('Guest instance terminated')

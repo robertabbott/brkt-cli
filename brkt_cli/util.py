@@ -11,12 +11,18 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
+import random
 import re
+import socket
 import time
 import uuid
 
+from googleapiclient import errors
+
 
 SLEEP_ENABLED = True
+MAX_BACKOFF_SECS = 5
+RETRYABLE_EXCEPTIONS = (socket.error, errors.HttpError)
 
 
 class BracketError(Exception):
@@ -37,6 +43,39 @@ class Deadline(object):
             True if the deadline has passed. False otherwise.
         """
         return self.clock.time() >= self.deadline
+
+
+class RandExpBackoff(object):
+    """Provides a capped, randomized sequence of exponential backoff values.
+    Adds jitter (random duration between 0 and 1 sec) to help prevent
+    thundering herds.
+    """
+
+    def __init__(self, max_backoff=MAX_BACKOFF_SECS):
+        self.max_backoff = max_backoff
+        self.count = 0
+
+    def get_backoff(self):
+        backoff = min(self.max_backoff, 2 ** self.count)
+        # Add jitter between 0.0 and 1.0 sec
+        backoff += random.random()
+        self.count += 1
+        return backoff
+
+
+def retry(meth, nattempts=3, on=RETRYABLE_EXCEPTIONS):
+    def _wrapped(*args, **kwargs):
+        exp_backoff = RandExpBackoff()
+        for attempt in range(nattempts):
+            try:
+                return meth(*args, **kwargs)
+            except on:
+                if attempt == nattempts - 1:
+                    raise
+                else:
+                    backoff = exp_backoff.get_backoff()
+                    time.sleep(backoff)
+    return _wrapped
 
 
 def sleep(seconds):
