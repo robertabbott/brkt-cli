@@ -100,6 +100,12 @@ def add_brkt_env_to_brkt_config(brkt_env, brkt_config):
         brkt_config['brkt']['hsmproxy_host'] = hsmproxy_host_port
 
 
+def add_token_to_user_data(identity_token, user_data):
+    if 'brkt' not in user_data:
+        user_data['brkt'] = {}
+    user_data['brkt']['identity_token'] = identity_token
+
+
 def make_nonce():
     """Returns a 32bit nonce in hex encoding"""
     return str(uuid.uuid4()).split('-')[0]

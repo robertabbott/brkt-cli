@@ -14,6 +14,7 @@ from brkt_cli import gce_service
 
 NONEXISTANT_IMAGE = 'image'
 NONEXISTANT_PROJECT = 'project'
+TOKEN = 'token'
 
 log = logging.getLogger(__name__)
 
@@ -207,6 +208,7 @@ class TestRunEncryption(unittest.TestCase):
             encrypted_image_name='ubuntu-encrypted',
             zone='us-central1-a',
             brkt_env=None,
+            token=TOKEN,
         )
         self.assertIsNotNone(encrypted_image)
         self.assertEqual(len(gce_svc.disks), 0)
@@ -222,6 +224,7 @@ class TestRunEncryption(unittest.TestCase):
             encrypted_image_name='ubuntu-encrypted',
             zone='us-central1-a',
             brkt_env=None,
+            token=TOKEN,
         )
         self.assertEqual(len(gce_svc.disks), 0)
         self.assertEqual(len(gce_svc.instances), 0)
@@ -237,6 +240,7 @@ class TestRunEncryption(unittest.TestCase):
                 encrypted_image_name='ubuntu-encrypted',
                 zone='us-central1-a',
                 brkt_env=None,
+                token=TOKEN,
             )
         self.assertEqual(len(gce_svc.disks), 0)
         self.assertEqual(len(gce_svc.instances), 0)
@@ -256,7 +260,7 @@ class TestImageValidation(unittest.TestCase):
                 # encrypted_image_name shouldn't exist
                 encrypted_image_name=NONEXISTANT_IMAGE,
                 encryptor=NONEXISTANT_IMAGE,
-                image_project=None
+                image_project=None,
             )
 
     def test_nonexistant_guest(self):
@@ -267,7 +271,7 @@ class TestImageValidation(unittest.TestCase):
                 guest_image=NONEXISTANT_IMAGE,
                 encryptor='americium',
                 encrypted_image_name=NONEXISTANT_IMAGE,
-                image_project=None
+                image_project=None,
             )
 
     def test_desired_output_image_exists(self):
@@ -278,9 +282,9 @@ class TestImageValidation(unittest.TestCase):
                 guest_image='test-ubuntu',
                 encryptor='americium',
                 encrypted_image_name='deuterium',
-                image_project=None
+                image_project=None,
             )
-            
+
     def test_nonexistant_image_project(self):
         gce_svc = DummyGCEService()
         with self.assertRaises(ValidationError):
@@ -289,7 +293,7 @@ class TestImageValidation(unittest.TestCase):
                 guest_image='test-ubuntu',
                 encryptor='americium',
                 encrypted_image_name='deuterium',
-                image_project=NONEXISTANT_IMAGE
+                image_project=NONEXISTANT_IMAGE,
              )
 
 
@@ -324,7 +328,7 @@ class TestRunUpdate(unittest.TestCase):
                 encryptor_image='encryptor-image',
                 encrypted_image_name='ubuntu-encrypted',
                 zone='us-central1-a',
-                brkt_env=None,
+                brkt_env=None
             )
         self.assertEqual(len(gce_svc.disks), 0)
         self.assertEqual(len(gce_svc.instances), 0)
@@ -338,7 +342,7 @@ class TestRunUpdate(unittest.TestCase):
             encryptor_image='encryptor-image',
             encrypted_image_name='ubuntu-encrypted',
             zone='us-central1-a',
-            brkt_env=None,
+            brkt_env=None
         )
 
         self.assertIsNotNone(encrypted_image)

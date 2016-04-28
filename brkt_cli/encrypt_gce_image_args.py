@@ -1,8 +1,6 @@
 import argparse
 
 
-# VERY EXPERIMENTAL FEATURE
-# It will not work for you
 def setup_encrypt_gce_image_args(parser):
     parser.add_argument(
         'image',
@@ -30,6 +28,20 @@ def setup_encrypt_gce_image_args(parser):
         default='prod',
         required=False
     )
+    parser.add_argument(
+         '--brkt-email',
+         metavar='EMAIL',
+         dest='api_email',
+         help='Bracket user email',
+         required=True
+     )
+    parser.add_argument(
+         '--brkt-password',
+         metavar='PASSWORD',
+         dest='api_password',
+         help='Bracket user password',
+         required=True
+     )
     parser.add_argument(
         '--project',
         help='GCE project name',

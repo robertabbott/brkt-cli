@@ -30,11 +30,12 @@ from brkt_cli import aws_service
 from brkt_cli import encrypt_ami
 from brkt_cli import encrypt_ami_args
 from brkt_cli import encryptor_service
-from brkt_cli import gce_service
 from brkt_cli import encrypt_gce_image
 from brkt_cli import encrypt_gce_image_args
+from brkt_cli import gce_service
 from brkt_cli import launch_gce_image
 from brkt_cli import launch_gce_image_args
+from brkt_cli import oauth_requests
 from brkt_cli import update_encrypted_ami_args
 from brkt_cli import update_gce_image
 from brkt_cli import update_encrypted_gce_image_args
@@ -175,6 +176,44 @@ def _parse_tags(tag_strings):
         tags[m.group(1)] = m.group(2)
     return tags
 
+def _api_login(api_addr, api_email, api_password, https=True):
+    scheme = 'https' if https else 'http'
+    r = requests.post(
+        '%s://%s/oauth/credentials' % (scheme, api_addr),
+        json={
+            'username': api_email,
+            'password': api_password,
+            'grant_type': 'password'
+        },
+        headers={'Content-Type': 'application/json'},
+        verify=False)
+    resp = r.json()
+    if 'id_token' not in resp:
+        raise Exception('No id_token in reponse %s', r.text)
+    s = requests.Session()
+    s.headers.update({
+        'Authorization': 'Bearer %s' % resp['id_token'],
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+    })
+    return s
+
+
+def _get_identity_token(brkt_env, api_email, api_password):
+    # Use the customer facing instead of mv facing api endpoint
+    # (this removes 'yetiapi.' and replaces it with 'api.')
+    api_host = 'api.' + brkt_env.api_host.split('.', 1)[-1]
+    session = _api_login(api_host, api_email, api_password, https=True)
+    response = session.post(
+        'https://%s:%d/api/v1/identity/create_token' % (
+            api_host, brkt_env.api_port),
+        verify=False)
+    if response.status_code != 201:
+        raise ValidationError(
+            "Couldn't get an identity token: %s: %s" % (
+                response.status_code, response.content))
+    return response.json()['token']
+
 
 def _parse_brkt_env(brkt_env_string):
     """ Parse the --brkt-env value.  The value is in the following format:
@@ -277,6 +316,7 @@ def command_encrypt_gce_image(values, log):
         brkt_env = _parse_brkt_env(values.brkt_env)
     else:
         brkt_env = _parse_brkt_env(BRKT_ENV_PROD)
+    token = _get_identity_token(brkt_env, values.api_email, values.api_password)
 
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
     gce_service.validate_image_name(encrypted_image_name)
@@ -309,6 +349,7 @@ def command_encrypt_gce_image(values, log):
         encrypted_image_name=encrypted_image_name,
         zone=values.zone,
         brkt_env=brkt_env,
+        token=token,
         image_project=values.image_project
     )
     # Print the image name to stdout, in case the caller wants to process
