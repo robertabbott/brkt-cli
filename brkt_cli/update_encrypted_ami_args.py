@@ -36,6 +36,25 @@ def setup_update_encrypted_ami(parser):
         default=True,
         help="Don't validate AMIs, subnet, and security groups"
     )
+
+    proxy_group = parser.add_mutually_exclusive_group()
+    proxy_group.add_argument(
+        '--proxy',
+        metavar='HOST:PORT',
+        help=(
+            'Use this HTTPS proxy during encryption.  '
+            'May be specified multiple times.'
+        ),
+        dest='proxies',
+        action='append'
+    )
+    proxy_group.add_argument(
+        '--proxy-config-file',
+        metavar='PATH',
+        help='Path to proxy.yaml file that will be used during encryption',
+        dest='proxy_config_file'
+    )
+
     parser.add_argument(
         '--region',
         metavar='REGION',

@@ -11,7 +11,8 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
-
+import gzip
+import json
 import re
 from email import charset
 from email.mime.multipart import MIMEMultipart
@@ -21,6 +22,8 @@ import yaml
 
 # The directory for files saved on the Metavisor. We require that the dest
 # path for all --brkt-files be within this directory.
+from StringIO import StringIO
+
 BRKT_FILE_PREFIX = '/var/brkt/instance_config'
 
 BRKT_CONFIG_CONTENT_TYPE = 'text/brkt-config'
@@ -150,3 +153,32 @@ class UserDataContainer(object):
                 _new_mime_part(container, content_type, yaml.safe_dump(files))
 
         return str(container)
+
+
+def combine_user_data(brkt_config=None, proxy_config=None):
+    """ Combine the user data dictionary with the given proxy configuration
+    into the gzipped multipart MIME binary that will be sent to the
+    metavisor instance.
+
+    :param brkt_config: dictionary of Bracket config values
+    :param proxy_config: proxy.yaml contents
+    :return: a gzipped multipart MIME binary
+    """
+    udc = UserDataContainer()
+
+    brkt_config = brkt_config or {}
+    brkt_config_string = json.dumps(brkt_config)
+    udc.add_part(BRKT_CONFIG_CONTENT_TYPE, brkt_config_string)
+
+    if proxy_config:
+        udc.add_file(
+            '/var/brkt/ami_config/proxy.yaml',
+            proxy_config,
+            BRKT_FILES_CONTENT_TYPE
+        )
+
+    user_data_string = udc.to_mime_text()
+    out = StringIO()
+    with gzip.GzipFile(fileobj=out, mode="w") as f:
+        f.write(user_data_string)
+    return out.getvalue()
