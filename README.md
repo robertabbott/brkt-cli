@@ -50,7 +50,7 @@ groups.
 
 ## Installation
 
-The latest release of **brkt-cli** is 0.9.15.  Use pip to install **brkt-cli** and its dependencies:
+The latest release of **brkt-cli** is 0.9.16.  Use pip to install **brkt-cli** and its dependencies:
 
 ```
 $ pip install brkt-cli
