@@ -37,7 +37,6 @@ AWS_SECRET_ACCESS_KEY environment variables, like you would when
 running the AWS command line utility.
 """
 
-import gzip
 import json
 import logging
 import os
@@ -45,7 +44,6 @@ import string
 import tempfile
 import time
 import urllib2
-from StringIO import StringIO
 
 from boto.ec2.blockdevicemapping import (
     BlockDeviceMapping,
@@ -54,14 +52,9 @@ from boto.ec2.blockdevicemapping import (
 from boto.ec2.instance import InstanceAttribute
 from boto.exception import EC2ResponseError
 
-from brkt_cli import encryptor_service
-from brkt_cli.user_data import (
-    UserDataContainer,
-    BRKT_CONFIG_CONTENT_TYPE,
-    BRKT_FILES_CONTENT_TYPE
-)
+from brkt_cli import encryptor_service, user_data
 from brkt_cli.util import (
-    add_brkt_env_to_user_data,
+    add_brkt_env_to_brkt_config,
     BracketError,
     Deadline,
     make_nonce,
@@ -362,11 +355,11 @@ def run_encryptor_instance(aws_svc, encryptor_image_id,
            guest_image_id, brkt_env=None, security_group_ids=None,
            subnet_id=None, zone=None, ntp_servers=None, proxy_config=None):
     bdm = BlockDeviceMapping()
-    user_data = {}
-    add_brkt_env_to_user_data(brkt_env, user_data)
+    brkt_config = {}
+    add_brkt_env_to_brkt_config(brkt_env, brkt_config)
 
     if ntp_servers:
-        user_data['ntp-servers'] = ntp_servers
+        brkt_config['ntp-servers'] = ntp_servers
 
     image = aws_svc.get_image(encryptor_image_id)
     virtualization_type = image.virtualization_type
@@ -396,24 +389,8 @@ def run_encryptor_instance(aws_svc, encryptor_image_id,
         bdm['/dev/sdf'] = guest_unencrypted_root
         bdm['/dev/sdg'] = guest_encrypted_root
 
-    udc = UserDataContainer()
-
-    brkt_config_string = json.dumps(user_data)
-    udc.add_part(BRKT_CONFIG_CONTENT_TYPE, brkt_config_string)
-
-    if proxy_config:
-        udc.add_file(
-            '/var/brkt/ami_config/proxy.yaml',
-            proxy_config,
-            BRKT_FILES_CONTENT_TYPE
-        )
-
-    user_data_string = udc.to_mime_text()
-    out = StringIO()
-    with gzip.GzipFile(fileobj=out, mode="w") as f:
-        f.write(user_data_string)
-    compressed_user_data = out.getvalue()
-
+    compressed_user_data = user_data.combine_user_data(
+        brkt_config, proxy_config)
     instance = aws_svc.run_instance(encryptor_image_id,
                                     security_group_ids=security_group_ids,
                                     user_data=compressed_user_data,

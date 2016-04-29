@@ -3,7 +3,7 @@
 import logging
 
 from brkt_cli.util import (
-    add_brkt_env_to_user_data,
+    add_brkt_env_to_brkt_config,
     Deadline,
 )
 
@@ -33,7 +33,7 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
             encrypted_image_name, zone, brkt_env, image_project=None):
     brkt_data = {}
     try:
-        add_brkt_env_to_user_data(brkt_env, brkt_data)
+        add_brkt_env_to_brkt_config(brkt_env, brkt_data)
         instance_name = 'brkt-guest-' + gce_svc.get_session_id()
         encryptor = instance_name + '-encryptor'
         encrypted_image_disk = 'encrypted-image-' + gce_svc.get_session_id()

@@ -83,15 +83,21 @@ def sleep(seconds):
         time.sleep(seconds)
 
 
-def add_brkt_env_to_user_data(brkt_env, user_data):
+def add_brkt_env_to_brkt_config(brkt_env, brkt_config):
+    """ Add BracketEnvironment values to the config dictionary
+    that will be passed to the metavisor via userdata.
+
+    :param brkt_env a BracketEnvironment object
+    :param brkt_config a dictionary that contains configuration data
+    """
     if brkt_env:
-        if 'brkt' not in user_data:
-            user_data['brkt'] = {}
+        if 'brkt' not in brkt_config:
+            brkt_config['brkt'] = {}
         api_host_port = '%s:%d' % (brkt_env.api_host, brkt_env.api_port)
         hsmproxy_host_port = '%s:%d' % (
             brkt_env.hsmproxy_host, brkt_env.hsmproxy_port)
-        user_data['brkt']['api_host'] = api_host_port
-        user_data['brkt']['hsmproxy_host'] = hsmproxy_host_port
+        brkt_config['brkt']['api_host'] = api_host_port
+        brkt_config['brkt']['hsmproxy_host'] = hsmproxy_host_port
 
 
 def make_nonce():

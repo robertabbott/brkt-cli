@@ -15,7 +15,7 @@
 import logging
 
 from brkt_cli.util import (
-    add_brkt_env_to_user_data,
+    add_brkt_env_to_brkt_config,
     Deadline,
 )
 from encryptor_service import wait_for_encryption
@@ -48,7 +48,7 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
 
         log.info("Launching encrypted updater")
         brkt_data = {'brkt': {'solo_mode': 'updater'}}
-        add_brkt_env_to_user_data(brkt_env, brkt_data)
+        add_brkt_env_to_brkt_config(brkt_env, brkt_data)
         user_data = gce_metadata_from_userdata(brkt_data)
         gce_svc.run_instance(zone,
                              updater,
