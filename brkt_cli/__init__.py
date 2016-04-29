@@ -49,7 +49,7 @@ from encrypt_ami import (
 from encryptor_service import BracketEnvironment
 from update_ami import update_ami
 
-VERSION = '0.9.16'
+VERSION = '0.9.17pre1'
 BRKT_ENV_PROD = 'yetiapi.mgmt.brkt.com:443,hsmproxy.mgmt.brkt.com:443'
 
 log = None
