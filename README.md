@@ -158,7 +158,7 @@ Run **brkt update-encrypted-ami** to update an encrypted AMI based on an existin
 encrypted image:
 
 ```
-$ brkt update-encrypted-ami --region us-east-1 --updater-ami ami-32430158 ami-72094e18
+$ brkt update-encrypted-ami --region us-east-1 ami-72094e18
 13:38:14 Using zone us-east-1a
 13:38:15 Updating ami-72094e18
 13:38:15 Creating guest volume snapshot
