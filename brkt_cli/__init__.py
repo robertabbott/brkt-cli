@@ -701,14 +701,14 @@ def main():
 
     # Map each subcommand to the module that contains it.
     for module in modules:
-        for subcommand in module.INTERFACE.get_subcommands():
+        for subcommand in module.get_interface().get_subcommands():
             subcommand_to_module[subcommand] = module
 
     # Use metavar to hide any subcommands that we don't want to expose.
     exposed_subcommands = []
     for module in modules:
         exposed_subcommands.extend(
-            module.INTERFACE.get_exposed_subcommands()
+            module.get_interface().get_exposed_subcommands()
         )
     exposed_subcommands = sorted(exposed_subcommands)
     metavar = '{%s}' % ','.join(exposed_subcommands)
@@ -724,7 +724,7 @@ def main():
             'Registering subcommand %s in %s' % (
                 subcommand, module.__package__)
         )
-        module.INTERFACE.register_subcommand(subparsers, subcommand)
+        module.get_interface().register_subcommand(subparsers, subcommand)
 
     encrypt_gce_image_parser = subparsers.add_parser('encrypt-gce-image')
     encrypt_gce_image_args.setup_encrypt_gce_image_args(encrypt_gce_image_parser)
@@ -758,7 +758,7 @@ def main():
     encryptor_service.log.setLevel(log_level)
 
     for module in modules:
-        for log in module.INTERFACE.get_loggers():
+        for log in module.get_interface().get_loggers():
             log.setLevel(log_level)
 
     for msg in module_load_messages:

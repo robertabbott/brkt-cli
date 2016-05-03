@@ -55,4 +55,5 @@ class AWSModuleInterface(ModuleInterface):
             print subcommand
 
 
-INTERFACE = AWSModuleInterface()
+def get_interface():
+    return AWSModuleInterface()

@@ -16,8 +16,8 @@ import abc
 
 class ModuleInterface(object):
     """ brkt-cli modules need to implement this interface in order to
-    be initialized.  Each module must have a variable called INTERFACE
-    in its __init__.py which implements this interface.
+    be initialized.  Each module must have a function called get_interface()
+    in its __init__.py which returns an instance of this interface.
     """
     __metaclass__ = abc.ABCMeta
 
