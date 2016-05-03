@@ -21,7 +21,7 @@ from googleapiclient import errors
 
 
 SLEEP_ENABLED = True
-MAX_BACKOFF_SECS = 5
+MAX_BACKOFF_SECS = 10
 RETRYABLE_EXCEPTIONS = (socket.error, errors.HttpError)
 
 
@@ -63,7 +63,7 @@ class RandExpBackoff(object):
         return backoff
 
 
-def retry(meth, nattempts=3, on=RETRYABLE_EXCEPTIONS):
+def retry(meth, nattempts=5, on=RETRYABLE_EXCEPTIONS):
     def _wrapped(*args, **kwargs):
         exp_backoff = RandExpBackoff()
         for attempt in range(nattempts):
