@@ -33,7 +33,7 @@ from brkt_cli.util import (
     Deadline
 )
 import encrypt_ami
-from encryptor_service import (
+from brkt_cli.encryptor_service import (
     wait_for_encryptor_up,
     wait_for_encryption,
 )

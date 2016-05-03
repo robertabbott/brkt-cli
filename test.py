@@ -44,12 +44,10 @@ from boto.ec2.image import Image
 from boto.ec2.instance import Instance, ConsoleOutput
 from boto.ec2.snapshot import Snapshot
 from boto.ec2.volume import Volume
-from brkt_cli import (
-    encrypt_ami,
-    encryptor_service,
-    update_ami
-)
-from brkt_cli import aws_service, proxy, user_data
+from brkt_cli import encryptor_service
+import brkt_cli.aws
+from brkt_cli.aws import aws_service, encrypt_ami, update_ami
+from brkt_cli import proxy, user_data
 
 brkt_cli.log = logging.getLogger(__name__)
 
@@ -791,7 +789,7 @@ class TestBrktEnv(unittest.TestCase):
                     d['brkt']['hsmproxy_host']
                 )
 
-        brkt_env = brkt_cli._parse_brkt_env(
+        brkt_env = brkt_cli.parse_brkt_env(
             api_host_port + ',' + hsmproxy_host_port)
         aws_svc.run_instance_callback = run_instance_callback
         encrypt_ami.encrypt(
@@ -816,7 +814,7 @@ class TestBrktEnv(unittest.TestCase):
 
         api_host_port = 'api.example.com:777'
         hsmproxy_host_port = 'hsmproxy.example.com:888'
-        brkt_env = brkt_cli._parse_brkt_env(
+        brkt_env = brkt_cli.parse_brkt_env(
             api_host_port + ',' + hsmproxy_host_port)
 
         def run_instance_callback(args):
@@ -1079,43 +1077,43 @@ class TestValidation(unittest.TestCase):
         subnet.vpc_id = 'vpc-1'
         aws_svc.subnets[subnet.id] = subnet
 
-        brkt_cli._validate_subnet_and_security_groups(
+        brkt_cli.aws._validate_subnet_and_security_groups(
             aws_svc, subnet_id=subnet.id)
 
         # Security groups, no subnet.
         sg1 = aws_svc.create_security_group('test1', 'test')
         sg2 = aws_svc.create_security_group('test2', 'test')
-        brkt_cli._validate_subnet_and_security_groups(
+        brkt_cli.aws._validate_subnet_and_security_groups(
             aws_svc, security_group_ids=[sg1.id, sg2.id]
         )
 
         # Security group and subnet.
         sg3 = aws_svc.create_security_group(
             'test3', 'test', vpc_id=subnet.vpc_id)
-        brkt_cli._validate_subnet_and_security_groups(
+        brkt_cli.aws._validate_subnet_and_security_groups(
             aws_svc, subnet_id=subnet.id, security_group_ids=[sg3.id])
 
         # Security groups in different VPCs.
         with self.assertRaises(ValidationError):
-            brkt_cli._validate_subnet_and_security_groups(
+            brkt_cli.aws._validate_subnet_and_security_groups(
                 aws_svc, security_group_ids=[sg1.id, sg2.id, sg3.id])
 
         # Security group not in default subnet.
         with self.assertRaises(ValidationError):
-            brkt_cli._validate_subnet_and_security_groups(
+            brkt_cli.aws._validate_subnet_and_security_groups(
                 aws_svc, security_group_ids=[sg3.id])
 
         # Security group and subnet in different VPCs.
         sg4 = aws_svc.create_security_group(
             'test4', 'test', vpc_id='vpc-2')
         with self.assertRaises(ValidationError):
-            brkt_cli._validate_subnet_and_security_groups(
+            brkt_cli.aws._validate_subnet_and_security_groups(
                 aws_svc, subnet_id=subnet.id, security_group_ids=[sg4.id])
 
         # We don't validate security groups that have no vpc_id.
         sg5 = aws_svc.create_security_group('test5', 'test', vpc_id='vpc-2')
         sg5.vpc_id = None
-        brkt_cli._validate_subnet_and_security_groups(
+        brkt_cli.aws._validate_subnet_and_security_groups(
             aws_svc, security_group_ids=[sg5.id])
 
     def test_duplicate_image_name(self):
@@ -1126,17 +1124,17 @@ class TestValidation(unittest.TestCase):
         # No name.
         values = DummyValues()
         values.ami = guest_image.id
-        brkt_cli._connect_and_validate(aws_svc, values, encryptor_image.id)
+        brkt_cli.aws._connect_and_validate(aws_svc, values, encryptor_image.id)
 
         # Unique name.
         guest_image.name = 'My image'
         values.encrypted_ami_name = 'Proposed name'
-        brkt_cli._connect_and_validate(aws_svc, values, encryptor_image.id)
+        brkt_cli.aws._connect_and_validate(aws_svc, values, encryptor_image.id)
 
         # Name collision.
         values.encrypted_ami_name = guest_image.name
         with self.assertRaises(ValidationError):
-            brkt_cli._connect_and_validate(aws_svc, values, encryptor_image.id)
+            brkt_cli.aws._connect_and_validate(aws_svc, values, encryptor_image.id)
 
     def test_no_validate(self):
         """ Test that the --no-validate option turns off validation.
@@ -1150,11 +1148,11 @@ class TestValidation(unittest.TestCase):
         # Validation checks that the security group is not in the default
         # subnet.
         with self.assertRaises(ValidationError):
-            brkt_cli._connect_and_validate(aws_svc, values, encryptor_image.id)
+            brkt_cli.aws._connect_and_validate(aws_svc, values, encryptor_image.id)
 
         # Exception is not raised when we turn off validation.
         values.validate = False
-        brkt_cli._connect_and_validate(aws_svc, values, encryptor_image.id)
+        brkt_cli.aws._connect_and_validate(aws_svc, values, encryptor_image.id)
 
     def test_detect_double_encryption(self):
         """ Test that we disallow encryption of an already encrypted AMI.
@@ -1172,7 +1170,7 @@ class TestValidation(unittest.TestCase):
         # make sure that validation fails.
         guest_image.tags[encrypt_ami.TAG_ENCRYPTOR] = 'ami-' + _new_id()
         self.assertTrue(
-            'encrypted' in brkt_cli._validate_guest_ami(aws_svc, id))
+            'encrypted' in brkt_cli.aws._validate_guest_ami(aws_svc, id))
 
     def test_validate_guest_image(self):
         """ Test validation of an encrypted guest image.
@@ -1189,23 +1187,23 @@ class TestValidation(unittest.TestCase):
 
         # Missing tag.
         with self.assertRaises(ValidationError):
-            brkt_cli._validate_guest_encrypted_ami(
+            brkt_cli.aws._validate_guest_encrypted_ami(
                 aws_svc, image.id, new_encryptor_id)
 
         # No missing tag.
         image.tags[encrypt_ami.TAG_ENCRYPTOR_SESSION_ID] = _new_id()
-        result = brkt_cli._validate_guest_encrypted_ami(
+        result = brkt_cli.aws._validate_guest_encrypted_ami(
             aws_svc, image.id, new_encryptor_id)
         self.assertEquals(image, result)
 
         # Attempting to encrypt with the same encryptor AMI.
         with self.assertRaises(ValidationError):
-            brkt_cli._validate_guest_encrypted_ami(
+            brkt_cli.aws._validate_guest_encrypted_ami(
                 aws_svc, image.id, old_encryptor_id)
 
         # Invalid image ID.
         with self.assertRaises(ValidationError):
-            brkt_cli._validate_guest_encrypted_ami(
+            brkt_cli.aws._validate_guest_encrypted_ami(
                 aws_svc, 'ami-123456', new_encryptor_id
             )
 
@@ -1219,23 +1217,23 @@ class TestValidation(unittest.TestCase):
         aws_svc.images[image.id] = image
 
         # Valid image.
-        brkt_cli._validate_encryptor_ami(aws_svc, image.id)
+        brkt_cli.aws._validate_encryptor_ami(aws_svc, image.id)
 
         # Unexpected name.
         image.name = 'foobar'
         with self.assertRaises(ValidationError):
-            brkt_cli._validate_encryptor_ami(aws_svc, image.id)
+            brkt_cli.aws._validate_encryptor_ami(aws_svc, image.id)
 
         # Invalid id.
         id = _new_id()
         with self.assertRaises(ValidationError):
-            brkt_cli._validate_encryptor_ami(aws_svc, id)
+            brkt_cli.aws._validate_encryptor_ami(aws_svc, id)
 
         # Service returned None.  Apparently this can happen when the account
         # does not have access to the image.
         aws_svc.images[id] = None
         with self.assertRaises(ValidationError):
-            brkt_cli._validate_encryptor_ami(aws_svc, id)
+            brkt_cli.aws._validate_encryptor_ami(aws_svc, id)
 
     def test_detect_valid_ntp_server(self):
         """ Test that we allow only valid host names or IPv4 addresses to
@@ -1246,20 +1244,20 @@ class TestValidation(unittest.TestCase):
         ntp_servers = ["0.netbsd.pool.ntp.org", "10.10.10.1",
                        "ec2-52-36-60-215.us-west-2.compute.amazonaws.com",
                        "abc.com."]
-        brkt_cli._validate_ntp_servers(ntp_servers)
+        brkt_cli.validate_ntp_servers(ntp_servers)
 
         # test invalid host name is rejected
         ntp_servers = ["ec2_52_36_60_215.us-west-2.compute.amazonaws.com"]
         with self.assertRaises(ValidationError):
-            brkt_cli._validate_ntp_servers(ntp_servers)
+            brkt_cli.validate_ntp_servers(ntp_servers)
 
         # test IPv6 address is rejected
         ntp_servers = ["2001:db8:a0b:12f0::1"]
         with self.assertRaises(ValidationError):
-            brkt_cli._validate_ntp_servers(ntp_servers)
+            brkt_cli.validate_ntp_servers(ntp_servers)
         ntp_servers = ["2001:0db8:0a0b:12f0:0001:0001:0001:0001"]
         with self.assertRaises(ValidationError):
-            brkt_cli._validate_ntp_servers(ntp_servers)
+            brkt_cli.validate_ntp_servers(ntp_servers)
 
     def test_updated_image_name(self):
         """ Test updating the name of an encrypted image.
@@ -1267,26 +1265,26 @@ class TestValidation(unittest.TestCase):
         # Existing image name contains the session id.
         self.assertEquals(
             'abc (encrypted 456)',
-            brkt_cli._get_updated_image_name('abc (encrypted 123)', '456')
+            brkt_cli.aws._get_updated_image_name('abc (encrypted 123)', '456')
         )
 
         # Long name, contains session id.
         existing = 'x' * 112 + ' (encrypted 123)'
         self.assertEquals(
             'x' * 109 + ' (encrypted 123456)',
-            brkt_cli._get_updated_image_name(existing, '123456')
+            brkt_cli.aws._get_updated_image_name(existing, '123456')
         )
 
         # Existing image name doesn't contain the session id.
         self.assertEquals(
             'abc (encrypted 123)',
-            brkt_cli._get_updated_image_name('abc', '123')
+            brkt_cli.aws._get_updated_image_name('abc', '123')
         )
 
         # Long name, does not contain session id.
         self.assertEquals(
             'x' * 112 + ' (encrypted 123)',
-            brkt_cli._get_updated_image_name('x' * 128, '123')
+            brkt_cli.aws._get_updated_image_name('x' * 128, '123')
         )
 
 
@@ -1485,11 +1483,11 @@ class TestCommandLineOptions(unittest.TestCase):
         # Valid tag strings
         self.assertEquals(
             {'a': 'b', 'foo': 'bar'},
-            brkt_cli._parse_tags(['a=b', 'foo=bar']))
+            brkt_cli.parse_tags(['a=b', 'foo=bar']))
 
         # Invalid tag string
         with self.assertRaises(ValidationError):
-            brkt_cli._parse_tags(['abc'])
+            brkt_cli.parse_tags(['abc'])
 
     def test_parse_proxies(self):
         """ Test parsing host:port strings to Proxy objects.
@@ -1523,7 +1521,7 @@ class TestCommandLineOptions(unittest.TestCase):
     def test_parse_brkt_env(self):
         """ Test parsing of the command-line --brkt-env value.
         """
-        be = brkt_cli._parse_brkt_env(
+        be = brkt_cli.parse_brkt_env(
             'api.example.com:777,hsmproxy.example.com:888')
         self.assertEqual('api.example.com', be.api_host)
         self.assertEqual(777, be.api_port)
@@ -1531,11 +1529,11 @@ class TestCommandLineOptions(unittest.TestCase):
         self.assertEqual(888, be.hsmproxy_port)
 
         with self.assertRaises(ValidationError):
-            brkt_cli._parse_brkt_env('a')
+            brkt_cli.parse_brkt_env('a')
         with self.assertRaises(ValidationError):
-            brkt_cli._parse_brkt_env('a:7,b:8:9')
+            brkt_cli.parse_brkt_env('a:7,b:8:9')
         with self.assertRaises(ValidationError):
-            brkt_cli._parse_brkt_env('a:7,b?:8')
+            brkt_cli.parse_brkt_env('a:7,b?:8')
 
     def test_get_proxy_config(self):
         """ Test reading proxy config from the --proxy and --proxy-config-file
@@ -1543,11 +1541,11 @@ class TestCommandLineOptions(unittest.TestCase):
         """
         # No proxy.
         values = DummyValues()
-        self.assertIsNone(brkt_cli._get_proxy_config(values))
+        self.assertIsNone(brkt_cli.get_proxy_config(values))
 
         # --proxy specified.
         values.proxies = ['proxy.example.com:8000']
-        proxy_yaml = brkt_cli._get_proxy_config(values)
+        proxy_yaml = brkt_cli.get_proxy_config(values)
         d = yaml.load(proxy_yaml)
         self.assertEquals('proxy.example.com', d['proxies'][0]['host'])
 
@@ -1555,14 +1553,14 @@ class TestCommandLineOptions(unittest.TestCase):
         values.proxy = None
         values.proxy_config_file = 'bogus.yaml'
         with self.assertRaises(ValidationError):
-            brkt_cli._get_proxy_config(values)
+            brkt_cli.get_proxy_config(values)
 
         # --proxy-config-file references a valid file.
         with tempfile.NamedTemporaryFile() as f:
             f.write(proxy_yaml)
             f.flush()
             values.proxy_config_file = f.name
-            proxy_yaml = brkt_cli._get_proxy_config(values)
+            proxy_yaml = brkt_cli.get_proxy_config(values)
 
         d = yaml.load(proxy_yaml)
         self.assertEquals('proxy.example.com', d['proxies'][0]['host'])
