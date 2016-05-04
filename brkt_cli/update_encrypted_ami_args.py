@@ -1,25 +1,11 @@
-# Copyright 2015 Bracket Computing, Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License").
-# You may not use this file except in compliance with the License.
-# A copy of the License is located at
-#
-# https://github.com/brkt/brkt-cli/blob/master/LICENSE
-#
-# or in the "license" file accompanying this file. This file is
-# distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-# CONDITIONS OF ANY KIND, either express or implied. See the
-# License for the specific language governing permissions and
-# limitations under the License.
-
 import argparse
 
 
-def setup_encrypt_ami_args(parser):
+def setup_update_encrypted_ami(parser):
     parser.add_argument(
         'ami',
         metavar='ID',
-        help='The guest AMI that will be encrypted'
+        help='The encrypted AMI that will be updated'
     )
     parser.add_argument(
         '--encrypted-ami-name',
@@ -50,16 +36,6 @@ def setup_encrypt_ami_args(parser):
         default=True,
         help="Don't validate AMIs, subnet, and security groups"
     )
-    parser.add_argument(
-        '--ntp-server',
-        metavar='DNS Name',
-        dest='ntp_servers',
-        action='append',
-        help=(
-            'Optional NTP server to sync Metavisor clock. '
-            'May be specified multiple times.'
-        )
-    )
 
     proxy_group = parser.add_mutually_exclusive_group()
     proxy_group.add_argument(
@@ -81,9 +57,10 @@ def setup_encrypt_ami_args(parser):
 
     parser.add_argument(
         '--region',
-        metavar='NAME',
+        metavar='REGION',
         help='AWS region (e.g. us-west-2)',
         dest='region',
+        default='us-west-2',
         required=True
     )
     parser.add_argument(
@@ -103,6 +80,31 @@ def setup_encrypt_ami_args(parser):
         help='Launch instances in this subnet'
     )
     parser.add_argument(
+        '--ntp-server',
+        metavar='DNS Name',
+        dest='ntp_servers',
+        action='append',
+        help=(
+            'Optional NTP server to sync Metavisor clock. '
+            'May be specified multiple times.'
+        )
+    )
+    # Optional yeti endpoints. Hidden because it's only used for development.
+    parser.add_argument(
+        '--brkt-env',
+        dest='brkt_env',
+        help=argparse.SUPPRESS
+    )
+    # Optional EC2 SSH key pair name to use for launching the guest
+    # and encryptor instances.  This argument is hidden because it's only
+    # used for development.
+    parser.add_argument(
+        '--key',
+        metavar='KEY',
+        help=argparse.SUPPRESS,
+        dest='key_name'
+    )
+    parser.add_argument(
         '--tag',
         metavar='KEY=VALUE',
         dest='tags',
@@ -113,31 +115,13 @@ def setup_encrypt_ami_args(parser):
         )
     )
 
-    # Optional yeti endpoints. Hidden because it's only used for development.
-    # If you're using this option, it should be passed as a comma separated
-    # list of endpoints. ie blb.*.*.brkt.net:7002,blb.*.*.brkt.net:7001 the
-    # endpoints must also be in order: api_host,hsmproxy_host
-    parser.add_argument(
-        '--brkt-env',
-        dest='brkt_env',
-        help=argparse.SUPPRESS
-    )
-
-    # Optional AMI ID that's used to launch the encryptor instance.  This
-    # argument is hidden because it's only used for development.
+    # Optional hidden argument for specifying the metavisor AMI.  This
+    # argument is hidden because it's only used for development.  It can
+    # also be used to override the default AMI if it's determined to be
+    # unstable.
     parser.add_argument(
         '--encryptor-ami',
         metavar='ID',
-        dest='encryptor_ami',
-        help=argparse.SUPPRESS
-    )
-
-    # Optional EC2 SSH key pair name to use for launching the guest
-    # and encryptor instances.  This argument is hidden because it's only
-    # used for development.
-    parser.add_argument(
-        '--key',
-        metavar='NAME',
         help=argparse.SUPPRESS,
-        dest='key_name'
+        dest='encryptor_ami'
     )
