@@ -15,7 +15,6 @@
 from __future__ import print_function
 
 import argparse
-import importlib
 import logging
 import re
 import sys
@@ -29,6 +28,7 @@ from boto.exception import EC2ResponseError, NoAuthHandlerFound
 
 from brkt_cli import aws_service
 from brkt_cli import encrypt_ami
+from brkt_cli import encrypt_ami_args
 from brkt_cli import encryptor_service
 from brkt_cli import encrypt_gce_image
 from brkt_cli import encrypt_gce_image_args
@@ -36,6 +36,7 @@ from brkt_cli import gce_service
 from brkt_cli import launch_gce_image
 from brkt_cli import launch_gce_image_args
 from brkt_cli import oauth_requests
+from brkt_cli import update_encrypted_ami_args
 from brkt_cli import update_gce_image
 from brkt_cli import update_encrypted_gce_image_args
 from brkt_cli import util
@@ -51,10 +52,6 @@ from update_ami import update_ami
 
 VERSION = '0.9.17pre1'
 BRKT_ENV_PROD = 'yetiapi.mgmt.brkt.com:443,hsmproxy.mgmt.brkt.com:443'
-
-# The list of modules that may be loaded.  Modules contain subcommands of
-# the brkt command and CSP-specific code.
-MODULE_NAMES = ['brkt_cli.aws', 'brkt_cli.gce']
 
 log = None
 
@@ -178,7 +175,6 @@ def _parse_tags(tag_strings):
             raise ValidationError('Tag %s is not in the format KEY=VALUE' % s)
         tags[m.group(1)] = m.group(2)
     return tags
-
 
 def _api_login(api_addr, api_email, api_password, https=True):
     scheme = 'https' if https else 'http'
@@ -681,50 +677,17 @@ def main():
         help="Don't check whether this version of brkt-cli is supported"
     )
 
-    # Batch up messages that are logged while loading modules.  We don't know
-    # whether to log them yet, since we haven't parsed arguments.  argparse
-    # seems to get confused when you parse arguments twice.
-    module_load_messages = []
+    # metavar indicates with subparsers will be shown
+    # when the cli is invoked incorrectly or with -h/--help
+    # this hides other subparsers that shouldn't be visible
+    # to users
+    subparsers = parser.add_subparsers(dest='subparser_name', metavar='{encrypt-ami,update-encrypted-ami}')
 
-    # Load subcommand modules dynamically.
-    modules = []
-    subcommand_to_module = {}
-
-    # Load any modules that are installed.
-    for module_name in MODULE_NAMES:
-        try:
-            module = importlib.import_module(module_name)
-            modules.append(module)
-        except ImportError as e:
-                module_load_messages.append(
-                    'Skipping module %s: %s' % (module_name, e))
-
-    # Map each subcommand to the module that contains it.
-    for module in modules:
-        for subcommand in module.get_interface().get_subcommands():
-            subcommand_to_module[subcommand] = module
-
-    # Use metavar to hide any subcommands that we don't want to expose.
-    exposed_subcommands = []
-    for module in modules:
-        exposed_subcommands.extend(
-            module.get_interface().get_exposed_subcommands()
-        )
-    exposed_subcommands = sorted(exposed_subcommands)
-    metavar = '{%s}' % ','.join(exposed_subcommands)
-
-    subparsers = parser.add_subparsers(
-        dest='subparser_name',
-        metavar=metavar
+    encrypt_ami_parser = subparsers.add_parser(
+        'encrypt-ami',
+        description='Create an encrypted AMI from an existing AMI.'
     )
-
-    # Add subcommands to the parser.
-    for subcommand, module in subcommand_to_module.iteritems():
-        module_load_messages.append(
-            'Registering subcommand %s in %s' % (
-                subcommand, module.__package__)
-        )
-        module.get_interface().register_subcommand(subparsers, subcommand)
+    encrypt_ami_args.setup_encrypt_ami_args(encrypt_ami_parser)
 
     encrypt_gce_image_parser = subparsers.add_parser('encrypt-gce-image')
     encrypt_gce_image_args.setup_encrypt_gce_image_args(encrypt_gce_image_parser)
@@ -734,6 +697,16 @@ def main():
 
     update_gce_image_parser = subparsers.add_parser('update-gce-image')
     update_encrypted_gce_image_args.setup_update_gce_image_args(update_gce_image_parser)
+
+    update_encrypted_ami_parser = \
+        subparsers.add_parser(
+            'update-encrypted-ami',
+            description=(
+                'Update an encrypted AMI with the latest Metavisor release.'
+            )
+        )
+    update_encrypted_ami_args.setup_update_encrypted_ami(
+        update_encrypted_ami_parser)
 
     argv = sys.argv[1:]
     values = parser.parse_args(argv)
@@ -756,13 +729,6 @@ def main():
     log.setLevel(log_level)
     aws_service.log.setLevel(log_level)
     encryptor_service.log.setLevel(log_level)
-
-    for module in modules:
-        for log in module.get_interface().get_loggers():
-            log.setLevel(log_level)
-
-    for msg in module_load_messages:
-        log.debug(msg)
 
     if values.check_version:
         supported_versions = None
