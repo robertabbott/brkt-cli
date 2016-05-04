@@ -11,6 +11,7 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
+import importlib
 import json
 import tempfile
 
@@ -1565,3 +1566,11 @@ class TestCommandLineOptions(unittest.TestCase):
 
         d = yaml.load(proxy_yaml)
         self.assertEquals('proxy.example.com', d['proxies'][0]['host'])
+
+
+class TestSubmodule(unittest.TestCase):
+
+    def test_aws_module(self):
+        """ Test that the AWS module is installed by setuptools.
+        """
+        importlib.import_module('brkt_cli.aws')

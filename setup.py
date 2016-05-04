@@ -37,7 +37,7 @@ setup(
     description='Bracket Computing command line interface',
     url='http://brkt.com',
     license='Apache 2.0',
-    packages=['brkt_cli'],
+    packages=['brkt_cli', 'brkt_cli.aws'],
     install_requires=[
         'boto>=2.38.0',
         'requests>=2.7.0',
