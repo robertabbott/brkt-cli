@@ -307,7 +307,7 @@ class TestBrktEnv(unittest.TestCase):
         api_host_port = 'api.example.com:777'
         hsmproxy_host_port = 'hsmproxy.example.com:888'
         expected_userdata = {'brkt':{'api_host': api_host_port, 'hsmproxy_host': hsmproxy_host_port}}
-        brkt_env = brkt_cli._parse_brkt_env(
+        brkt_env = brkt_cli.parse_brkt_env(
             api_host_port + ',' + hsmproxy_host_port)
         util.add_brkt_env_to_brkt_config(brkt_env, userdata)
         self.assertEqual(userdata, expected_userdata)

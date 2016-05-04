@@ -22,7 +22,7 @@ import logging
 from boto.exception import EC2ResponseError
 import time
 
-from validation import ValidationError
+from brkt_cli.validation import ValidationError
 
 log = logging.getLogger(__name__)
 
