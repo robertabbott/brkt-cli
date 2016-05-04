@@ -107,7 +107,7 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
             brkt_config, proxy_config)
         updater = aws_svc.run_instance(
             updater_ami,
-            instance_type="m3.medium",
+            instance_type="c3.large",
             user_data=compressed_user_data,
             ebs_optimized=False,
             subnet_id=subnet_id,

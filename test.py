@@ -898,7 +898,7 @@ class TestRunUpdate(unittest.TestCase):
             if args.image_id == encrypted_ami_id:
                 self.assertEqual('t2.micro', args.instance_type)
             elif args.image_id == encryptor_image.id:
-                self.assertEqual('m3.medium', args.instance_type)
+                self.assertEqual('c3.large', args.instance_type)
             else:
                 self.fail('Unexpected image: ' + args.image_id)
 
