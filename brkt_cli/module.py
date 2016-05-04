@@ -36,10 +36,11 @@ class ModuleInterface(object):
         """
         pass
 
-    @abc.abstractmethod
-    def get_loggers(self):
-        """ Return a list of Logger objects.  brkt_cli sets the log level
-        to INFO or DEBUG, depending on whether the user specifies -v.
+    def init_logging(self, verbose):
+        """ Modules can optionally implement this callback to initialize
+        loggers.
+
+        :param verbose: True if the user specified verbose logging
         """
         pass
 

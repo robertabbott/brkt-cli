@@ -18,6 +18,7 @@ import tempfile
 
 import boto
 import boto.sts
+import boto.vpc
 import logging
 from boto.exception import EC2ResponseError
 import time

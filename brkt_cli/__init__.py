@@ -21,9 +21,6 @@ import re
 import sys
 from distutils.version import LooseVersion
 
-import boto
-import boto.ec2
-import boto.vpc
 import requests
 
 from brkt_cli import (
@@ -50,7 +47,7 @@ BRKT_ENV_PROD = 'yetiapi.mgmt.brkt.com:443,hsmproxy.mgmt.brkt.com:443'
 # the brkt command and CSP-specific code.
 MODULE_NAMES = ['brkt_cli.aws', 'brkt_cli.gce']
 
-log = None
+log = logging.getLogger(__name__)
 
 
 def validate_ntp_servers(ntp_servers):
@@ -422,24 +419,18 @@ def main():
     # Initialize logging.  Log messages are written to stderr and are
     # prefixed with a compact timestamp, so that the user knows how long
     # each operation took.
+    log_level = logging.INFO
     if values.verbose:
         log_level = logging.DEBUG
-    else:
-        # Boto logs auth errors and 401s at ERROR level by default.
-        boto.log.setLevel(logging.FATAL)
-        log_level = logging.INFO
-    # Set the log level of our modules explicitly.  We can't set the
-    # default log level to INFO because we would see INFO messages from
-    # boto and other 3rd party libraries in the command output.
-    logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%H:%M:%S')
-    global log
-    log = logging.getLogger(__name__)
-    log.setLevel(log_level)
-    encryptor_service.log.setLevel(log_level)
+
+    logging.basicConfig(
+        level=log_level,
+        format='%(asctime)s %(message)s',
+        datefmt='%H:%M:%S'
+    )
 
     for module in modules:
-        for log in module.get_interface().get_loggers():
-            log.setLevel(log_level)
+        module.get_interface().init_logging(values.verbose)
 
     for msg in module_load_messages:
         log.debug(msg)

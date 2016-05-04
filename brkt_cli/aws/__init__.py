@@ -14,6 +14,7 @@
 import logging
 import re
 
+import boto
 from boto.exception import EC2ResponseError, NoAuthHandlerFound
 
 import brkt_cli
@@ -40,8 +41,10 @@ class AWSModuleInterface(ModuleInterface):
     def get_exposed_subcommands(self):
         return self.get_subcommands()
 
-    def get_loggers(self):
-        return [log]
+    def init_logging(self, verbose):
+        # Set boto logging to FATAL, since boto logs auth errors and 401s
+        # at ERROR level.
+        boto.log.setLevel(logging.FATAL)
 
     def register_subcommand(self, subparsers, subcommand):
         if subcommand == 'encrypt-ami':
