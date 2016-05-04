@@ -56,5 +56,8 @@ class ModuleInterface(object):
 
     @abc.abstractmethod
     def run_subcommand(self, subcommand, values):
-        """ Modules implement this callback to run a subcommand. """
+        """ Modules implement this callback to run a subcommand.
+
+        :return the exit status as an integer (0 means success)
+        """
         pass
