@@ -30,16 +30,15 @@ def validate_images(gce_svc, encrypted_image_name,  encryptor, guest_image, imag
         raise ValidationError('An image already exists with name %s. Encryption Failed.' % encrypted_image_name)
 
 
-def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
-            encrypted_image_name, zone, brkt_env, token, image_project=None):
-    brkt_data = {}
+def setup_encryption(gce_svc,
+                     image_id,
+                     encrypted_image_disk,
+                     instance_name,
+                     zone,
+                     brkt_env,
+                     brkt_data,
+                     image_project):
     try:
-        add_brkt_env_to_brkt_config(brkt_env, brkt_data)
-        add_token_to_user_data(token, brkt_data)
-        instance_name = 'brkt-guest-' + gce_svc.get_session_id()
-        encryptor = instance_name + '-encryptor'
-        encrypted_image_disk = 'encrypted-image-' + gce_svc.get_session_id()
-
         log.info('Launching guest instance')
         gce_svc.run_instance(zone, instance_name, image_id, image_project=image_project)
         gce_svc.delete_instance(zone, instance_name)
@@ -58,8 +57,15 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         log.info('Encryption setup failed')
         raise e
 
-    # run encryptor instance with avatar_creator as root,
-    # customer image and blank disk
+
+def do_encryption(gce_svc,
+                   enc_svc_cls,
+                   zone,
+                   encryptor,
+                   encryptor_image,
+                   instance_name,
+                   encrypted_image_disk,
+                   brkt_data):
     try:
         log.info('Launching encryptor instance')
         gce_svc.run_instance(zone,
@@ -79,7 +85,7 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         raise e
 
 
-    # create image
+def create_image(gce_svc, zone, encrypted_image_disk, encrypted_image_name, encryptor):
     try:
         # snapshot encrypted guest disk
         log.info("Creating snapshot of encrypted image disk")
@@ -98,6 +104,28 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         log.info('Image creation failed')
         raise e
 
-    log.info("Cleaning up")
-    gce_svc.cleanup(zone)
-    return encrypted_image_name
+
+def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
+            encrypted_image_name, zone, brkt_env, token, image_project=None):
+    brkt_data = {}
+    try:
+        add_brkt_env_to_brkt_config(brkt_env, brkt_data)
+        add_token_to_user_data(token, brkt_data)
+        instance_name = 'brkt-guest-' + gce_svc.get_session_id()
+        encryptor = instance_name + '-encryptor'
+        encrypted_image_disk = 'encrypted-image-' + gce_svc.get_session_id()
+
+        # create guest root disk and blank disk to dd to
+        setup_encryption(gce_svc, image_id, encrypted_image_disk, instance_name, zone, brkt_env, brkt_data, image_project)
+
+        # run encryptor instance with avatar_creator as root,
+        # customer image and blank disk
+        do_encryption(gce_svc, enc_svc_cls, zone, encryptor, encryptor_image, instance_name, encrypted_image_disk, brkt_data)
+
+        # create image
+        create_image(gce_svc, zone, encrypted_image_disk, encrypted_image_name, encryptor)
+
+        return encrypted_image_name
+    finally:
+        log.info("Cleaning up")
+        gce_svc.cleanup(zone)
