@@ -65,9 +65,9 @@ class AWSModuleInterface(ModuleInterface):
     def run_subcommand(self, subcommand, values):
         try:
             if values.subparser_name == 'encrypt-ami':
-                command_encrypt_ami(values, log)
+                return command_encrypt_ami(values, log)
             if values.subparser_name == 'update-encrypted-ami':
-                command_update_encrypted_ami(values, log)
+                return command_update_encrypted_ami(values, log)
         except NoAuthHandlerFound:
             msg = (
                 'Unable to connect to AWS.  Are your AWS_ACCESS_KEY_ID and '
@@ -104,6 +104,8 @@ class AWSModuleInterface(ModuleInterface):
                 )
             else:
                 raise
+
+        return 1
 
 
 def get_interface():
