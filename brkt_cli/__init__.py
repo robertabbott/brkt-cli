@@ -441,7 +441,7 @@ def main():
         subcommand = values.subparser_name
         if subcommand in subcommand_to_module:
             module = subcommand_to_module[subcommand]
-            module.get_interface().run_subcommand(subcommand, values)
+            return module.get_interface().run_subcommand(subcommand, values)
         if subcommand == 'launch-gce-image':
             log.info('Warning: GCE support is still in development.')
             return command_launch_gce_image(values, log)
