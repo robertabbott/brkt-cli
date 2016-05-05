@@ -53,7 +53,6 @@ def setup_encryption(gce_svc,
         log.info('Creating disk for encrypted image')
         gce_svc.create_disk(zone, encrypted_image_disk, guest_size * 2 + 1)
     except Exception as e:
-        gce_svc.cleanup(zone)
         log.info('Encryption setup failed')
         raise e
 
@@ -81,7 +80,6 @@ def do_encryption(gce_svc,
         wait_for_encryption(enc_svc)
         gce_svc.delete_instance(zone, encryptor)
     except Exception as e:
-        gce_svc.cleanup(zone)
         raise e
 
 
