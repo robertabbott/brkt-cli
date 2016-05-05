@@ -44,6 +44,15 @@ class ModuleInterface(object):
         """
         pass
 
+    def verbose(self, subcommand, values):
+        """ Modules can optionally implement this callback to specify
+        whether the verbose flag was specified for the given subcommand.
+
+        @param subcommand the subcommand to check
+        @param values the parsed arguments object
+        """
+        return False
+
     @abc.abstractmethod
     def register_subcommand(self, subparsers, subcommand):
         """ Modules implement this callback in order to add subcommands to the

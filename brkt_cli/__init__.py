@@ -416,29 +416,38 @@ def main():
     argv = sys.argv[1:]
     values = parser.parse_args(argv)
 
-    # Initialize logging.  Log messages are written to stderr and are
-    # prefixed with a compact timestamp, so that the user knows how long
-    # each operation took.
+    # Initialize logging.  Verbose logging can be specified for either
+    # the top-level "brkt" command or one of the subcommands.  We support
+    # both because users got confused when "brkt encrypt-ami -v" didn't work.
     log_level = logging.INFO
     if values.verbose:
         log_level = logging.DEBUG
 
+    subcommand = values.subparser_name
+    module = subcommand_to_module.get(subcommand)
+    if module and module.get_interface().verbose(subcommand, values):
+        log_level = logging.DEBUG
+
+    # Log messages are written to stderr and are prefixed with a compact
+    # timestamp, so that the user knows how long each operation took.
     logging.basicConfig(
         level=log_level,
         format='%(asctime)s %(message)s',
         datefmt='%H:%M:%S'
     )
 
+    # Initialze logging at the module level.
     for module in modules:
         module.get_interface().init_logging(values.verbose)
 
+    # Write messages that were logged before logging was initialized.
     for msg in module_load_messages:
         log.debug(msg)
 
+    # Run the subcommand.
     if values.check_version:
         supported_versions = None
     try:
-        subcommand = values.subparser_name
         if subcommand in subcommand_to_module:
             module = subcommand_to_module[subcommand]
             return module.get_interface().run_subcommand(subcommand, values)

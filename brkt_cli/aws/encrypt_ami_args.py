@@ -112,6 +112,13 @@ def setup_encrypt_ami_args(parser):
             'May be specified multiple times.'
         )
     )
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        dest='encrypt_ami_verbose',
+        action='store_true',
+        help='Print status information to the console'
+    )
 
     # Optional yeti endpoints. Hidden because it's only used for development.
     # If you're using this option, it should be passed as a comma separated
