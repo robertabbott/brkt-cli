@@ -138,6 +138,7 @@ class DummyGCEService(gce_service.BaseGCEService):
                      disks=[],
                      metadata={},
                      delete_boot=False,
+                     block_project_ssh_keys=False,
                      instance_type='n1-standard-4',
                      image_project=None):
         self.instances.append(name)

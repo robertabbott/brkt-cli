@@ -161,7 +161,9 @@ class BaseGCEService(object):
                      disks,
                      metadata,
                      delete_boot,
-                     instance_type):
+                     block_project_ssh_keys,
+                     instance_type,
+                     image_project):
         pass
 
     @abc.abstractmethod
@@ -430,9 +432,16 @@ class GCEService(BaseGCEService):
                      disks=[],
                      metadata={},
                      delete_boot=False,
+                     block_project_ssh_keys=False,
                      instance_type='n1-standard-4',
                      image_project=None):
         self.instances.append(name)
+
+        if block_project_ssh_keys:
+            if 'items' not in metadata:
+                metadata['items'] = []
+            metadata['items'].append({"key": "block-project-ssh-keys", 'value': 'true'})
+
         # if boot disk doesn't autodelete we need to track it
         if not delete_boot:
             self.disks.append(name)
