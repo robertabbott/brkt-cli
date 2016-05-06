@@ -67,52 +67,79 @@ The master branch has the latest features and bug fixes, but is not as thoroughl
 ## Usage
 ```
 $ brkt encrypt-ami --help
-usage: brkt encrypt-ami [-h] [--encrypted-ami-name NAME] [--no-validate]
+usage: brkt encrypt-ami [-h] [--encrypted-ami-name NAME]
+                        [--guest-instance-type TYPE] [--hvm] [--no-validate]
+                        [--proxy HOST:PORT | --proxy-config-file PATH]
                         --region NAME [--security-group ID] [--subnet ID]
+                        [--tag KEY=VALUE] [--ntp-server DNS Name]
                         ID
 
 Create an encrypted AMI from an existing AMI.
 
 positional arguments:
-  ID                    The AMI that will be encrypted
+  ID                    The guest AMI that will be encrypted
 
 optional arguments:
   -h, --help            show this help message and exit
   --encrypted-ami-name NAME
                         Specify the name of the generated encrypted AMI
+  --guest-instance-type TYPE
+                        The instance type to use when running the unencrypted
+                        guest instance
   --hvm                 Use the HVM encryptor (beta)
   --no-validate         Don't validate AMIs, subnet, and security groups
   --proxy HOST:PORT     Use this HTTPS proxy during encryption. May be
                         specified multiple times.
+  --proxy-config-file PATH
+                        Path to proxy.yaml file that will be used during
+                        encryption
   --region NAME         AWS region (e.g. us-west-2)
   --security-group ID   Use this security group when running the encryptor
                         instance. May be specified multiple times.
   --subnet ID           Launch instances in this subnet
   --tag KEY=VALUE       Custom tag for resources created during encryption.
                         May be specified multiple times.
+  --ntp-server DNS Name
+                        Optional NTP server to sync Metavisor clock. May be
+                        specified multiple times.
 ```
 ```
 $ brkt update-encrypted-ami --help
 usage: brkt update-encrypted-ami [-h] [--encrypted-ami-name NAME]
-                                 [--no-validate] --region REGION
-                                 [--security-group ID] [--subnet ID]
+                                 [--guest-instance-type TYPE] [--hvm]
+                                 [--no-validate]
+                                 [--proxy HOST:PORT | --proxy-config-file PATH]
+                                 --region REGION [--security-group ID]
+                                 [--subnet ID] [--ntp-server DNS Name]
+                                 [--tag KEY=VALUE]
                                  ID
 
 Update an encrypted AMI with the latest Metavisor release.
 
 positional arguments:
-  ID                    The AMI that will be encrypted
+  ID                    The encrypted AMI that will be updated
 
 optional arguments:
   -h, --help            show this help message and exit
   --encrypted-ami-name NAME
                         Specify the name of the generated encrypted AMI
+  --guest-instance-type TYPE
+                        The instance type to use when running the unencrypted
+                        guest instance
   --hvm                 Use the HVM encryptor (beta)
   --no-validate         Don't validate AMIs, subnet, and security groups
+  --proxy HOST:PORT     Use this HTTPS proxy during encryption. May be
+                        specified multiple times.
+  --proxy-config-file PATH
+                        Path to proxy.yaml file that will be used during
+                        encryption
   --region REGION       AWS region (e.g. us-west-2)
   --security-group ID   Use this security group when running the encryptor
                         instance. May be specified multiple times.
   --subnet ID           Launch instances in this subnet
+  --ntp-server DNS Name
+                        Optional NTP server to sync Metavisor clock. May be
+                        specified multiple times.
   --tag KEY=VALUE       Custom tag for resources created during encryption.
                         May be specified multiple times.
 ```
