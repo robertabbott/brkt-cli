@@ -46,6 +46,14 @@ class AWSModuleInterface(ModuleInterface):
         # at ERROR level.
         boto.log.setLevel(logging.FATAL)
 
+    def verbose(self, subcommand, values):
+        if subcommand == 'encrypt-ami':
+            return values.encrypt_ami_verbose
+        elif subcommand == 'update-encrypted-ami':
+            return values.update_encrypted_ami_verbose
+        else:
+            raise Exception('Unexpected subcommand: %s' % subcommand)
+
     def register_subcommand(self, subparsers, subcommand):
         if subcommand == 'encrypt-ami':
             encrypt_ami_parser = subparsers.add_parser(

@@ -128,6 +128,13 @@ def setup_update_encrypted_ami(parser):
             'May be specified multiple times.'
         )
     )
+    parser.add_argument(
+        '-v',
+        '--verbose',
+        dest='update_encrypted_ami_verbose',
+        action='store_true',
+        help='Print status information to the console'
+    )
 
     # Optional hidden argument for specifying the metavisor AMI.  This
     # argument is hidden because it's only used for development.  It can
