@@ -12,11 +12,11 @@ def launch(log, gce_svc, image_id, instance_name, zone, delete_boot, instance_ty
     log.info("Starting instance")
     guest_disk = gce_svc.get_disk(zone, guest)
     guest_disk['autoDelete'] = True
-    gce_svc.run_instance(zone,
-                         instance_name,
-                         image_id,
-                         [guest_disk],
-                         metadata,
-                         delete_boot,
-                         instance_type)
+    gce_svc.run_instance(zone=zone,
+                         name=instance_name,
+                         image=image_id,
+                         disks=[guest_disk],
+                         metadata=metadata,
+                         delete_boot=delete_boot,
+                         instance_type=instance_type)
     gce_svc.wait_instance(instance_name, zone)
