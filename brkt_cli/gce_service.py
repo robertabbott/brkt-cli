@@ -299,11 +299,13 @@ class GCEService(BaseGCEService):
         detach_req = self.compute.disks().get(zone=zone,
                                               project=self.project,
                                               disk=diskName)
+        resp = retry(execute_gce_api_call, 8)(detach_req)
         while True:
-            resp = retry(execute_gce_api_call)(detach_req)
             if "users" not in resp and resp != {}:
+                self.log.info("Disk detach successful")
                 return
             time.sleep(10)
+            resp = retry(execute_gce_api_call)(detach_req)
             self.log.info("Waiting for disk to detach from instance")
 
     def disk_exists(self, zone, name):
