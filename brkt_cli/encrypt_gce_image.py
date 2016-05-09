@@ -40,7 +40,7 @@ def setup_encryption(gce_svc,
                      image_project):
     try:
         log.info('Launching guest instance')
-        gce_svc.run_instance(zone, instance_name, image_id, image_project=image_project)
+        gce_svc.run_instance(zone, instance_name, image_id, block_project_ssh_keys=True, image_project=image_project)
         gce_svc.delete_instance(zone, instance_name)
         log.info('Guest instance terminated')
         log.info('Waiting for guest root disk to become ready')

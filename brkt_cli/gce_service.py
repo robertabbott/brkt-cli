@@ -161,7 +161,9 @@ class BaseGCEService(object):
                      disks,
                      metadata,
                      delete_boot,
-                     instance_type):
+                     block_project_ssh_keys,
+                     instance_type,
+                     image_project):
         pass
 
     @abc.abstractmethod
@@ -297,11 +299,13 @@ class GCEService(BaseGCEService):
         detach_req = self.compute.disks().get(zone=zone,
                                               project=self.project,
                                               disk=diskName)
+        resp = retry(execute_gce_api_call, 8)(detach_req)
         while True:
-            resp = retry(execute_gce_api_call)(detach_req)
             if "users" not in resp and resp != {}:
+                self.log.info("Disk detach successful")
                 return
             time.sleep(10)
+            resp = retry(execute_gce_api_call)(detach_req)
             self.log.info("Waiting for disk to detach from instance")
 
     def disk_exists(self, zone, name):
@@ -430,9 +434,16 @@ class GCEService(BaseGCEService):
                      disks=[],
                      metadata={},
                      delete_boot=False,
+                     block_project_ssh_keys=False,
                      instance_type='n1-standard-4',
                      image_project=None):
         self.instances.append(name)
+
+        if block_project_ssh_keys:
+            if 'items' not in metadata:
+                metadata['items'] = []
+            metadata['items'].append({"key": "block-project-ssh-keys", 'value': 'true'})
+
         # if boot disk doesn't autodelete we need to track it
         if not delete_boot:
             self.disks.append(name)
