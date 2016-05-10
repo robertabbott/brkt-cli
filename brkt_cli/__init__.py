@@ -45,7 +45,7 @@ BRKT_ENV_PROD = 'yetiapi.mgmt.brkt.com:443,hsmproxy.mgmt.brkt.com:443'
 
 # The list of modules that may be loaded.  Modules contain subcommands of
 # the brkt command and CSP-specific code.
-MODULE_NAMES = ['brkt_cli.aws', 'brkt_cli.gce']
+MODULE_NAMES = ['brkt_cli.aws', 'brkt_cli.gce', 'brkt_cli.jwt']
 
 log = logging.getLogger(__name__)
 
@@ -356,8 +356,8 @@ def main():
             module = importlib.import_module(module_name)
             modules.append(module)
         except ImportError as e:
-                module_load_messages.append(
-                    'Skipping module %s: %s' % (module_name, e))
+            module_load_messages.append(
+                'Skipping module %s: %s' % (module_name, e))
 
     # Map each subcommand to the module that contains it.
     for module in modules:
