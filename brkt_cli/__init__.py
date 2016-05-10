@@ -183,21 +183,9 @@ def command_update_encrypted_gce_image(values, log):
     # use pre-existing image
     if values.encryptor_image:
         encryptor = values.encryptor_image
-    # create image from file in GCS bucket
     else:
-        log.info('Retrieving encryptor image from GCS bucket')
         encryptor = 'encryptor-%s' % gce_svc.get_session_id()
-        if values.image_file:
-            gce_svc.get_latest_encryptor_image(values.zone,
-                                               encryptor,
-                                               values.bucket,
-                                               image_file=values.image_file)
-        else:
-            gce_svc.get_latest_encryptor_image(values.zone,
-                                               encryptor,
-                                               values.bucket)
 
-    encrypt_gce_image.validate_images(gce_svc, encrypted_image_name, encryptor, values.image)
     update_gce_image.update_gce_image(
         gce_svc=gce_svc,
         enc_svc_cls=encryptor_service.EncryptorService,
@@ -205,8 +193,12 @@ def command_update_encrypted_gce_image(values, log):
         encryptor_image=encryptor,
         encrypted_image_name=encrypted_image_name,
         zone=values.zone,
-        brkt_env=brkt_env
+        brkt_env=brkt_env,
+        keep_encryptor=values.keep_encryptor,
+        image_file=values.image_file,
+        image_bucket=values.bucket
     )
+
     return 0
 
 
@@ -226,22 +218,9 @@ def command_encrypt_gce_image(values, log):
     # use pre-existing image
     if values.encryptor_image:
         encryptor = values.encryptor_image
-    # create image from file in GCS bucket
     else:
-        log.info('Retrieving encryptor image from GCS bucket')
         encryptor = 'encryptor-%s' % gce_svc.get_session_id()
-        if values.image_file:
-            gce_svc.get_latest_encryptor_image(values.zone,
-                                               encryptor,
-                                               values.bucket,
-                                               image_file=values.image_file)
-        else:
-            gce_svc.get_latest_encryptor_image(values.zone,
-                                               encryptor,
-                                               values.bucket)
 
-    encrypt_gce_image.validate_images(gce_svc, encrypted_image_name, encryptor,
-                                      values.image, values.image_project)
 
     log.info('Starting encryptor session %s', gce_svc.get_session_id())
     encrypted_image_id = encrypt_gce_image.encrypt(
@@ -253,7 +232,10 @@ def command_encrypt_gce_image(values, log):
         zone=values.zone,
         brkt_env=brkt_env,
         token=token,
-        image_project=values.image_project
+        image_project=values.image_project,
+        keep_encryptor=values.keep_encryptor,
+        image_file=values.image_file,
+        image_bucket=values.bucket
     )
     # Print the image name to stdout, in case the caller wants to process
     # the output.  Log messages go to stderr.

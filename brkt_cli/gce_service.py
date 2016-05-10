@@ -78,6 +78,10 @@ class BaseGCEService(object):
         pass
 
     @abc.abstractmethod
+    def delete_image(self, image):
+        pass
+
+    @abc.abstractmethod
     def delete_disk(self, zone, disk):
         pass
 
@@ -171,7 +175,7 @@ class BaseGCEService(object):
         pass
 
     @abc.abstractmethod
-    def cleanup(self, zone):
+    def cleanup(self, zone, encryptor_image, keep_encryptor=False):
         pass
 
 
@@ -184,7 +188,7 @@ class GCEService(BaseGCEService):
         self.storage = discovery.build('storage', 'v1',
                 credentials=self.credentials)
 
-    def cleanup(self, zone):
+    def cleanup(self, zone, encryptor_image, keep_encryptor=False):
         try:
             for instance in self.instances[:]:
                 log.info('deleting instance %s' % instance)
@@ -194,6 +198,9 @@ class GCEService(BaseGCEService):
                 if self.disk_exists(zone, disk):
                     self.wait_for_detach(zone, disk)
                     self.delete_disk(zone, disk)
+            if not keep_encryptor:
+                log.info('Deleting encryptor image %s' % encryptor_image)
+                self.delete_image(encryptor_image)
         except:
             log.exception('Cleanup failed')
 
@@ -240,6 +247,10 @@ class GCEService(BaseGCEService):
             self.instances.remove(instance)
         return self.compute.instances().delete(project=self.project,
                zone=zone, instance=instance).execute()
+
+    def delete_image(self, image):
+        return self.compute.images().delete(project=self.project,
+               image=image).execute()
 
     def delete_disk(self, zone, disk):
         # remove disk if we're tracking it
@@ -299,14 +310,18 @@ class GCEService(BaseGCEService):
         detach_req = self.compute.disks().get(zone=zone,
                                               project=self.project,
                                               disk=diskName)
-        resp = retry(execute_gce_api_call, 8)(detach_req)
+        resp = retry(execute_gce_api_call, 12)(detach_req)
         while True:
             if "users" not in resp and resp != {}:
                 self.log.info("Disk detach successful")
                 return
             time.sleep(10)
-            resp = retry(execute_gce_api_call)(detach_req)
-            self.log.info("Waiting for disk to detach from instance")
+            try: 
+                resp = retry(execute_gce_api_call)(detach_req)
+                self.log.info("Waiting for disk to detach from instance")
+            except googleapiclient.errors.HttpError as e:
+                self.log.info("Could not get disk status. Retrying...")
+                
 
     def disk_exists(self, zone, name):
         try:
@@ -426,6 +441,7 @@ class GCEService(BaseGCEService):
                                         image_file,
                                         bucket)
         self.wait_image(image_name)
+        self.encryptor_image = image_name
 
     def run_instance(self,
                      zone,
