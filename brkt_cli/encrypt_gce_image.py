@@ -104,9 +104,17 @@ def create_image(gce_svc, zone, encrypted_image_disk, encrypted_image_name, encr
 
 
 def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
-            encrypted_image_name, zone, brkt_env, token, image_project=None):
+            encrypted_image_name, zone, brkt_env, token, image_project=None,
+            keep_encryptor=False, image_file=None, image_bucket=None):
     brkt_data = {}
     try:
+        # create image from file in GCS bucket
+        log.info('Retrieving encryptor image from GCS bucket')
+        gce_svc.get_latest_encryptor_image(zone, encryptor_image,
+            image_bucket, image_file=image_file)
+
+        validate_images(gce_svc, encrypted_image_name, encryptor_image, image_id, image_project)
+
         add_brkt_env_to_brkt_config(brkt_env, brkt_data)
         add_token_to_user_data(token, brkt_data)
         instance_name = 'brkt-guest-' + gce_svc.get_session_id()
@@ -126,4 +134,4 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         return encrypted_image_name
     finally:
         log.info("Cleaning up")
-        gce_svc.cleanup(zone)
+        gce_svc.cleanup(zone, encryptor_image, keep_encryptor)

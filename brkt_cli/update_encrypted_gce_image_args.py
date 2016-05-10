@@ -55,3 +55,10 @@ def setup_update_gce_image_args(parser):
         required=False,
         help=argparse.SUPPRESS
     )
+
+    parser.add_argument(
+        '--keep-encryptor',
+        dest='keep_encryptor',
+        action='store_true',
+        help=argparse.SUPPRESS
+    )

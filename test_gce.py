@@ -14,6 +14,7 @@ from brkt_cli import gce_service
 
 NONEXISTANT_IMAGE = 'image'
 NONEXISTANT_PROJECT = 'project'
+IGNORE_IMAGE = 'ignore'
 TOKEN = 'token'
 
 log = logging.getLogger(__name__)
@@ -26,13 +27,15 @@ class DummyGCEService(gce_service.BaseGCEService):
     def __init__(self):
         super(DummyGCEService, self).__init__('testproject', _new_id(), log)
 
-    def cleanup(self, zone):
+    def cleanup(self, zone, encryptor_image, keep_encryptor=False):
         for disk in self.disks[:]:
             if self.disk_exists(zone, disk):
                 self.wait_for_detach(zone, disk)
                 self.delete_disk(zone, disk)
         for instance in self.instances:
             self.delete_instance(zone, instance)
+        if not keep_encryptor:
+            self.delete_image(encryptor_image)
 
     def list_zones(self):
         return ['us-central1-a']
@@ -61,7 +64,10 @@ class DummyGCEService(gce_service.BaseGCEService):
             self.get_image(image, image_project)
         except:
             return False
-        return True
+        if image == 'encryptor-image' or image == IGNORE_IMAGE:
+            return True
+        else:
+            return False
 
     def delete_instance(self, zone, instance):
         if instance in self.instances:
@@ -116,6 +122,9 @@ class DummyGCEService(gce_service.BaseGCEService):
         return
 
     def wait_image(self, image_name):
+        pass
+
+    def delete_image(self, image_name):
         pass
 
     def get_younger(self, new, old):
@@ -204,7 +213,7 @@ class TestRunEncryption(unittest.TestCase):
         encrypted_image = encrypt_gce_image.encrypt(
             gce_svc=gce_svc,
             enc_svc_cls=test.DummyEncryptorService,
-            image_id='test-ubuntu',
+            image_id=IGNORE_IMAGE,
             encryptor_image='encryptor-image',
             encrypted_image_name='ubuntu-encrypted',
             zone='us-central1-a',
@@ -220,7 +229,7 @@ class TestRunEncryption(unittest.TestCase):
         encrypt_gce_image.encrypt(
             gce_svc=gce_svc,
             enc_svc_cls=test.DummyEncryptorService,
-            image_id='test-ubuntu',
+            image_id=IGNORE_IMAGE,
             encryptor_image='encryptor-image',
             encrypted_image_name='ubuntu-encrypted',
             zone='us-central1-a',
@@ -325,7 +334,7 @@ class TestRunUpdate(unittest.TestCase):
              update_gce_image.update_gce_image(
                 gce_svc=gce_svc,
                 enc_svc_cls=test.FailedEncryptionService,
-                image_id='test-ubuntu',
+                image_id=IGNORE_IMAGE,
                 encryptor_image='encryptor-image',
                 encrypted_image_name='ubuntu-encrypted',
                 zone='us-central1-a',
@@ -339,9 +348,9 @@ class TestRunUpdate(unittest.TestCase):
         encrypted_image = update_gce_image.update_gce_image(
             gce_svc=gce_svc,
             enc_svc_cls=test.DummyEncryptorService,
-            image_id='test-ubuntu',
+            image_id=IGNORE_IMAGE,
             encryptor_image='encryptor-image',
-            encrypted_image_name='ubuntu-encrypted',
+            encrypted_image_name='centos-encrypted',
             zone='us-central1-a',
             brkt_env=None
         )
