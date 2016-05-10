@@ -76,6 +76,12 @@ def setup_encrypt_gce_image_args(parser):
         required=False,
         help=argparse.SUPPRESS
     )
+    parser.add_argument(
+        '--keep-encryptor',
+        dest='keep_encryptor',
+        action='store_true',
+        help=argparse.SUPPRESS
+    )
 
     # Optional Image Name that's used to launch the encryptor instance. This
     # argument is hidden because it's only used for development.

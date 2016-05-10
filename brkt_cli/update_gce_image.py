@@ -14,6 +14,7 @@
 
 import logging
 
+from brkt_cli import encrypt_gce_image
 from brkt_cli.util import (
     add_brkt_env_to_brkt_config,
     Deadline,
@@ -30,9 +31,17 @@ on an existing encrypted GCE image.
 log = logging.getLogger(__name__)
 
 def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
-            encrypted_image_name, zone, brkt_env):
+            encrypted_image_name, zone, brkt_env, keep_encryptor=False,
+            image_file=None, image_bucket=None):
     snap_created = None
     try:
+        # create image from file in GCS bucket
+        log.info('Retrieving encryptor image from GCS bucket')
+        gce_svc.get_latest_encryptor_image(zone, encryptor_image,
+            image_bucket, image_file=image_file)
+
+        encrypt_gce_image.validate_images(gce_svc, encrypted_image_name,
+            encryptor_image, image_id)
         instance_name = 'brkt-updater-' + gce_svc.get_session_id()
         updater = instance_name + '-metavisor'
         encrypted_image_disk = instance_name + '-guest'
@@ -81,8 +90,8 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
         log.info("Update failed. Cleaning up")
         if snap_created:
             gce_svc.delete_snapshot(encrypted_image_name)
-        gce_svc.cleanup(zone)
+        gce_svc.cleanup(zone, encryptor_image, keep_encryptor=False)
         raise
     finally:
-        gce_svc.cleanup(zone)
+        gce_svc.cleanup(zone, encryptor_image, keep_encryptor=False)
     return encrypted_image_name
