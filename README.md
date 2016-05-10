@@ -9,10 +9,7 @@ In order to use the Bracket service, you must be a
 registered Bracket customer.  Email support@brkt.com for
 more information.
 
-**brkt-cli** has the following dependencies:
-* Python 2.7
-* [boto](https://github.com/boto/boto) 2.38.0+ (Python interface to AWS)
-* [requests](http://www.python-requests.org/en/latest/) 2.7.0+ (Python HTTP library)
+**brkt-cli** requires Python 2.7.
 
 ## Process
 
