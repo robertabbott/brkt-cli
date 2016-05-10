@@ -67,9 +67,11 @@ def retry(meth, nattempts=5, on=RETRYABLE_EXCEPTIONS):
     def _wrapped(*args, **kwargs):
         exp_backoff = RandExpBackoff()
         for attempt in range(nattempts):
+            print attempt
             try:
                 return meth(*args, **kwargs)
-            except on:
+            except on as e:
+                print e
                 if attempt == nattempts - 1:
                     raise
                 else:

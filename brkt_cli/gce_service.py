@@ -14,6 +14,7 @@ from brkt_cli.util import (
     retry
 )
 from googleapiclient import discovery
+from googleapiclient import errors
 from oauth2client.client import GoogleCredentials
 
 from validation import ValidationError
@@ -316,12 +317,12 @@ class GCEService(BaseGCEService):
                 self.log.info("Disk detach successful")
                 return
             time.sleep(10)
-            try: 
+            try:
                 resp = retry(execute_gce_api_call)(detach_req)
                 self.log.info("Waiting for disk to detach from instance")
-            except googleapiclient.errors.HttpError as e:
+            except errors.HttpError:
                 self.log.info("Could not get disk status. Retrying...")
-                
+
 
     def disk_exists(self, zone, name):
         try:
@@ -426,12 +427,12 @@ class GCEService(BaseGCEService):
 
     def get_latest_encryptor_image(self,
                                    zone,
-                                   image_name,
                                    bucket,
                                    image_file=None):
         if bucket in brkt_image_buckets:
             bucket = brkt_image_buckets[bucket]
 
+        image_name = 'encryptor-%s' % self.get_session_id()
         # if image_file is not provided try to get latest.image.tar.gz
         # if latest.image.tar.gz doesnt exist return the newest image
         if not image_file:
@@ -442,6 +443,7 @@ class GCEService(BaseGCEService):
                                         bucket)
         self.wait_image(image_name)
         self.encryptor_image = image_name
+        return image_name
 
     def run_instance(self,
                      zone,

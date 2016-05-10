@@ -37,8 +37,9 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
     try:
         # create image from file in GCS bucket
         log.info('Retrieving encryptor image from GCS bucket')
-        gce_svc.get_latest_encryptor_image(zone, encryptor_image,
-            image_bucket, image_file=image_file)
+        if not encryptor_image:
+            gce_svc.get_latest_encryptor_image(zone,
+                image_bucket, image_file=image_file)
 
         encrypt_gce_image.validate_images(gce_svc, encrypted_image_name,
             encryptor_image, image_id)
