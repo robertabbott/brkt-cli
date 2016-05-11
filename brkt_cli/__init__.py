@@ -44,7 +44,7 @@ BRKT_ENV_PROD = 'yetiapi.mgmt.brkt.com:443,hsmproxy.mgmt.brkt.com:443'
 
 # The list of modules that may be loaded.  Modules contain subcommands of
 # the brkt command and CSP-specific code.
-MODULE_NAMES = ['brkt_cli.aws', 'brkt_cli.gce', 'brkt_cli.jwt']
+SUBCOMMAND_MODULE_NAMES = ['brkt_cli.aws', 'brkt_cli.jwt']
 
 log = logging.getLogger(__name__)
 
@@ -332,34 +332,21 @@ def main():
     # Batch up messages that are logged while loading modules.  We don't know
     # whether to log them yet, since we haven't parsed arguments.  argparse
     # seems to get confused when you parse arguments twice.
-    module_load_messages = []
+    subcommand_load_messages = []
 
-    # Load subcommand modules dynamically.
-    modules = []
-    subcommand_to_module = {}
-
-    # Load any modules that are installed.
-    for module_name in MODULE_NAMES:
+    # Dynamically load subcommands from modules.
+    subcommands = []
+    for module_name in SUBCOMMAND_MODULE_NAMES:
         try:
             module = importlib.import_module(module_name)
-            modules.append(module)
+            subcommands.extend(module.get_subcommands())
         except ImportError as e:
-            module_load_messages.append(
+            subcommand_load_messages.append(
                 'Skipping module %s: %s' % (module_name, e))
 
-    # Map each subcommand to the module that contains it.
-    for module in modules:
-        for subcommand in module.get_interface().get_subcommands():
-            subcommand_to_module[subcommand] = module
-
     # Use metavar to hide any subcommands that we don't want to expose.
-    exposed_subcommands = []
-    for module in modules:
-        exposed_subcommands.extend(
-            module.get_interface().get_exposed_subcommands()
-        )
-    exposed_subcommands = sorted(exposed_subcommands)
-    metavar = '{%s}' % ','.join(exposed_subcommands)
+    exposed_subcommand_names = [s.name() for s in subcommands if s.exposed()]
+    metavar = '{%s}' % ','.join(sorted(exposed_subcommand_names))
 
     subparsers = parser.add_subparsers(
         dest='subparser_name',
@@ -367,12 +354,10 @@ def main():
     )
 
     # Add subcommands to the parser.
-    for subcommand, module in subcommand_to_module.iteritems():
-        module_load_messages.append(
-            'Registering subcommand %s in %s' % (
-                subcommand, module.__package__)
-        )
-        module.get_interface().register_subcommand(subparsers, subcommand)
+    for s in subcommands:
+        subcommand_load_messages.append(
+            'Registering subcommand %s' % s.name())
+        s.register(subparsers)
 
     encrypt_gce_image_parser = subparsers.add_parser('encrypt-gce-image')
     encrypt_gce_image_args.setup_encrypt_gce_image_args(encrypt_gce_image_parser)
@@ -393,9 +378,23 @@ def main():
     if values.verbose:
         log_level = logging.DEBUG
 
-    subcommand = values.subparser_name
-    module = subcommand_to_module.get(subcommand)
-    if module and module.get_interface().verbose(subcommand, values):
+    # Turn off logging for categories that we don't care about.
+    logging.getLogger('requests').setLevel(logging.ERROR)
+
+    # Find the matching subcommand.
+    subcommand = None
+    for s in subcommands:
+        if s.name() == values.subparser_name:
+            subcommand = s
+            break
+
+    # Initialize logging.
+    verbose = values.verbose
+    if subcommand:
+        if subcommand.verbose(values):
+            verbose = True
+        subcommand.init_logging(verbose)
+    if verbose:
         log_level = logging.DEBUG
 
     # Log messages are written to stderr and are prefixed with a compact
@@ -406,28 +405,23 @@ def main():
         datefmt='%H:%M:%S'
     )
 
-    # Initialze logging at the module level.
-    for module in modules:
-        module.get_interface().init_logging(values.verbose)
-
     # Write messages that were logged before logging was initialized.
-    for msg in module_load_messages:
+    for msg in subcommand_load_messages:
         log.debug(msg)
 
     # Run the subcommand.
     if values.check_version:
         supported_versions = None
     try:
-        if subcommand in subcommand_to_module:
-            module = subcommand_to_module[subcommand]
-            return module.get_interface().run_subcommand(subcommand, values)
-        if subcommand == 'launch-gce-image':
+        if subcommand:
+            return subcommand.run(values)
+        if values.subparser_name == 'launch-gce-image':
             log.info('Warning: GCE support is still in development.')
             return command_launch_gce_image(values, log)
-        if subcommand == 'encrypt-gce-image':
+        if values.subparser_name == 'encrypt-gce-image':
             log.info('Warning: GCE support is still in development.')
             return command_encrypt_gce_image(values, log)
-        if subcommand == 'update-gce-image':
+        if values.subparser_name == 'update-gce-image':
             log.info('Warning: GCE support is still in development.')
             return command_update_encrypted_gce_image(values, log)
         try:

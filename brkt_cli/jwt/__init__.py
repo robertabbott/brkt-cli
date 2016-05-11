@@ -22,31 +22,33 @@ import time
 
 import brkt_cli
 from brkt_cli import util
-from brkt_cli.module import ModuleInterface
+from brkt_cli.subcommand import Subcommand
 from brkt_cli.validation import ValidationError
 
 
-class JWTModuleInterface(ModuleInterface):
+class JWTSubcommand(Subcommand):
 
-    def get_subcommands(self):
-        return ['generate-jwt']
+    def name(self):
+        return 'generate-jwt'
 
-    def get_exposed_subcommands(self):
-        return []
+    def exposed(self):
+        return False
 
-    def register_subcommand(self, subparsers, subcommand):
-        if subcommand == 'generate-jwt':
-            parser = subparsers.add_parser(
-                'generate-jwt',
-                description=(
-                    'Generate a JSON Web Token for launching an encrypted '
-                    'instance. A timestamp can be either a Unix timestamp in '
-                    'seconds or ISO 8601 (2016-05-10T19:15:36Z).'
-                )
+    def register(self, subparsers):
+        parser = subparsers.add_parser(
+            'generate-jwt',
+            description=(
+                'Generate a JSON Web Token for launching an encrypted '
+                'instance. A timestamp can be either a Unix timestamp in '
+                'seconds or ISO 8601 (2016-05-10T19:15:36Z).'
             )
-            setup_generate_jwt_args(parser)
+        )
+        setup_generate_jwt_args(parser)
 
-    def run_subcommand(self, subcommand, values):
+    def verbose(self, values):
+        return values.generate_jwt_verbose
+
+    def run(self, values):
         signing_key = read_signing_key(values.signing_key)
         exp = None
         if values.exp:
@@ -69,8 +71,8 @@ def _datetime_to_timestamp(dt):
     return (dt - time_zero).total_seconds()
 
 
-def get_interface():
-    return JWTModuleInterface()
+def get_subcommands():
+    return [JWTSubcommand()]
 
 
 def read_signing_key(path):
@@ -183,7 +185,7 @@ def setup_generate_jwt_args(parser):
     parser.add_argument(
         '-v',
         '--verbose',
-        dest='update_encrypted_ami_verbose',
+        dest='generate_jwt_verbose',
         action='store_true',
         help='Print status information to the console'
     )
