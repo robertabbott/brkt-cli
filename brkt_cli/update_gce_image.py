@@ -17,6 +17,7 @@ import logging
 from brkt_cli import encrypt_gce_image
 from brkt_cli.util import (
     add_brkt_env_to_brkt_config,
+    add_token_to_user_data,
     Deadline,
 )
 from encryptor_service import wait_for_encryption
@@ -31,7 +32,7 @@ on an existing encrypted GCE image.
 log = logging.getLogger(__name__)
 
 def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
-            encrypted_image_name, zone, brkt_env, keep_encryptor=False,
+            encrypted_image_name, zone, brkt_env, token, keep_encryptor=False,
             image_file=None, image_bucket=None):
     snap_created = None
     try:
@@ -48,8 +49,8 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
         encrypted_image_disk = instance_name + '-guest'
 
         # Create disk from encrypted guest snapshot. This disk
-        # won't be altered it will be re-snapshotted and paired
-        # with the new encrypted image.
+        # won't be altered. It will be re-snapshotted and paired
+        # with the new encryptor image.
         gce_svc.disk_from_snapshot(zone, image_id, encrypted_image_disk)
         gce_svc.wait_for_disk(zone, encrypted_image_disk)
         log.info("Creating snapshot of encrypted image disk")
@@ -59,6 +60,7 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
         log.info("Launching encrypted updater")
         brkt_data = {'brkt': {'solo_mode': 'updater'}}
         add_brkt_env_to_brkt_config(brkt_env, brkt_data)
+        add_token_to_user_data(token, brkt_data)
         user_data = gce_metadata_from_userdata(brkt_data)
         gce_svc.run_instance(zone,
                              updater,

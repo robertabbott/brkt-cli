@@ -29,6 +29,20 @@ def setup_update_gce_image_args(parser):
         required=False
     )
     parser.add_argument(
+         '--brkt-email',
+         metavar='EMAIL',
+         dest='api_email',
+         help='Bracket user email',
+         required=True
+     )
+    parser.add_argument(
+         '--brkt-password',
+         metavar='PASSWORD',
+         dest='api_password',
+         help='Bracket user password',
+         required=True
+     )
+    parser.add_argument(
         '--project',
         help='GCE project name',
         dest='project',
