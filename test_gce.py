@@ -130,6 +130,14 @@ class DummyGCEService(gce_service.BaseGCEService):
     def get_younger(self, new, old):
         pass
 
+    def disk_from_image(self, zone, image, name, image_project):
+        source_disk = "projects/%s/zones/%s/disks/%s" % (image_project, zone, name)
+        return {
+            'boot': False,
+            'autoDelete': False,
+            'source': self.gce_res_uri + source_disk,
+        }
+
     def get_image_file(self, bucket):
         pass
 
