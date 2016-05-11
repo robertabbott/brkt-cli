@@ -111,9 +111,21 @@ def parse_timestamp(ts_string):
     return dt
 
 
+def _urlsafe_b64encode(content):
+    return base64.urlsafe_b64encode(content).replace(b'=', b'')
+
+
+def _urlsafe_b64decode(content):
+    removed = len(content) % 4
+    if removed > 0:
+        content += b'=' * (4 - removed)
+    return base64.urlsafe_b64decode(content)
+
+
 def generate_jwt(signing_key, exp=None, nbf=None, cnc=None):
     """ Generate a JWT.
 
+    :param signing_key a SigningKey object
     :param exp expiration time as a datetime
     :param nbf not before as a datetime
     :param cnc maximum number of concurrent instances as an integer
@@ -133,16 +145,14 @@ def generate_jwt(signing_key, exp=None, nbf=None, cnc=None):
     if cnc is not None:
         payload_dict['cnc'] = cnc
 
-    def encode(content):
-        return base64.urlsafe_b64encode(content).replace(b'=', b'')
-
     header_json = json.dumps(header_dict, sort_keys=True)
-    header_b64 = encode(header_json)
+    header_b64 = _urlsafe_b64encode(header_json)
     payload_json = json.dumps(payload_dict, sort_keys=True)
-    payload_b64 = encode(payload_json)
+    payload_b64 = _urlsafe_b64encode(payload_json)
     signature = signing_key.sign('%s.%s' % (header_b64, payload_b64))
+    signature_b64 = _urlsafe_b64encode(signature)
 
-    return '%s.%s.%s' % (header_b64, payload_b64, encode(signature))
+    return '%s.%s.%s' % (header_b64, payload_b64, signature_b64)
 
 
 def setup_generate_jwt_args(parser):

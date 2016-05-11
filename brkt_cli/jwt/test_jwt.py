@@ -11,8 +11,9 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
-
-from datetime import datetime
+import base64
+import json
+from datetime import datetime, timedelta
 
 import iso8601
 
@@ -22,7 +23,7 @@ import tempfile
 import time
 import unittest
 
-from brkt_cli import jwt
+import brkt_cli.jwt
 
 
 class TestTimestamp(unittest.TestCase):
@@ -30,14 +31,14 @@ class TestTimestamp(unittest.TestCase):
     def test_datetime_to_timestamp(self):
         now = time.time()
         dt = datetime.fromtimestamp(now, tz=iso8601.UTC)
-        self.assertEqual(now, jwt._datetime_to_timestamp(dt))
+        self.assertEqual(now, brkt_cli.jwt._datetime_to_timestamp(dt))
 
     def test_parse_timestamp(self):
         ts = int(time.time())
         dt = datetime.fromtimestamp(ts, tz=iso8601.UTC)
 
-        self.assertEqual(dt, jwt.parse_timestamp(str(ts)))
-        self.assertEqual(dt, jwt.parse_timestamp(dt.isoformat()))
+        self.assertEqual(dt, brkt_cli.jwt.parse_timestamp(str(ts)))
+        self.assertEqual(dt, brkt_cli.jwt.parse_timestamp(dt.isoformat()))
 
 
 class TestSigningKey(unittest.TestCase):
@@ -51,7 +52,7 @@ class TestSigningKey(unittest.TestCase):
         key_file.write(pem)
         key_file.flush()
 
-        signing_key = jwt.read_signing_key(key_file.name)
+        signing_key = brkt_cli.jwt.read_signing_key(key_file.name)
         self.assertEqual(pem, signing_key.to_pem())
         key_file.close()
 
@@ -65,5 +66,64 @@ class TestSigningKey(unittest.TestCase):
         key_file.flush()
 
         with self.assertRaises(ValidationError):
-            jwt.read_signing_key(key_file.name)
+            brkt_cli.jwt.read_signing_key(key_file.name)
         key_file.close()
+
+
+class TestGenerateJWT(unittest.TestCase):
+
+    def test_generate_jwt(self):
+        # Generate the JWT.
+        signing_key = SigningKey.generate(curve=NIST384p)
+        now = datetime.now(tz=iso8601.UTC).replace(microsecond=0)
+        nbf = now + timedelta(days=1)
+        exp = now + timedelta(days=7)
+        cnc = 10
+
+        jwt = brkt_cli.jwt.generate_jwt(
+            signing_key, nbf=nbf, exp=exp, cnc=cnc)
+        after = datetime.now(tz=iso8601.UTC)
+
+        # Decode the header and payload.
+        header_b64, payload_b64, signature_b64 = jwt.split('.')
+        header_json = brkt_cli.jwt._urlsafe_b64decode(header_b64)
+        payload_json = brkt_cli.jwt._urlsafe_b64decode(payload_b64)
+        signature = brkt_cli.jwt._urlsafe_b64decode(signature_b64)
+
+        # Check the header.
+        header = json.loads(header_json)
+        self.assertEqual('JWT', header['typ'])
+        self.assertEqual('ES384', header['alg'])
+
+        # Check the payload
+        payload = json.loads(payload_json)
+        self.assertTrue('jti' in payload)
+        self.assertTrue(payload['iss'].startswith('brkt-cli'))
+
+        iat = brkt_cli.jwt._timestamp_to_datetime(payload['iat'])
+        self.assertTrue(now <= iat <= after)
+
+        nbf_result = brkt_cli.jwt._timestamp_to_datetime(payload['nbf'])
+        self.assertEqual(nbf, nbf_result)
+
+        exp_result = brkt_cli.jwt._timestamp_to_datetime(payload['exp'])
+        self.assertEqual(exp, exp_result)
+
+        # Check signature.
+        verifying_key = signing_key.get_verifying_key()
+        verifying_key.verify(signature, '%s.%s' % (header_b64, payload_b64))
+
+
+class TestBase64(unittest.TestCase):
+    """ Test that our encoding code follows the spec used by JWT.  The
+    encoded string must be URL-safe and not use padding. """
+
+    def test_encode_and_decode(self):
+        for length in xrange(0, 1000):
+            content = 'x' * length
+            encoded = brkt_cli.jwt._urlsafe_b64encode(content)
+            self.assertFalse('/' in encoded)
+            self.assertFalse('_' in encoded)
+            self.assertFalse('=' in encoded)
+            self.assertEqual(
+                content, brkt_cli.jwt._urlsafe_b64decode(encoded))
