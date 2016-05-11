@@ -69,9 +69,9 @@ def retry(meth, nattempts=5, on=RETRYABLE_EXCEPTIONS):
         for attempt in range(nattempts):
             try:
                 return meth(*args, **kwargs)
-            except on:
+            except on as e:
                 if attempt == nattempts - 1:
-                    raise
+                    raise e
                 else:
                     backoff = exp_backoff.get_backoff()
                     time.sleep(backoff)

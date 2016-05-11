@@ -30,7 +30,6 @@ from brkt_cli import (
     gce_service,
     launch_gce_image,
     launch_gce_image_args,
-    oauth_requests,
     update_gce_image,
     update_encrypted_gce_image_args,
     util
@@ -180,17 +179,11 @@ def command_update_encrypted_gce_image(values, log):
     else:
         brkt_env = parse_brkt_env(BRKT_ENV_PROD)
 
-    # use pre-existing image
-    if values.encryptor_image:
-        encryptor = values.encryptor_image
-    else:
-        encryptor = 'encryptor-%s' % gce_svc.get_session_id()
-
     update_gce_image.update_gce_image(
         gce_svc=gce_svc,
         enc_svc_cls=encryptor_service.EncryptorService,
         image_id=values.image,
-        encryptor_image=encryptor,
+        encryptor_image=values.encryptor_image,
         encrypted_image_name=encrypted_image_name,
         zone=values.zone,
         brkt_env=brkt_env,
@@ -215,11 +208,6 @@ def command_encrypt_gce_image(values, log):
 
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
     gce_service.validate_image_name(encrypted_image_name)
-    # use pre-existing image
-    if values.encryptor_image:
-        encryptor = values.encryptor_image
-    else:
-        encryptor = 'encryptor-%s' % gce_svc.get_session_id()
 
 
     log.info('Starting encryptor session %s', gce_svc.get_session_id())
@@ -227,7 +215,7 @@ def command_encrypt_gce_image(values, log):
         gce_svc=gce_svc,
         enc_svc_cls=encryptor_service.EncryptorService,
         image_id=values.image,
-        encryptor_image=encryptor,
+        encryptor_image=values.encryptor_image,
         encrypted_image_name=encrypted_image_name,
         zone=values.zone,
         brkt_env=brkt_env,
