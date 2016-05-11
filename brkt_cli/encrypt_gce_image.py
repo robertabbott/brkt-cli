@@ -39,10 +39,8 @@ def setup_encryption(gce_svc,
                      brkt_data,
                      image_project):
     try:
-        log.info('Launching guest instance')
-        gce_svc.run_instance(zone, instance_name, image_id, block_project_ssh_keys=True, image_project=image_project)
-        gce_svc.delete_instance(zone, instance_name)
-        log.info('Guest instance terminated')
+        # create disk from guest image
+        gce_svc.disk_from_image(zone, image_id, instance_name, image_project)
         log.info('Waiting for guest root disk to become ready')
         gce_svc.wait_for_detach(zone, instance_name)
 
@@ -67,9 +65,9 @@ def do_encryption(gce_svc,
                    brkt_data):
     try:
         log.info('Launching encryptor instance')
-        gce_svc.run_instance(zone,
-                             encryptor,
-                             encryptor_image,
+        gce_svc.run_instance(zone=zone,
+                             name=encryptor,
+                             image=encryptor_image,
                              disks=[gce_svc.get_disk(zone, instance_name),
                                     gce_svc.get_disk(zone, encrypted_image_disk)],
                              metadata=gce_metadata_from_userdata(brkt_data))
@@ -108,7 +106,7 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
             keep_encryptor=False, image_file=None, image_bucket=None):
     brkt_data = {}
     try:
-        # create image from file in GCS bucket
+        # create metavisor image from file in GCS bucket
         log.info('Retrieving encryptor image from GCS bucket')
         if not encryptor_image:
             encryptor_image = gce_svc.get_latest_encryptor_image(zone,

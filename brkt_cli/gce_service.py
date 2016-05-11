@@ -14,7 +14,6 @@ from brkt_cli.util import (
     retry
 )
 from googleapiclient import discovery
-from googleapiclient import errors
 from oauth2client.client import GoogleCredentials
 
 from validation import ValidationError
@@ -56,6 +55,10 @@ class BaseGCEService(object):
 
     @abc.abstractmethod
     def get_session_id(self):
+        pass
+
+    @abc.abstractmethod
+    def disk_from_image(self, zone, image, name, image_project):
         pass
 
     @abc.abstractmethod
@@ -311,18 +314,12 @@ class GCEService(BaseGCEService):
         detach_req = self.compute.disks().get(zone=zone,
                                               project=self.project,
                                               disk=diskName)
-        resp = retry(execute_gce_api_call, 12)(detach_req)
         while True:
+            resp = retry(execute_gce_api_call)(detach_req)
             if "users" not in resp and resp != {}:
                 self.log.info("Disk detach successful")
                 return
             time.sleep(10)
-            try:
-                resp = retry(execute_gce_api_call)(detach_req)
-                self.log.info("Waiting for disk to detach from instance")
-            except errors.HttpError:
-                self.log.info("Could not get disk status. Retrying...")
-
 
     def disk_exists(self, zone, name):
         try:
@@ -339,6 +336,27 @@ class GCEService(BaseGCEService):
 
     def delete_snapshot(self, snapshot_name):
         self.compute.snapshots().delete(project=self.project, snapshot=snapshot_name).execute()
+
+    def disk_from_image(self, zone, image, name, image_project=None):
+        if self.disk_exists(zone, name):
+            return
+        project = self.project
+        if image_project:
+            project = image_project
+
+        image_info = self.compute.images().get(project=project,
+                                                 image=image).execute()
+        base = "projects/%s/zones/%s" % (self.project, zone)
+        body = {
+                "name": name,
+                "zone": base,
+                "type": base + "/diskTypes/pd-ssd",
+                "sourceImage": "projects/%s/global/images/%s" % (project, image),
+                "sizeGb": image_info['diskSizeGb']
+        }
+        self.compute.disks().insert(project=self.project,
+                zone=zone, body=body).execute()
+        self.disks.append(name)
 
     def disk_from_snapshot(self, zone, snapshot, name):
         if self.disk_exists(zone, name):
@@ -516,6 +534,7 @@ class GCEService(BaseGCEService):
             zone=zone,
             body=config).execute()
         self.wait_instance(name, zone)
+        self.get_disk_size(zone, name)
         return instance
 
     def get_disk(self, zone, disk_name):
@@ -525,7 +544,7 @@ class GCEService(BaseGCEService):
             'boot': False,
             'autoDelete': False,
             'source': self.gce_res_uri + source_disk,
-            }
+        }
 
 
 def gce_metadata_from_userdata(brkt_data):
