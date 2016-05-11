@@ -32,7 +32,7 @@ class JWTModuleInterface(ModuleInterface):
         return ['generate-jwt']
 
     def get_exposed_subcommands(self):
-        return self.get_subcommands()
+        return []
 
     def register_subcommand(self, subparsers, subcommand):
         if subcommand == 'generate-jwt':
