@@ -93,8 +93,8 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
         log.info("Update failed. Cleaning up")
         if snap_created:
             gce_svc.delete_snapshot(encrypted_image_name)
-        gce_svc.cleanup(zone, encryptor_image, keep_encryptor=False)
+        gce_svc.cleanup(zone, encryptor_image, keep_encryptor)
         raise
     finally:
-        gce_svc.cleanup(zone, encryptor_image, keep_encryptor=False)
+        gce_svc.cleanup(zone, encryptor_image, keep_encryptor)
     return encrypted_image_name
