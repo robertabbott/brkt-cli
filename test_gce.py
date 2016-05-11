@@ -346,7 +346,8 @@ class TestRunUpdate(unittest.TestCase):
                 encryptor_image='encryptor-image',
                 encrypted_image_name='ubuntu-encrypted',
                 zone='us-central1-a',
-                brkt_env=None
+                brkt_env=None,
+                token=TOKEN
             )
         self.assertEqual(len(gce_svc.disks), 0)
         self.assertEqual(len(gce_svc.instances), 0)
@@ -360,7 +361,8 @@ class TestRunUpdate(unittest.TestCase):
             encryptor_image='encryptor-image',
             encrypted_image_name='centos-encrypted',
             zone='us-central1-a',
-            brkt_env=None
+            brkt_env=None,
+            token=TOKEN
         )
 
         self.assertIsNotNone(encrypted_image)
