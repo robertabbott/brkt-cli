@@ -415,7 +415,13 @@ def main():
         supported_versions = None
     try:
         if subcommand:
-            return subcommand.run(values)
+            result = subcommand.run(values)
+            if not isinstance(result, (int, long)):
+                raise Exception(
+                    '%s did not return an integer result' % subcommand.name())
+            log.debug('%s returned %d', subcommand.name(), result)
+            return result
+
         if values.subparser_name == 'launch-gce-image':
             log.info('Warning: GCE support is still in development.')
             return command_launch_gce_image(values, log)
