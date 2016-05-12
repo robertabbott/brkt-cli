@@ -12,6 +12,7 @@
 # License for the specific language governing permissions and
 # limitations under the License.
 import json
+import logging
 import re
 
 from datetime import datetime
@@ -24,6 +25,9 @@ import brkt_cli
 from brkt_cli import util
 from brkt_cli.subcommand import Subcommand
 from brkt_cli.validation import ValidationError
+
+
+log = logging.getLogger(__name__)
 
 
 class JWTSubcommand(Subcommand):
@@ -153,6 +157,9 @@ def generate_jwt(signing_key, exp=None, nbf=None, cnc=None):
     payload_b64 = _urlsafe_b64encode(payload_json)
     signature = signing_key.sign('%s.%s' % (header_b64, payload_b64))
     signature_b64 = _urlsafe_b64encode(signature)
+
+    log.debug('Header: %s', header_json)
+    log.debug('Payload: %s', payload_json)
 
     return '%s.%s.%s' % (header_b64, payload_b64, signature_b64)
 
