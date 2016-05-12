@@ -20,7 +20,7 @@ from boto.exception import EC2ResponseError, NoAuthHandlerFound
 import brkt_cli
 from brkt_cli import encryptor_service, util
 from brkt_cli.aws import aws_service, encrypt_ami
-from brkt_cli.module import ModuleInterface
+from brkt_cli.subcommand import Subcommand
 from brkt_cli.validation import ValidationError
 from encrypt_ami import (
     TAG_ENCRYPTOR,
@@ -33,94 +33,101 @@ from update_ami import update_ami
 log = logging.getLogger(__name__)
 
 
-class AWSModuleInterface(ModuleInterface):
+class EncryptAMISubcommand(Subcommand):
 
-    def get_subcommands(self):
-        return ['encrypt-ami', 'update-encrypted-ami']
-
-    def get_exposed_subcommands(self):
-        return self.get_subcommands()
+    def name(self):
+        return 'encrypt-ami'
 
     def init_logging(self, verbose):
         # Set boto logging to FATAL, since boto logs auth errors and 401s
         # at ERROR level.
         boto.log.setLevel(logging.FATAL)
 
-    def verbose(self, subcommand, values):
-        if subcommand == 'encrypt-ami':
-            return values.encrypt_ami_verbose
-        elif subcommand == 'update-encrypted-ami':
-            return values.update_encrypted_ami_verbose
-        else:
-            raise Exception('Unexpected subcommand: %s' % subcommand)
+    def verbose(self, values):
+        return values.encrypt_ami_verbose
 
-    def register_subcommand(self, subparsers, subcommand):
-        if subcommand == 'encrypt-ami':
-            encrypt_ami_parser = subparsers.add_parser(
-                'encrypt-ami',
-                description='Create an encrypted AMI from an existing AMI.'
+    def register(self, subparsers):
+        encrypt_ami_parser = subparsers.add_parser(
+            'encrypt-ami',
+            description='Create an encrypted AMI from an existing AMI.'
+        )
+        encrypt_ami_args.setup_encrypt_ami_args(encrypt_ami_parser)
+
+    def run(self, values):
+        return _run_subcommand(self.name(), values)
+
+
+class UpdateAMISubcommand(Subcommand):
+
+    def name(self):
+        return 'update-encrypted-ami'
+
+    def verbose(self, values):
+        return values.update_encrypted_ami_verbose
+
+    def register(self, subparsers):
+        update_encrypted_ami_parser = subparsers.add_parser(
+            'update-encrypted-ami',
+            description=(
+                'Update an encrypted AMI with the latest Metavisor '
+                'release.'
             )
-            encrypt_ami_args.setup_encrypt_ami_args(encrypt_ami_parser)
+        )
+        update_encrypted_ami_args.setup_update_encrypted_ami(
+            update_encrypted_ami_parser)
 
+    def run(self, values):
+        _run_subcommand(self.name(), values)
+
+
+def get_subcommands():
+    return [EncryptAMISubcommand(), UpdateAMISubcommand()]
+
+
+def _run_subcommand(subcommand, values):
+    try:
+        if subcommand == 'encrypt-ami':
+            return command_encrypt_ami(values, log)
         if subcommand == 'update-encrypted-ami':
-            update_encrypted_ami_parser = subparsers.add_parser(
-                'update-encrypted-ami',
-                description=(
-                    'Update an encrypted AMI with the latest Metavisor '
-                    'release.'
-                )
-            )
-            update_encrypted_ami_args.setup_update_encrypted_ami(
-                update_encrypted_ami_parser)
-
-    def run_subcommand(self, subcommand, values):
-        try:
-            if values.subparser_name == 'encrypt-ami':
-                return command_encrypt_ami(values, log)
-            if values.subparser_name == 'update-encrypted-ami':
-                return command_update_encrypted_ami(values, log)
-        except NoAuthHandlerFound:
-            msg = (
-                'Unable to connect to AWS.  Are your AWS_ACCESS_KEY_ID and '
-                'AWS_SECRET_ACCESS_KEY environment variables set?'
-            )
+            return command_update_encrypted_ami(values, log)
+    except NoAuthHandlerFound:
+        msg = (
+            'Unable to connect to AWS.  Are your AWS_ACCESS_KEY_ID and '
+            'AWS_SECRET_ACCESS_KEY environment variables set?'
+        )
+        if values.verbose:
+            log.exception(msg)
+        else:
+            log.error(msg)
+    except EC2ResponseError as e:
+        if e.error_code == 'AuthFailure':
+            msg = 'Check your AWS login credentials and permissions'
             if values.verbose:
                 log.exception(msg)
             else:
-                log.error(msg)
-        except EC2ResponseError as e:
-            if e.error_code == 'AuthFailure':
-                msg = 'Check your AWS login credentials and permissions'
-                if values.verbose:
-                    log.exception(msg)
-                else:
-                    log.error(msg + ': ' + e.error_message)
-            elif e.error_code in (
-                'InvalidKeyPair.NotFound',
-                'InvalidSubnetID.NotFound',
-                'InvalidGroup.NotFound'
-            ):
-                if values.verbose:
-                    log.exception(e.error_message)
-                else:
-                    log.error(e.error_message)
-            elif e.error_code == 'UnauthorizedOperation':
-                if values.verbose:
-                    log.exception(e.error_message)
-                else:
-                    log.error(e.error_message)
-                log.error(
-                    'Unauthorized operation.  Check the IAM policy for your '
-                    'AWS account.'
-                )
+                log.error(msg + ': ' + e.error_message)
+        elif e.error_code in (
+            'InvalidKeyPair.NotFound',
+            'InvalidSubnetID.NotFound',
+            'InvalidGroup.NotFound'
+        ):
+            if values.verbose:
+                log.exception(e.error_message)
             else:
-                raise
+                log.error(e.error_message)
+        elif e.error_code == 'UnauthorizedOperation':
+            if values.verbose:
+                log.exception(e.error_message)
+            else:
+                log.error(e.error_message)
+            log.error(
+                'Unauthorized operation.  Check the IAM policy for your '
+                'AWS account.'
+            )
+        else:
+            raise
 
-        return 1
-
-
-def get_interface():
-    return AWSModuleInterface()
+    return 1
 
 
 def _validate_subnet_and_security_groups(aws_svc,
