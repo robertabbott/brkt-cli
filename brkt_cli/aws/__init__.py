@@ -77,7 +77,7 @@ class UpdateAMISubcommand(Subcommand):
             update_encrypted_ami_parser)
 
     def run(self, values):
-        _run_subcommand(self.name(), values)
+        return _run_subcommand(self.name(), values)
 
 
 def get_subcommands():
