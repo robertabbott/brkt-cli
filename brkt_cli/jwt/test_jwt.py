@@ -11,7 +11,6 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
-import base64
 import json
 from datetime import datetime, timedelta
 
@@ -24,6 +23,7 @@ import time
 import unittest
 
 import brkt_cli.jwt
+import brkt_cli.jwt.jwk
 
 
 class TestTimestamp(unittest.TestCase):
@@ -109,6 +109,8 @@ class TestGenerateJWT(unittest.TestCase):
         exp_result = brkt_cli.jwt._timestamp_to_datetime(payload['exp'])
         self.assertEqual(exp, exp_result)
 
+        self.assertTrue('kid' in payload)
+
         # Check signature.
         verifying_key = signing_key.get_verifying_key()
         verifying_key.verify(signature, '%s.%s' % (header_b64, payload_b64))
@@ -127,3 +129,11 @@ class TestBase64(unittest.TestCase):
             self.assertFalse('=' in encoded)
             self.assertEqual(
                 content, brkt_cli.jwt._urlsafe_b64decode(encoded))
+
+
+class TestJWK(unittest.TestCase):
+
+    def test_long_to_byte_array(self):
+        l = long('deadbeef', 16)
+        ba = brkt_cli.jwt.jwk._long_to_byte_array(l)
+        self.assertEqual(bytearray.fromhex('deadbeef'), ba)
