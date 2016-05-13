@@ -23,6 +23,7 @@ import time
 
 import brkt_cli
 from brkt_cli import util
+from brkt_cli.jwt import jwk
 from brkt_cli.subcommand import Subcommand
 from brkt_cli.validation import ValidationError
 
@@ -142,7 +143,8 @@ def generate_jwt(signing_key, exp=None, nbf=None, cnc=None):
     payload_dict = {
         'jti': util.make_nonce(),
         'iss': 'brkt-cli-' + brkt_cli.VERSION,
-        'iat': int(time.time())
+        'iat': int(time.time()),
+        'kid': jwk.get_thumbprint(signing_key.get_verifying_key())
     }
     if exp:
         payload_dict['exp'] = _datetime_to_timestamp(exp)
