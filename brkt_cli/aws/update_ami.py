@@ -199,11 +199,21 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
             boot_snap_name = NAME_METAVISOR_GRUB_SNAPSHOT
             root_device_name = updater.root_device_name
             guest_root = '/dev/sda5'
+            d_list.append(guest_root)
         else:
             # Use guest_instance as base instance for create_image
             boot_snap_name = NAME_METAVISOR_ROOT_SNAPSHOT
             root_device_name = guest_image.root_device_name
             guest_root = '/dev/sdf'
+            d_list.append(guest_root)
+
+        # Preserve volume type for any additional attached volumes
+        for d in guest_bdm.keys():
+            if d not in d_list:
+                log.debug("Preserving volume type for disk %s", d)
+                vol_id = guest_bdm[d].volume_id
+                vol = aws_svc.get_volume(vol_id)
+                guest_bdm[d].volume_type = vol.type
 
         # Step 5. Move new MV boot disk to base instance
         log.info("Detach boot volume from %s" % (updater.id,))
