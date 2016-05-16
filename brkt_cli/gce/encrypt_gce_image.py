@@ -10,8 +10,8 @@ from brkt_cli.util import (
 
 from brkt_cli.validation import ValidationError
 from gce_service import gce_metadata_from_userdata
-from encryptor_service import wait_for_encryption
-from encryptor_service import wait_for_encryptor_up
+from brkt_cli.encryptor_service import wait_for_encryption
+from brkt_cli.encryptor_service import wait_for_encryptor_up
 
 
 log = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 def validate_images(gce_svc, encrypted_image_name,  encryptor, guest_image, image_project=None):
     # check that image to be updated exists
     if not gce_svc.image_exists(guest_image, image_project):
-        raise ValidationError('Image %s does not exist. Cannot update.' % guest_image)
+        raise ValidationError('Image %s does not exist. Cannot encrypt' % guest_image)
 
     # check that encryptor exists
     if not gce_svc.image_exists(encryptor):

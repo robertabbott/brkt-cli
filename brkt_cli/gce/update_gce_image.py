@@ -14,14 +14,14 @@
 
 import logging
 
-from brkt_cli import encrypt_gce_image
+from brkt_cli.gce import encrypt_gce_image
 from brkt_cli.util import (
     add_brkt_env_to_brkt_config,
     add_token_to_user_data,
     Deadline,
 )
-from encryptor_service import wait_for_encryption
-from encryptor_service import wait_for_encryptor_up
+from brkt_cli.encryptor_service import wait_for_encryption
+from brkt_cli.encryptor_service import wait_for_encryptor_up
 from gce_service import gce_metadata_from_userdata
 
 """

@@ -16,7 +16,7 @@ from brkt_cli.util import (
 from googleapiclient import discovery
 from oauth2client.client import GoogleCredentials
 
-from validation import ValidationError
+from brkt_cli.validation import ValidationError
 
 
 GCE_NAME_MAX_LENGTH = 63
