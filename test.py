@@ -414,23 +414,6 @@ class TestEncryptedImageName(unittest.TestCase):
         s2 = encrypt_ami.get_encrypted_suffix()
         self.assertNotEqual(s1, s2)
 
-    def test_append_suffix(self):
-        """ Test that we append the suffix and truncate the original name.
-        """
-        name = 'Boogie nights are always the best in town'
-        suffix = ' (except Tuesday)'
-        encrypted_name = brkt_cli.util.append_suffix(
-            name, suffix, max_length=128)
-        self.assertTrue(encrypted_name.startswith(name))
-        self.assertTrue(encrypted_name.endswith(suffix))
-
-        # Make sure we truncate the original name when it's too long.
-        name += ('X' * 100)
-        encrypted_name = brkt_cli.util.append_suffix(
-            name, suffix, max_length=128)
-        self.assertEqual(128, len(encrypted_name))
-        self.assertTrue(encrypted_name.startswith('Boogie nights'))
-
     def test_name_validation(self):
         name = 'Test123 ()[]./-\'@_'
         self.assertEquals(name, aws_service.validate_image_name(name))
