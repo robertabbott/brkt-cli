@@ -35,3 +35,18 @@ class TestUtil(unittest.TestCase):
             name, suffix, max_length=128)
         self.assertEqual(128, len(encrypted_name))
         self.assertTrue(encrypted_name.startswith('Boogie nights'))
+
+
+class TestBase64(unittest.TestCase):
+    """ Test that our encoding code follows the spec used by JWT.  The
+    encoded string must be URL-safe and not use padding. """
+
+    def test_encode_and_decode(self):
+        for length in xrange(0, 1000):
+            content = 'x' * length
+            encoded = brkt_cli.util.urlsafe_b64encode(content)
+            self.assertFalse('/' in encoded)
+            self.assertFalse('_' in encoded)
+            self.assertFalse('=' in encoded)
+            self.assertEqual(
+                content, brkt_cli.util.urlsafe_b64decode(encoded))

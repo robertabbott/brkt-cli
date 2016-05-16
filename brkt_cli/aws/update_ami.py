@@ -62,7 +62,7 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
                encrypted_ami_name, subnet_id=None, security_group_ids=None,
                enc_svc_class=encryptor_service.EncryptorService,
                ntp_servers=None, brkt_env=None,
-               guest_instance_type='m3.medium', proxy_config=None):
+               guest_instance_type='m3.medium', proxy_config=None, jwt=None):
     encrypted_guest = None
     updater = None
     mv_root_id = None
@@ -104,7 +104,10 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
         )
         # Run updater in same zone as guest so we can swap volumes
         compressed_user_data = user_data.combine_user_data(
-            brkt_config, proxy_config)
+            brkt_config,
+            proxy_config=proxy_config,
+            jwt=jwt
+        )
         updater = aws_svc.run_instance(
             updater_ami,
             instance_type="c3.large",
