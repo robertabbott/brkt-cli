@@ -8,9 +8,9 @@ import test
 
 from brkt_cli.validation import ValidationError
 from brkt_cli import util
-from brkt_cli import encrypt_gce_image
-from brkt_cli import update_gce_image
-from brkt_cli import gce_service
+from brkt_cli.gce import encrypt_gce_image
+from brkt_cli.gce import update_gce_image
+from brkt_cli.gce import gce_service
 
 NONEXISTANT_IMAGE = 'image'
 NONEXISTANT_PROJECT = 'project'
@@ -214,7 +214,7 @@ class TestEncryptedImageName(unittest.TestCase):
 class TestRunEncryption(unittest.TestCase):
 
     def setUp(self):
-        brkt_cli.util.SLEEP_ENABLED = False
+        util.SLEEP_ENABLED = False
 
     def test_smoke(self):
         gce_svc = DummyGCEService()
@@ -267,7 +267,7 @@ class TestRunEncryption(unittest.TestCase):
 class TestImageValidation(unittest.TestCase):
 
     def setUp(self):
-        brkt_cli.util.SLEEP_ENABLED = False
+        util.SLEEP_ENABLED = False
 
     def test_nonexistant_encryptor(self):
         gce_svc = DummyGCEService()
@@ -318,7 +318,7 @@ class TestImageValidation(unittest.TestCase):
 class TestBrktEnv(unittest.TestCase):
 
     def setUp(self):
-        brkt_cli.util.SLEEP_ENABLED = False
+        util.SLEEP_ENABLED = False
 
     def test_add_brkt_env_to_user_data(self):
         userdata = {}
@@ -334,7 +334,7 @@ class TestBrktEnv(unittest.TestCase):
 class TestRunUpdate(unittest.TestCase):
 
     def setUp(self):
-        brkt_cli.util.SLEEP_ENABLED = False
+        util.SLEEP_ENABLED = False
 
     def test_cleanup_on_fail(self):
         gce_svc = DummyGCEService()

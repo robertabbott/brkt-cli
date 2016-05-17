@@ -26,14 +26,6 @@ from distutils.version import LooseVersion
 import requests
 
 from brkt_cli import (
-    encryptor_service,
-    encrypt_gce_image,
-    encrypt_gce_image_args,
-    gce_service,
-    launch_gce_image,
-    launch_gce_image_args,
-    update_gce_image,
-    update_encrypted_gce_image_args,
     util
 )
 from brkt_cli.proxy import Proxy
@@ -46,7 +38,7 @@ BRKT_ENV_PROD = 'yetiapi.mgmt.brkt.com:443,hsmproxy.mgmt.brkt.com:443'
 
 # The list of modules that may be loaded.  Modules contain subcommands of
 # the brkt command and CSP-specific code.
-SUBCOMMAND_MODULE_NAMES = ['brkt_cli.aws', 'brkt_cli.jwt']
+SUBCOMMAND_MODULE_NAMES = ['brkt_cli.aws', 'brkt_cli.jwt', 'brkt_cli.gce']
 
 log = logging.getLogger(__name__)
 
@@ -147,91 +139,6 @@ def parse_brkt_env(brkt_env_string):
     (be.api_host, be.api_port) = _parse_endpoint(endpoints[0])
     (be.hsmproxy_host, be.hsmproxy_port) = _parse_endpoint(endpoints[1])
     return be
-
-
-def command_launch_gce_image(values, log):
-    gce_svc = gce_service.GCEService(values.project, None, log)
-    if values.startup_script:
-        metadata = {'items': [{'key': 'startup-script', 'value': values.startup_script}]}
-    else:
-        metadata = {}
-    launch_gce_image.launch(log,
-                            gce_svc,
-                            values.image,
-                            values.instance_name,
-                            values.zone,
-                            values.delete_boot,
-                            values.instance_type,
-                            metadata)
-    return 0
-
-
-def command_update_encrypted_gce_image(values, log):
-    session_id = util.make_nonce()
-    gce_svc = gce_service.GCEService(values.project, session_id, log)
-    encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
-
-    brkt_env = None
-    if values.brkt_env:
-        brkt_env = parse_brkt_env(values.brkt_env)
-    else:
-        brkt_env = parse_brkt_env(BRKT_ENV_PROD)
-    token = _get_identity_token(brkt_env, values.api_email, values.api_password)
-
-    gce_service.validate_image_name(encrypted_image_name)
-
-    log.info('Starting updater session %s', gce_svc.get_session_id())
-    update_gce_image.update_gce_image(
-        gce_svc=gce_svc,
-        enc_svc_cls=encryptor_service.EncryptorService,
-        image_id=values.image,
-        encryptor_image=values.encryptor_image,
-        encrypted_image_name=encrypted_image_name,
-        zone=values.zone,
-        brkt_env=brkt_env,
-        token=token,
-        keep_encryptor=values.keep_encryptor,
-        image_file=values.image_file,
-        image_bucket=values.bucket
-    )
-
-    return 0
-
-
-def command_encrypt_gce_image(values, log):
-    session_id = util.make_nonce()
-    gce_svc = gce_service.GCEService(values.project, session_id, log)
-
-    brkt_env = None
-    if values.brkt_env:
-        brkt_env = parse_brkt_env(values.brkt_env)
-    else:
-        brkt_env = parse_brkt_env(BRKT_ENV_PROD)
-    token = _get_identity_token(brkt_env, values.api_email, values.api_password)
-
-    encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
-    gce_service.validate_image_name(encrypted_image_name)
-
-
-    log.info('Starting encryptor session %s', gce_svc.get_session_id())
-    encrypted_image_id = encrypt_gce_image.encrypt(
-        gce_svc=gce_svc,
-        enc_svc_cls=encryptor_service.EncryptorService,
-        image_id=values.image,
-        encryptor_image=values.encryptor_image,
-        encrypted_image_name=encrypted_image_name,
-        zone=values.zone,
-        brkt_env=brkt_env,
-        token=token,
-        image_project=values.image_project,
-        keep_encryptor=values.keep_encryptor,
-        image_file=values.image_file,
-        image_bucket=values.bucket
-    )
-    # Print the image name to stdout, in case the caller wants to process
-    # the output.  Log messages go to stderr.
-    print(encrypted_image_id)
-    return 0
 
 
 def _parse_proxies(*proxy_host_ports):
@@ -416,15 +323,6 @@ def main():
             'Registering subcommand %s' % s.name())
         s.register(subparsers)
 
-    encrypt_gce_image_parser = subparsers.add_parser('encrypt-gce-image')
-    encrypt_gce_image_args.setup_encrypt_gce_image_args(encrypt_gce_image_parser)
-
-    launch_gce_image_parser = subparsers.add_parser('launch-gce-image')
-    launch_gce_image_args.setup_launch_gce_image_args(launch_gce_image_parser)
-
-    update_gce_image_parser = subparsers.add_parser('update-gce-image')
-    update_encrypted_gce_image_args.setup_update_gce_image_args(update_gce_image_parser)
-
     argv = sys.argv[1:]
     values = parser.parse_args(argv)
 
@@ -478,15 +376,6 @@ def main():
             log.debug('%s returned %d', subcommand.name(), result)
             return result
 
-        if values.subparser_name == 'launch-gce-image':
-            log.info('Warning: GCE support is still in development.')
-            return command_launch_gce_image(values, log)
-        if values.subparser_name == 'encrypt-gce-image':
-            log.info('Warning: GCE support is still in development.')
-            return command_encrypt_gce_image(values, log)
-        if values.subparser_name == 'update-gce-image':
-            log.info('Warning: GCE support is still in development.')
-            return command_update_encrypted_gce_image(values, log)
         try:
             url = 'http://pypi.python.org/pypi/brkt-cli/json'
             r = requests.get(url)
