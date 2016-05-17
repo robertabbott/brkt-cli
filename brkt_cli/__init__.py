@@ -65,10 +65,9 @@ def parse_tags(tag_strings):
 
     tags = {}
     for s in tag_strings:
-        m = re.match(r'([^=]+)=(.+)', s)
-        if not m:
-            raise ValidationError('Tag %s is not in the format KEY=VALUE' % s)
-        tags[m.group(1)] = m.group(2)
+        key, value = util.parse_name_value(s)
+        tags[key] = value
+
     return tags
 
 

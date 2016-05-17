@@ -20,6 +20,7 @@ import uuid
 
 from googleapiclient import errors
 
+from brkt_cli.validation import ValidationError
 
 SLEEP_ENABLED = True
 MAX_BACKOFF_SECS = 10
@@ -156,3 +157,16 @@ def urlsafe_b64decode(base64_string):
         base64_string += b'=' * (4 - removed)
 
     return base64.urlsafe_b64decode(base64_string)
+
+
+def parse_name_value(name_value):
+    """ Parse a string in NAME=VALUE format.
+
+    :return: a tuple of name, value
+    :raise: ValidationError if name_value is malformed
+    """
+    m = re.match(r'([^=]+)=(.+)', name_value)
+    if not m:
+        raise ValidationError(
+            '%s is not in the format NAME=VALUE' % name_value)
+    return m.group(1), m.group(2)

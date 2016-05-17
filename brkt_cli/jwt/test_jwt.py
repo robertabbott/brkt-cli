@@ -73,16 +73,19 @@ class TestSigningKey(unittest.TestCase):
 
 class TestGenerateJWT(unittest.TestCase):
 
+    def __init__(self, *args, **kwargs):
+        super(TestGenerateJWT, self).__init__(*args, **kwargs)
+        self.signing_key = SigningKey.generate(curve=NIST384p)
+
     def test_generate_jwt(self):
         # Generate the JWT.
-        signing_key = SigningKey.generate(curve=NIST384p)
         now = datetime.now(tz=iso8601.UTC).replace(microsecond=0)
         nbf = now + timedelta(days=1)
         exp = now + timedelta(days=7)
         cnc = 10
 
         jwt = brkt_cli.jwt.generate_jwt(
-            signing_key, nbf=nbf, exp=exp, cnc=cnc)
+            self.signing_key, nbf=nbf, exp=exp, cnc=cnc)
         after = datetime.now(tz=iso8601.UTC)
 
         # Decode the header and payload.
@@ -113,8 +116,20 @@ class TestGenerateJWT(unittest.TestCase):
         self.assertTrue('kid' in payload)
 
         # Check signature.
-        verifying_key = signing_key.get_verifying_key()
+        verifying_key = self.signing_key.get_verifying_key()
         verifying_key.verify(signature, '%s.%s' % (header_b64, payload_b64))
+
+    def test_claims(self):
+        """ Test that claims specified by name are embedded into the JWT. """
+        # Generate the JWT.
+        claims = {'foo': 'bar', 'count': 5}
+        jwt = brkt_cli.jwt.generate_jwt(self.signing_key, claims=claims)
+        _, payload_b64, _ = jwt.split('.')
+        payload_json = brkt_cli.util.urlsafe_b64decode(payload_b64)
+        payload = json.loads(payload_json)
+
+        self.assertEqual('bar', payload['foo'])
+        self.assertEqual(5, payload['count'])
 
 
 class TestJWK(unittest.TestCase):
