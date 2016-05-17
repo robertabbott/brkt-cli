@@ -148,3 +148,16 @@ def setup_encrypt_ami_args(parser):
         help=argparse.SUPPRESS,
         dest='key_name'
     )
+
+    # This option is still in development.
+    """
+    help=(
+        'JSON Web Token that the encrypted instance will use to '
+        'authenticate with the Bracket service.  Use the generate-jwt '
+        'subcommand to generate a JWT.'
+    )
+    """
+    parser.add_argument(
+        '--jwt',
+        help=argparse.SUPPRESS
+    )

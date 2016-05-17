@@ -16,7 +16,9 @@ from __future__ import print_function
 
 import argparse
 import importlib
+import json
 import logging
+import os
 import re
 import sys
 from distutils.version import LooseVersion
@@ -280,6 +282,20 @@ def get_proxy_config(values):
     return proxy_config
 
 
+def _base64_decode_json(base64_string):
+    """ Decode the given base64 string, and return the parsed JSON as a
+    dictionary.
+    @raise ValidationError if either the base64 or JSON is malformed
+    """
+    try:
+        json_string = util.urlsafe_b64decode(base64_string)
+        return json.loads(json_string)
+    except (TypeError, ValueError) as e:
+        raise ValidationError(
+            'Unable to decode %s as JSON: %s' % (base64_string, e)
+        )
+
+
 def _is_version_supported(version, supported_versions):
     """ Return True if the given version string is at least as high as
     the earliest version string in supported_versions.
@@ -304,6 +320,46 @@ def _is_later_version_available(version, supported_versions):
         key=lambda v: LooseVersion(v)
     )
     return LooseVersion(version) < LooseVersion(sorted_versions[-1])
+
+
+def validate_jwt(jwt):
+    """ Perform some simple validation on the given JWT.
+
+    @return the JWT
+    @raise ValidationError if the JWT is malformed
+    """
+    if not jwt:
+        return None
+
+    # Decode header, payload, and signature.
+    parts = jwt.split('.')
+    if len(parts) != 3:
+        raise ValidationError('Malformed JWT: ' + jwt)
+    header = _base64_decode_json(parts[0])
+    payload = _base64_decode_json(parts[1])
+
+    try:
+        util.urlsafe_b64decode(parts[2])
+    except TypeError:
+        raise ValidationError('Unable to decode signature ' + parts[2])
+
+    # Validate header.
+    expected_fields = ['typ', 'alg']
+    missing_fields = [f for f in expected_fields if f not in header]
+    if missing_fields:
+        raise ValidationError(
+            'Missing fields in JWT header: %s' % ','.join(missing_fields)
+        )
+
+    # Validate payload.
+    expected_fields = ['jti', 'iss', 'iat', 'kid']
+    missing_fields = [f for f in expected_fields if f not in payload]
+    if missing_fields:
+        raise ValidationError(
+            'Missing fields in JWT payload: %s' % ','.join(missing_fields)
+        )
+
+    return jwt
 
 
 def main():

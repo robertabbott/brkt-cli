@@ -350,10 +350,12 @@ def create_encryptor_security_group(aws_svc, vpc_id=None):
     return sg
 
 
-def run_encryptor_instance(aws_svc, encryptor_image_id,
-           snapshot, root_size,
-           guest_image_id, brkt_env=None, security_group_ids=None,
-           subnet_id=None, zone=None, ntp_servers=None, proxy_config=None):
+def run_encryptor_instance(
+        aws_svc, encryptor_image_id,
+        snapshot, root_size,
+        guest_image_id, brkt_env=None, security_group_ids=None,
+        subnet_id=None, zone=None, ntp_servers=None, proxy_config=None,
+        jwt=None):
     bdm = BlockDeviceMapping()
     brkt_config = {}
     add_brkt_env_to_brkt_config(brkt_env, brkt_config)
@@ -390,7 +392,10 @@ def run_encryptor_instance(aws_svc, encryptor_image_id,
         bdm['/dev/sdg'] = guest_encrypted_root
 
     compressed_user_data = user_data.combine_user_data(
-        brkt_config, proxy_config)
+        brkt_config,
+        proxy_config=proxy_config,
+        jwt=jwt
+    )
     instance = aws_svc.run_instance(encryptor_image_id,
                                     security_group_ids=security_group_ids,
                                     user_data=compressed_user_data,
@@ -886,7 +891,9 @@ def register_ami(aws_svc, encryptor_instance, encryptor_image, name,
 def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
             encrypted_ami_name=None, subnet_id=None, security_group_ids=None,
             ntp_servers=None, proxy_config=None,
-            guest_instance_type='m3.medium'):
+            guest_instance_type='m3.medium', jwt=None):
+    log.info('Starting encryptor session %s', aws_svc.session_id)
+
     encryptor_instance = None
     ami = None
     snapshot_id = None
@@ -958,7 +965,8 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
             subnet_id=subnet_id,
             zone=guest_instance.placement,
             ntp_servers=ntp_servers,
-            proxy_config=proxy_config
+            proxy_config=proxy_config,
+            jwt=jwt
         )
 
         log.debug('Getting image %s', image_id)

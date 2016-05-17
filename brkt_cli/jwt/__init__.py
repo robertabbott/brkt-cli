@@ -14,19 +14,18 @@
 import json
 import logging
 import re
-
-from datetime import datetime
-from ecdsa import SigningKey, NIST384p
-import base64
-import iso8601
 import time
+from datetime import datetime
+
+import iso8601
+from ecdsa import SigningKey, NIST384p
 
 import brkt_cli
 from brkt_cli import util
 from brkt_cli.jwt import jwk
 from brkt_cli.subcommand import Subcommand
+from brkt_cli.util import urlsafe_b64encode
 from brkt_cli.validation import ValidationError
-
 
 log = logging.getLogger(__name__)
 
@@ -118,17 +117,6 @@ def parse_timestamp(ts_string):
     return dt
 
 
-def _urlsafe_b64encode(content):
-    return base64.urlsafe_b64encode(content).replace(b'=', b'')
-
-
-def _urlsafe_b64decode(content):
-    removed = len(content) % 4
-    if removed > 0:
-        content += b'=' * (4 - removed)
-    return base64.urlsafe_b64decode(content)
-
-
 def generate_jwt(signing_key, exp=None, nbf=None, cnc=None):
     """ Generate a JWT.
 
@@ -154,11 +142,11 @@ def generate_jwt(signing_key, exp=None, nbf=None, cnc=None):
         payload_dict['cnc'] = cnc
 
     header_json = json.dumps(header_dict, sort_keys=True)
-    header_b64 = _urlsafe_b64encode(header_json)
+    header_b64 = urlsafe_b64encode(header_json)
     payload_json = json.dumps(payload_dict, sort_keys=True)
-    payload_b64 = _urlsafe_b64encode(payload_json)
+    payload_b64 = urlsafe_b64encode(payload_json)
     signature = signing_key.sign('%s.%s' % (header_b64, payload_b64))
-    signature_b64 = _urlsafe_b64encode(signature)
+    signature_b64 = urlsafe_b64encode(signature)
 
     log.debug('Header: %s', header_json)
     log.debug('Payload: %s', payload_json)

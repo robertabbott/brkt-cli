@@ -62,6 +62,11 @@ class UpdateAMISubcommand(Subcommand):
     def name(self):
         return 'update-encrypted-ami'
 
+    def init_logging(self, verbose):
+        # Set boto logging to FATAL, since boto logs auth errors and 401s
+        # at ERROR level.
+        boto.log.setLevel(logging.FATAL)
+
     def verbose(self, values):
         return values.update_encrypted_ami_verbose
 
@@ -327,13 +332,12 @@ def command_encrypt_ami(values, log):
     if error_msg:
         raise ValidationError(error_msg)
 
-    log.info('Starting encryptor session %s', aws_svc.session_id)
-
     brkt_env = None
     if values.brkt_env:
         brkt_env = brkt_cli.parse_brkt_env(values.brkt_env)
 
     proxy_config = brkt_cli.get_proxy_config(values)
+    jwt = brkt_cli.validate_jwt(values.jwt)
 
     encrypted_image_id = encrypt_ami.encrypt(
         aws_svc=aws_svc,
@@ -346,7 +350,8 @@ def command_encrypt_ami(values, log):
         brkt_env=brkt_env,
         ntp_servers=values.ntp_servers,
         proxy_config=proxy_config,
-        guest_instance_type=values.guest_instance_type
+        guest_instance_type=values.guest_instance_type,
+        jwt=jwt
     )
     # Print the AMI ID to stdout, in case the caller wants to process
     # the output.  Log messages go to stderr.
@@ -426,6 +431,7 @@ def command_update_encrypted_ami(values, log):
     if values.brkt_env:
         brkt_env = brkt_cli.parse_brkt_env(values.brkt_env)
     proxy_config = brkt_cli.get_proxy_config(values)
+    jwt = brkt_cli.validate_jwt(values.jwt)
 
     # Initial validation done
     log.info('Updating %s with new metavisor %s', encrypted_ami, encryptor_ami)
@@ -437,7 +443,8 @@ def command_update_encrypted_ami(values, log):
         ntp_servers=values.ntp_servers,
         brkt_env=brkt_env,
         guest_instance_type=values.guest_instance_type,
-        proxy_config=proxy_config
+        proxy_config=proxy_config,
+        jwt=jwt
     )
     print(updated_ami_id)
     return 0

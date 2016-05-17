@@ -15,6 +15,7 @@ import importlib
 import json
 import tempfile
 
+import time
 import yaml
 from boto.ec2.keypair import KeyPair
 from boto.ec2.securitygroup import SecurityGroup
@@ -413,23 +414,6 @@ class TestEncryptedImageName(unittest.TestCase):
         s1 = encrypt_ami.get_encrypted_suffix()
         s2 = encrypt_ami.get_encrypted_suffix()
         self.assertNotEqual(s1, s2)
-
-    def test_append_suffix(self):
-        """ Test that we append the suffix and truncate the original name.
-        """
-        name = 'Boogie nights are always the best in town'
-        suffix = ' (except Tuesday)'
-        encrypted_name = brkt_cli.util.append_suffix(
-            name, suffix, max_length=128)
-        self.assertTrue(encrypted_name.startswith(name))
-        self.assertTrue(encrypted_name.endswith(suffix))
-
-        # Make sure we truncate the original name when it's too long.
-        name += ('X' * 100)
-        encrypted_name = brkt_cli.util.append_suffix(
-            name, suffix, max_length=128)
-        self.assertEqual(128, len(encrypted_name))
-        self.assertTrue(encrypted_name.startswith('Boogie nights'))
 
     def test_name_validation(self):
         name = 'Test123 ()[]./-\'@_'
@@ -1452,9 +1436,15 @@ class TestUserData(unittest.TestCase):
         brkt_config = {'foo': 'bar'}
         p = Proxy(host='proxy1.example.com', port=8001)
         proxy_config = proxy.generate_proxy_config(p)
+        jwt = (
+            'eyJhbGciOiAiRVMzODQiLCAidHlwIjogIkpXVCJ9.eyJpc3MiOiAiYnJrdC1jb'
+            'GktMC45LjE3cHJlMSIsICJpYXQiOiAxNDYzNDI5MDg1LCAianRpIjogImJlN2J'
+            'mYzYwIiwgImtpZCI6ICJhYmMifQ.U2lnbmVkLCBzZWFsZWQsIGRlbGl2ZXJlZA'
+        )
         compressed_mime_data = user_data.combine_user_data(
             brkt_config,
-            proxy_config
+            proxy_config=proxy_config,
+            jwt=jwt
         )
         mime_data = zlib.decompress(compressed_mime_data, 16 + zlib.MAX_WBITS)
 
@@ -1471,6 +1461,7 @@ class TestUserData(unittest.TestCase):
                 found_brkt_files = True
                 content = part.get_payload(decode=True)
                 self.assertTrue('/var/brkt/ami_config/proxy.yaml:' in content)
+                self.assertTrue('/var/brkt/ami_config/token.jwt:' in content)
 
         self.assertTrue(found_brkt_config)
         self.assertTrue(found_brkt_files)
@@ -1572,3 +1563,65 @@ class TestSubmodule(unittest.TestCase):
         """ Test that the AWS module is installed by setuptools.
         """
         importlib.import_module('brkt_cli.aws')
+
+
+class TestJWT(unittest.TestCase):
+
+    def test_validate_jwt(self):
+        self.assertIsNone(brkt_cli.validate_jwt(None))
+
+        # Valid(ish) JWT.  The validation code doesn't currently go as far
+        # as to validate the signature.
+        header = {'typ': 'JWT', 'alg': 'ES384'}
+        payload = {
+            'jti': brkt_cli.util.make_nonce(),
+            'iss': 'brkt-cli-' + brkt_cli.VERSION,
+            'iat': int(time.time()),
+            'kid': 'abc'
+        }
+        signature = 'Signed, sealed, delivered'
+
+        header_json = json.dumps(header)
+        payload_json = json.dumps(payload)
+        base64_header = brkt_cli.util.urlsafe_b64encode(header_json)
+        base64_payload = brkt_cli.util.urlsafe_b64encode(payload_json)
+        base64_signature = brkt_cli.util.urlsafe_b64encode(signature)
+
+        jwt = '%s.%s.%s' % (base64_header, base64_payload, base64_signature)
+        self.assertEqual(jwt, brkt_cli.validate_jwt(jwt))
+
+        # Malformed JWT.
+        jwt = '%s.%s' % (header_json, payload_json)
+        with self.assertRaises(ValidationError):
+            brkt_cli.validate_jwt(jwt)
+
+        jwt = '%s.%s.%s' % (base64_header, 'xxx', base64_signature)
+        with self.assertRaises(ValidationError):
+            brkt_cli.validate_jwt(jwt)
+
+        jwt = '%s.%s.%s.%s' % (
+            base64_header, base64_payload, base64_signature, 'abcd')
+        with self.assertRaises(ValidationError):
+            brkt_cli.validate_jwt(jwt)
+
+        # Missing header field.
+        for missing_field in ['typ', 'alg']:
+            malformed_header = dict(header)
+            del(malformed_header[missing_field])
+            base64_malformed_header = brkt_cli.util.urlsafe_b64encode(
+                json.dumps(malformed_header))
+            jwt = '%s.%s.%s' % (
+                base64_malformed_header, base64_payload, base64_signature)
+            with self.assertRaises(ValidationError):
+                brkt_cli.validate_jwt(jwt)
+
+        # Missing payload field.
+        for missing_field in ['jti', 'iss', 'iat', 'kid']:
+            malformed_payload = dict(payload)
+            del(malformed_payload[missing_field])
+            base64_malformed_payload = brkt_cli.util.urlsafe_b64encode(
+                json.dumps(malformed_payload))
+            jwt = '%s.%s.%s' % (
+                base64_malformed_payload, base64_payload, base64_signature)
+            with self.assertRaises(ValidationError):
+                brkt_cli.validate_jwt(jwt)

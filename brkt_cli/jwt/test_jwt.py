@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 
 import iso8601
 
+import brkt_cli.util
 from brkt_cli.validation import ValidationError
 from ecdsa import SigningKey, NIST192p, NIST384p
 import tempfile
@@ -86,9 +87,9 @@ class TestGenerateJWT(unittest.TestCase):
 
         # Decode the header and payload.
         header_b64, payload_b64, signature_b64 = jwt.split('.')
-        header_json = brkt_cli.jwt._urlsafe_b64decode(header_b64)
-        payload_json = brkt_cli.jwt._urlsafe_b64decode(payload_b64)
-        signature = brkt_cli.jwt._urlsafe_b64decode(signature_b64)
+        header_json = brkt_cli.util.urlsafe_b64decode(header_b64)
+        payload_json = brkt_cli.util.urlsafe_b64decode(payload_b64)
+        signature = brkt_cli.util.urlsafe_b64decode(signature_b64)
 
         # Check the header.
         header = json.loads(header_json)
@@ -114,21 +115,6 @@ class TestGenerateJWT(unittest.TestCase):
         # Check signature.
         verifying_key = signing_key.get_verifying_key()
         verifying_key.verify(signature, '%s.%s' % (header_b64, payload_b64))
-
-
-class TestBase64(unittest.TestCase):
-    """ Test that our encoding code follows the spec used by JWT.  The
-    encoded string must be URL-safe and not use padding. """
-
-    def test_encode_and_decode(self):
-        for length in xrange(0, 1000):
-            content = 'x' * length
-            encoded = brkt_cli.jwt._urlsafe_b64encode(content)
-            self.assertFalse('/' in encoded)
-            self.assertFalse('_' in encoded)
-            self.assertFalse('=' in encoded)
-            self.assertEqual(
-                content, brkt_cli.jwt._urlsafe_b64decode(encoded))
 
 
 class TestJWK(unittest.TestCase):
