@@ -60,7 +60,13 @@ class JWTSubcommand(Subcommand):
         nbf = None
         if values.nbf:
             nbf = parse_timestamp(values.nbf)
-        print generate_jwt(signing_key, exp=exp, nbf=nbf)
+
+        claims = {}
+        for name_value in values.claims:
+            name, value = util.parse_name_value(name_value)
+            claims[name] = value
+
+        print generate_jwt(signing_key, exp=exp, nbf=nbf, claims=claims)
         return 0
 
 
@@ -117,23 +123,29 @@ def parse_timestamp(ts_string):
     return dt
 
 
-def generate_jwt(signing_key, exp=None, nbf=None, cnc=None):
+def generate_jwt(signing_key, exp=None, nbf=None, cnc=None, claims=None):
     """ Generate a JWT.
 
     :param signing_key a SigningKey object
     :param exp expiration time as a datetime
     :param nbf not before as a datetime
     :param cnc maximum number of concurrent instances as an integer
+    :param claims a dictionary of claims
     :return the JWT as a string
     """
 
     header_dict = {'typ': 'JWT', 'alg': 'ES384'}
-    payload_dict = {
+
+    payload_dict = {}
+    if claims:
+        payload_dict.update(claims)
+    payload_dict.update({
         'jti': util.make_nonce(),
         'iss': 'brkt-cli-' + brkt_cli.VERSION,
         'iat': int(time.time()),
         'kid': jwk.get_thumbprint(signing_key.get_verifying_key())
-    }
+    })
+
     if exp:
         payload_dict['exp'] = _datetime_to_timestamp(exp)
     if nbf:
@@ -155,6 +167,15 @@ def generate_jwt(signing_key, exp=None, nbf=None, cnc=None):
 
 
 def setup_generate_jwt_args(parser):
+    parser.add_argument(
+        '--claim',
+        metavar='NAME=VALUE',
+        dest='claims',
+        help=(
+            'JWT claim specified by name and value.  May be specified '
+            'multiple times.'),
+        action='append'
+    )
     parser.add_argument(
         '--cnc',
         metavar='N',

@@ -14,7 +14,8 @@
 
 import unittest
 
-import brkt_cli
+from brkt_cli import util
+from brkt_cli.validation import ValidationError
 
 
 class TestUtil(unittest.TestCase):
@@ -24,17 +25,25 @@ class TestUtil(unittest.TestCase):
         """
         name = 'Boogie nights are always the best in town'
         suffix = ' (except Tuesday)'
-        encrypted_name = brkt_cli.util.append_suffix(
+        encrypted_name = util.append_suffix(
             name, suffix, max_length=128)
         self.assertTrue(encrypted_name.startswith(name))
         self.assertTrue(encrypted_name.endswith(suffix))
 
         # Make sure we truncate the original name when it's too long.
         name += ('X' * 100)
-        encrypted_name = brkt_cli.util.append_suffix(
+        encrypted_name = util.append_suffix(
             name, suffix, max_length=128)
         self.assertEqual(128, len(encrypted_name))
         self.assertTrue(encrypted_name.startswith('Boogie nights'))
+
+    def test_parse_name_value(self):
+        self.assertEqual(
+            ('foo', 'bar'),
+            util.parse_name_value('foo=bar')
+        )
+        with self.assertRaises(ValidationError):
+            util.parse_name_value('abc')
 
 
 class TestBase64(unittest.TestCase):
@@ -44,9 +53,9 @@ class TestBase64(unittest.TestCase):
     def test_encode_and_decode(self):
         for length in xrange(0, 1000):
             content = 'x' * length
-            encoded = brkt_cli.util.urlsafe_b64encode(content)
+            encoded = util.urlsafe_b64encode(content)
             self.assertFalse('/' in encoded)
             self.assertFalse('_' in encoded)
             self.assertFalse('=' in encoded)
             self.assertEqual(
-                content, brkt_cli.util.urlsafe_b64decode(encoded))
+                content, util.urlsafe_b64decode(encoded))
