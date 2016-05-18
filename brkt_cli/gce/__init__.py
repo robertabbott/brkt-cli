@@ -17,6 +17,7 @@ from brkt_cli.gce import (
     update_gce_image,
     update_encrypted_gce_image_args,
 )
+from brkt_cli.validation import ValidationError
 
 log = logging.getLogger(__name__)
 
@@ -93,6 +94,7 @@ def command_launch_gce_image(values, log):
 
 
 def command_update_encrypted_gce_image(values, log):
+    check_args(values)
     session_id = util.make_nonce()
     gce_svc = gce_service.GCEService(values.project, session_id, log)
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
@@ -125,6 +127,7 @@ def command_update_encrypted_gce_image(values, log):
 
 
 def command_encrypt_gce_image(values, log):
+    check_args(values)
     session_id = util.make_nonce()
     gce_svc = gce_service.GCEService(values.project, session_id, log)
 
@@ -160,3 +163,7 @@ def command_encrypt_gce_image(values, log):
     return 0
 
 
+def check_args(values):
+    if values.encryptor_image:
+        if values.bucket != 'prod':
+            raise ValidationError("Please provided either an encryptor image or an image bucket")
