@@ -119,7 +119,10 @@ class DummyAWSService(aws_service.BaseAWSService):
         self.tagged_volumes = []
         self.subnets = {}
         self.security_groups = {}
-        self.regions = [RegionInfo(name='us-west-2')]
+        self.regions = [
+            RegionInfo(name='us-west-2'),
+            RegionInfo(name='eu-west-1')
+        ]
         self.volumes = {}
 
         vpc = VPC()
@@ -1270,6 +1273,31 @@ class TestValidation(unittest.TestCase):
             'x' * 112 + ' (encrypted 123)',
             brkt_cli.aws._get_updated_image_name('x' * 128, '123')
         )
+
+    def test_validate_region(self):
+        aws_svc = DummyAWSService()
+
+        # Region contains a published metavisor.
+        values = DummyValues()
+        values.region = 'us-west-2'
+        for region_name in brkt_cli.aws.METAVISOR_AMI_REGION_NAMES:
+            values.region = region_name
+            brkt_cli.aws._validate_region(aws_svc, values)
+
+        # Region does not contain a published metavisor.
+        values.region = 'eu-west-1'
+        with self.assertRaises(ValidationError):
+            brkt_cli.aws._validate_region(aws_svc, values)
+
+        # Encryptor AMI is specified.
+        values.encryptor_ami = 'ami-123'
+        brkt_cli.aws._validate_region(aws_svc, values)
+
+        # Bogus region.
+        values.region = 'foobar'
+        values.encryptor_ami = None
+        with self.assertRaises(ValidationError):
+            brkt_cli.aws._validate_region(aws_svc, values)
 
 
 class TestEncryptAMIBackwardsCompatibility(unittest.TestCase):
