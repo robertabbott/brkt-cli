@@ -18,7 +18,6 @@ import argparse
 import importlib
 import json
 import logging
-import os
 import re
 import sys
 from distutils.version import LooseVersion
@@ -228,6 +227,49 @@ def _is_later_version_available(version, supported_versions):
     return LooseVersion(version) < LooseVersion(sorted_versions[-1])
 
 
+def _check_version():
+    """ Check if this version of brkt-cli is still supported by checking
+    our version against the versions available on PyPI.  If a
+    later version is available, print a message to the console.
+
+    :return True if this version is still supported
+    """
+    try:
+        url = 'http://pypi.python.org/pypi/brkt-cli/json'
+        r = requests.get(url)
+        if r.status_code / 100 != 2:
+            raise Exception(
+                'Error %d when opening %s' % (r.status_code, url))
+        supported_versions = r.json()['releases'].keys()
+    except Exception as e:
+        print(e, file=sys.stderr)
+        print(
+            'Version check failed.  You can bypass it with '
+            '--no-check-version',
+            file=sys.stderr
+        )
+        return False
+
+    if not _is_version_supported(VERSION, supported_versions):
+        print(
+            'Version %s is no longer supported.\n'
+            'Run "pip install --upgrade brkt-cli" to upgrade to the '
+            'latest version.' %
+            VERSION,
+            file=sys.stderr
+        )
+        return False
+    if _is_later_version_available(VERSION, supported_versions):
+        print(
+            'A new release of brkt-cli is available.\n'
+            'Run "pip install --upgrade brkt-cli" to upgrade to the '
+            'latest version.',
+            file=sys.stderr
+        )
+
+    return True
+
+
 def validate_jwt(jwt):
     """ Perform some simple validation on the given JWT.
 
@@ -341,13 +383,14 @@ def main():
         if s.name() == values.subparser_name:
             subcommand = s
             break
+    if not subcommand:
+        raise Exception('Could not find subcommand ' + values.subparser_name)
 
     # Initialize logging.
     verbose = values.verbose
-    if subcommand:
-        if subcommand.verbose(values):
-            verbose = True
-        subcommand.init_logging(verbose)
+    if subcommand.verbose(values):
+        verbose = True
+    subcommand.init_logging(verbose)
     if verbose:
         log_level = logging.DEBUG
 
@@ -363,50 +406,19 @@ def main():
     for msg in subcommand_load_messages:
         log.debug(msg)
 
-    # Run the subcommand.
     if values.check_version:
-        supported_versions = None
+        if not _check_version():
+            return 1
+
+    # Run the subcommand.
     try:
-        if subcommand:
-            result = subcommand.run(values)
-            if not isinstance(result, (int, long)):
-                raise Exception(
-                    '%s did not return an integer result' % subcommand.name())
-            log.debug('%s returned %d', subcommand.name(), result)
-            return result
+        result = subcommand.run(values)
+        if not isinstance(result, (int, long)):
+            raise Exception(
+                '%s did not return an integer result' % subcommand.name())
+        log.debug('%s returned %d', subcommand.name(), result)
+        return result
 
-        try:
-            url = 'http://pypi.python.org/pypi/brkt-cli/json'
-            r = requests.get(url)
-            if r.status_code / 100 != 2:
-                raise Exception(
-                    'Error %d when opening %s' % (r.status_code, url))
-            supported_versions = r.json()['releases'].keys()
-        except Exception as e:
-            print(e, file=sys.stderr)
-            print(
-                'Version check failed.  You can bypass it with '
-                '--no-check-version',
-                file=sys.stderr
-            )
-            return 1
-
-        if not _is_version_supported(VERSION, supported_versions):
-            print(
-                'Version %s is no longer supported.\n'
-                'Run "pip install --upgrade brkt-cli" to upgrade to the '
-                'latest version.' %
-                VERSION,
-                file=sys.stderr
-            )
-            return 1
-        if _is_later_version_available(VERSION, supported_versions):
-            print(
-                'A new release of brkt-cli is available.\n'
-                'Run "pip install --upgrade brkt-cli" to upgrade to the '
-                'latest version.',
-                file=sys.stderr
-            )
     except ValidationError as e:
         print(e, file=sys.stderr)
     except util.BracketError as e:
