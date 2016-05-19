@@ -62,9 +62,10 @@ class JWTSubcommand(Subcommand):
             nbf = parse_timestamp(values.nbf)
 
         claims = {}
-        for name_value in values.claims:
-            name, value = util.parse_name_value(name_value)
-            claims[name] = value
+        if values.claims:
+            for name_value in values.claims:
+                name, value = util.parse_name_value(name_value)
+                claims[name] = value
 
         print generate_jwt(signing_key, exp=exp, nbf=nbf, claims=claims)
         return 0
