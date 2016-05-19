@@ -117,15 +117,19 @@ def parse_brkt_env(brkt_env_string):
     :return: a BracketEnvironment object
     :raise: ValidationError if brkt_env is malformed
     """
+    error_msg = (
+        '--brkt-env value must be in the following format: '
+        '<api-host>:<api-port>,<hsm-proxy-host>:<hsm-proxy-port>'
+    )
     endpoints = brkt_env_string.split(',')
     if len(endpoints) != 2:
-        raise ValidationError('brkt-env requires two values')
+        raise ValidationError(error_msg)
 
     def _parse_endpoint(endpoint):
         host_port_pattern = r'([^:]+):(\d+)$'
         m = re.match(host_port_pattern, endpoint)
         if not m:
-            raise ValidationError('Malformed endpoint: %s' % endpoints[0])
+            raise ValidationError(error_msg)
         host = m.group(1)
         port = int(m.group(2))
 
