@@ -33,6 +33,9 @@ from update_ami import update_ami
 log = logging.getLogger(__name__)
 
 
+METAVISOR_AMI_REGION_NAMES = ['us-east-1', 'us-west-1', 'us-west-2']
+
+
 class EncryptAMISubcommand(Subcommand):
 
     def name(self):
@@ -298,24 +301,33 @@ def _connect_and_validate(aws_svc, values, encryptor_ami_id):
         raise ValidationError(e.message)
 
 
-def _validate_region(aws_svc, region):
-    """ Return the region specified on the command line.
+def _validate_region(aws_svc, values):
+    """ Check that the specified region is one that contains published
+    metavisor AMIs.  If --encryptor-ami is specified, check against the
+    entire set of AWS regions, since this option may be used for testing
+    new regions.
 
     :raise ValidationError if the region is invalid
     """
-    regions = [str(r.name) for r in aws_svc.get_regions()]
-    if region not in regions:
+    if values.encryptor_ami:
+        region_names = [r.name for r in aws_svc.get_regions()]
+    else:
+        region_names = METAVISOR_AMI_REGION_NAMES
+
+    if values.region not in region_names:
         raise ValidationError(
-            'Invalid region %s.  Must be one of %s.' %
-            (region, str(regions)))
-    return region
+            'Invalid region %s.  Supported regions: %s.' %
+            (values.region, ', '.join(region_names)))
 
 
 def command_encrypt_ami(values, log):
     session_id = util.make_nonce()
 
     aws_svc = aws_service.AWSService(session_id)
-    _validate_region(aws_svc, values.region)
+
+    # Validate the specified region.
+    if values.validate:
+        _validate_region(aws_svc, values)
 
     encryptor_ami = (
         values.encryptor_ami or
