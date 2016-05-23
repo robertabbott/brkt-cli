@@ -37,7 +37,12 @@ BRKT_ENV_PROD = 'yetiapi.mgmt.brkt.com:443,hsmproxy.mgmt.brkt.com:443'
 
 # The list of modules that may be loaded.  Modules contain subcommands of
 # the brkt command and CSP-specific code.
-SUBCOMMAND_MODULE_NAMES = ['brkt_cli.aws', 'brkt_cli.jwt', 'brkt_cli.gce']
+SUBCOMMAND_MODULE_NAMES = [
+    'brkt_cli.aws',
+    'brkt_cli.gce',
+    'brkt_cli.make_user_data',
+    'brkt_cli.jwt',
+]
 
 log = logging.getLogger(__name__)
 
