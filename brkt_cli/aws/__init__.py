@@ -393,7 +393,7 @@ def command_update_encrypted_ami(values, log):
     nonce = util.make_nonce()
 
     aws_svc = aws_service.AWSService(nonce)
-    _validate_region(aws_svc, values.region)
+    _validate_region(aws_svc, values)
     encryptor_ami = (
         values.encryptor_ami or
         encrypt_ami.get_encryptor_ami(values.region, hvm=values.hvm)
