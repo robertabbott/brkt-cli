@@ -77,14 +77,14 @@ class TestGenerateJWT(unittest.TestCase):
         super(TestGenerateJWT, self).__init__(*args, **kwargs)
         self.signing_key = SigningKey.generate(curve=NIST384p)
 
-    def test_generate_jwt(self):
+    def test_make_jwt(self):
         # Generate the JWT.
         now = datetime.now(tz=iso8601.UTC).replace(microsecond=0)
         nbf = now + timedelta(days=1)
         exp = now + timedelta(days=7)
         cnc = 10
 
-        jwt = brkt_cli.jwt.generate_jwt(
+        jwt = brkt_cli.jwt.make_jwt(
             self.signing_key, nbf=nbf, exp=exp, cnc=cnc)
         after = datetime.now(tz=iso8601.UTC)
 
@@ -123,7 +123,7 @@ class TestGenerateJWT(unittest.TestCase):
         """ Test that claims specified by name are embedded into the JWT. """
         # Generate the JWT.
         claims = {'foo': 'bar', 'count': 5}
-        jwt = brkt_cli.jwt.generate_jwt(self.signing_key, claims=claims)
+        jwt = brkt_cli.jwt.make_jwt(self.signing_key, claims=claims)
         _, payload_b64, _ = jwt.split('.')
         payload_json = brkt_cli.util.urlsafe_b64decode(payload_b64)
         payload = json.loads(payload_json)

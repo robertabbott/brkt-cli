@@ -151,7 +151,7 @@ def setup_update_encrypted_ami(parser):
     """
     help=(
         'JSON Web Token that the encrypted instance will use to '
-        'authenticate with the Bracket service.  Use the generate-jwt '
+        'authenticate with the Bracket service.  Use the make-jwt '
         'subcommand to generate a JWT.'
     )
     """

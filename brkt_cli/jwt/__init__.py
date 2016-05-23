@@ -30,27 +30,27 @@ from brkt_cli.validation import ValidationError
 log = logging.getLogger(__name__)
 
 
-class JWTSubcommand(Subcommand):
+class MakeJWTSubcommand(Subcommand):
 
     def name(self):
-        return 'generate-jwt'
+        return 'make-jwt'
 
     def exposed(self):
         return False
 
     def register(self, subparsers):
         parser = subparsers.add_parser(
-            'generate-jwt',
+            self.name(),
             description=(
                 'Generate a JSON Web Token for launching an encrypted '
                 'instance. A timestamp can be either a Unix timestamp in '
                 'seconds or ISO 8601 (2016-05-10T19:15:36Z).'
             )
         )
-        setup_generate_jwt_args(parser)
+        setup_make_jwt_args(parser)
 
     def verbose(self, values):
-        return values.generate_jwt_verbose
+        return values.make_jwt_verbose
 
     def run(self, values):
         signing_key = read_signing_key(values.signing_key)
@@ -67,7 +67,7 @@ class JWTSubcommand(Subcommand):
                 name, value = util.parse_name_value(name_value)
                 claims[name] = value
 
-        print generate_jwt(signing_key, exp=exp, nbf=nbf, claims=claims)
+        print make_jwt(signing_key, exp=exp, nbf=nbf, claims=claims)
         return 0
 
 
@@ -83,7 +83,7 @@ def _datetime_to_timestamp(dt):
 
 
 def get_subcommands():
-    return [JWTSubcommand()]
+    return [MakeJWTSubcommand()]
 
 
 def read_signing_key(path):
@@ -124,7 +124,7 @@ def parse_timestamp(ts_string):
     return dt
 
 
-def generate_jwt(signing_key, exp=None, nbf=None, cnc=None, claims=None):
+def make_jwt(signing_key, exp=None, nbf=None, cnc=None, claims=None):
     """ Generate a JWT.
 
     :param signing_key a SigningKey object
@@ -167,7 +167,7 @@ def generate_jwt(signing_key, exp=None, nbf=None, cnc=None, claims=None):
     return '%s.%s.%s' % (header_b64, payload_b64, signature_b64)
 
 
-def setup_generate_jwt_args(parser):
+def setup_make_jwt_args(parser):
     parser.add_argument(
         '--claim',
         metavar='NAME=VALUE',
@@ -204,7 +204,7 @@ def setup_generate_jwt_args(parser):
     parser.add_argument(
         '-v',
         '--verbose',
-        dest='generate_jwt_verbose',
+        dest='make_jwt_verbose',
         action='store_true',
         help='Print status information to the console'
     )
