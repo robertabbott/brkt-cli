@@ -27,6 +27,9 @@ import brkt_cli.jwt
 import brkt_cli.jwt.jwk
 
 
+_signing_key = SigningKey.generate(curve=NIST384p)
+
+
 class TestTimestamp(unittest.TestCase):
 
     def test_datetime_to_timestamp(self):
@@ -41,14 +44,16 @@ class TestTimestamp(unittest.TestCase):
         self.assertEqual(dt, brkt_cli.jwt.parse_timestamp(str(ts)))
         self.assertEqual(dt, brkt_cli.jwt.parse_timestamp(dt.isoformat()))
 
+        with self.assertRaises(ValidationError):
+            brkt_cli.jwt.parse_timestamp('abc')
+
 
 class TestSigningKey(unittest.TestCase):
 
     def test_read_signing_key(self):
         """ Test reading the signing key from a file. """
         # Write private key to a temp file.
-        signing_key = SigningKey.generate(curve=NIST384p)
-        pem = signing_key.to_pem()
+        pem = _signing_key.to_pem()
         key_file = tempfile.NamedTemporaryFile()
         key_file.write(pem)
         key_file.flush()
@@ -70,12 +75,31 @@ class TestSigningKey(unittest.TestCase):
             brkt_cli.jwt.read_signing_key(key_file.name)
         key_file.close()
 
+    def test_read_signing_key_io_error(self):
+        """ Test that we handle IOError when reading the signing key.
+        """
+        # Read from a directory.
+        with self.assertRaises(ValidationError):
+            brkt_cli.jwt.read_signing_key('.')
+
+        # Read from a file that doesn't exist.
+        with self.assertRaises(ValidationError):
+            brkt_cli.jwt.read_signing_key('nothing_here.pem')
+
+        # Read from a malformed file.
+        key_file = tempfile.NamedTemporaryFile()
+        key_file.write('abc')
+        key_file.flush()
+
+        with self.assertRaises(ValidationError):
+            brkt_cli.jwt.read_signing_key(key_file.name)
+        key_file.close()
+
 
 class TestGenerateJWT(unittest.TestCase):
 
     def __init__(self, *args, **kwargs):
         super(TestGenerateJWT, self).__init__(*args, **kwargs)
-        self.signing_key = SigningKey.generate(curve=NIST384p)
 
     def test_make_jwt(self):
         # Generate the JWT.
@@ -85,7 +109,7 @@ class TestGenerateJWT(unittest.TestCase):
         cnc = 10
 
         jwt = brkt_cli.jwt.make_jwt(
-            self.signing_key, nbf=nbf, exp=exp, cnc=cnc)
+            _signing_key, nbf=nbf, exp=exp, cnc=cnc)
         after = datetime.now(tz=iso8601.UTC)
 
         # Decode the header and payload.
@@ -116,14 +140,14 @@ class TestGenerateJWT(unittest.TestCase):
         self.assertTrue('kid' in payload)
 
         # Check signature.
-        verifying_key = self.signing_key.get_verifying_key()
+        verifying_key = _signing_key.get_verifying_key()
         verifying_key.verify(signature, '%s.%s' % (header_b64, payload_b64))
 
     def test_claims(self):
         """ Test that claims specified by name are embedded into the JWT. """
         # Generate the JWT.
         claims = {'foo': 'bar', 'count': 5}
-        jwt = brkt_cli.jwt.make_jwt(self.signing_key, claims=claims)
+        jwt = brkt_cli.jwt.make_jwt(_signing_key, claims=claims)
         _, payload_b64, _ = jwt.split('.')
         payload_json = brkt_cli.util.urlsafe_b64decode(payload_b64)
         payload = json.loads(payload_json)

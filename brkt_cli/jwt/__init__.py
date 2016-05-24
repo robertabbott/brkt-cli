@@ -30,24 +30,19 @@ from brkt_cli.validation import ValidationError
 log = logging.getLogger(__name__)
 
 
+SUBCOMMAND_NAME = 'make-jwt'
+
+
 class MakeJWTSubcommand(Subcommand):
 
     def name(self):
-        return 'make-jwt'
+        return SUBCOMMAND_NAME
 
     def exposed(self):
         return False
 
     def register(self, subparsers):
-        parser = subparsers.add_parser(
-            self.name(),
-            description=(
-                'Generate a JSON Web Token for launching an encrypted '
-                'instance. A timestamp can be either a Unix timestamp in '
-                'seconds or ISO 8601 (2016-05-10T19:15:36Z).'
-            )
-        )
-        setup_make_jwt_args(parser)
+        setup_make_jwt_args(subparsers)
 
     def verbose(self, values):
         return values.make_jwt_verbose
@@ -86,13 +81,23 @@ def get_subcommands():
     return [MakeJWTSubcommand()]
 
 
-def read_signing_key(path):
-    with open(path) as f:
-        key_string = f.read()
-    signing_key = SigningKey.from_pem(key_string)
+def read_signing_key(pem_path):
+    """ Read the signing key from a PEM file.
+
+    :raise ValidationError if the file cannot be read or is malformed
+    """
+    try:
+        with open(pem_path) as f:
+            key_string = f.read()
+        signing_key = SigningKey.from_pem(key_string)
+    except IOError as e:
+        raise ValidationError(e)
+    except ValueError:
+        raise ValidationError('%s must be a PEM private key' % pem_path)
+
     if signing_key.curve != NIST384p:
         raise ValidationError(
-            'Signing key uses the %s. %s is required.' % (
+            'Signing key uses %s. %s is required.' % (
                 signing_key.curve.name, NIST384p.name)
         )
     return signing_key
@@ -101,7 +106,10 @@ def read_signing_key(path):
 def parse_timestamp(ts_string):
     """ Return a datetime that represents the given timestamp
     string.  The string can be a Unix timestamp in seconds or an ISO 8601
-    timestamp. """
+    timestamp.
+
+    :raise ValidationError if ts_string is malformed
+    """
     now = int(time.time())
 
     # Parse integer timestamp.
@@ -116,7 +124,13 @@ def parse_timestamp(ts_string):
 
     # Parse ISO 8601 timestamp.
     dt_now = _timestamp_to_datetime(now)
-    dt = iso8601.parse_date(ts_string)
+    try:
+        dt = iso8601.parse_date(ts_string)
+    except iso8601.ParseError:
+        raise ValidationError(
+            'Timestamp "%s" must either be a Unix timestamp or in iso8601 '
+            'format (2016-05-10T19:15:36Z).' % ts_string
+        )
     if dt < dt_now:
         raise ValidationError(
             '%s is earlier than the current timestamp (%s).' % (
@@ -167,7 +181,16 @@ def make_jwt(signing_key, exp=None, nbf=None, cnc=None, claims=None):
     return '%s.%s.%s' % (header_b64, payload_b64, signature_b64)
 
 
-def setup_make_jwt_args(parser):
+def setup_make_jwt_args(subparsers):
+    parser = subparsers.add_parser(
+        SUBCOMMAND_NAME,
+        description=(
+            'Generate a JSON Web Token for launching an encrypted '
+            'instance. A timestamp can be either a Unix timestamp in '
+            'seconds or ISO 8601 (2016-05-10T19:15:36Z).  Timezone offset '
+            'defaults to UTC if not specified.'
+        )
+    )
     parser.add_argument(
         '--claim',
         metavar='NAME=VALUE',
