@@ -109,7 +109,7 @@ def command_update_encrypted_gce_image(values, log):
     gce_service.validate_image_name(encrypted_image_name)
 
     log.info('Starting updater session %s', gce_svc.get_session_id())
-    update_gce_image.update_gce_image(
+    updated_image_id = update_gce_image.update_gce_image(
         gce_svc=gce_svc,
         enc_svc_cls=encryptor_service.EncryptorService,
         image_id=values.image,
@@ -123,6 +123,7 @@ def command_update_encrypted_gce_image(values, log):
         image_bucket=values.bucket
     )
 
+    print(updated_image_id)
     return 0
 
 
