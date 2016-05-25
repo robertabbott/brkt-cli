@@ -5,15 +5,16 @@ import datetime
 import logging
 import json
 import re
+import socket
 import time
 
+import brkt_cli.util
 from brkt_cli.util import (
     append_suffix,
     BracketError,
-    make_nonce,
-    retry
+    make_nonce
 )
-from googleapiclient import discovery
+from googleapiclient import discovery, errors
 from oauth2client.client import GoogleCredentials
 
 from brkt_cli.validation import ValidationError
@@ -29,6 +30,11 @@ brkt_image_buckets = {
     'stage': 'brkt-stage-images',
     'shared': 'brkt-shared-images'
 }
+
+
+def retry(function):
+    return brkt_cli.util.retry(function, on=[socket.error, errors.HttpError])
+
 
 def execute_gce_api_call(gce_object):
     return gce_object.execute()

@@ -968,33 +968,44 @@ class TestEncryptionService(unittest.TestCase):
             )
 
 
-class TestRetry(unittest.TestCase):
+class TestRetryBoto(unittest.TestCase):
 
     def setUp(self):
         self.num_calls = 0
+        brkt_cli.util.SLEEP_ENABLED = False
 
-    @aws_service.retry_boto(
-        error_code_regexp='InvalidInstanceID.*',
-        initial_sleep_seconds=0,
-        max_retries=5
-    )
-    def _fail_for_n_calls(self, n, error_code='InvalidInstanceID.NotFound'):
+    def _fail_for_n_calls(self, n):
+        """ Raise EC2ResponseError the first n times that the method is
+        called.
+        """
         self.num_calls += 1
         if self.num_calls <= n:
             e = EC2ResponseError(None, None)
-            e.error_code = error_code
+            e.error_code = 'InvalidInstanceID.NotFound'
             raise e
 
     def test_five_failures(self):
-        self._fail_for_n_calls(5)
-
-    def test_six_failures(self):
-        with self.assertRaises(EC2ResponseError):
-            self._fail_for_n_calls(6)
+        """ Test that we handle failing 5 times and succeeding the 6th
+        time.
+        """
+        function = aws_service.retry_boto(
+            self._fail_for_n_calls,
+            r'InvalidInstanceID\.NotFound',
+            initial_sleep_seconds=0.0
+        )
+        function(5)
 
     def test_regexp_does_not_match(self):
+        """ Test that we raise the underlying exception when the error code
+        does not match.
+        """
+        function = aws_service.retry_boto(
+            self._fail_for_n_calls,
+            r'InvalidVolumeID.\NotFound',
+            initial_sleep_seconds=0.0
+        )
         with self.assertRaises(EC2ResponseError):
-            self._fail_for_n_calls(1, error_code='InvalidVolumeID.NotFound')
+            function(1)
 
 
 class TestInstance(unittest.TestCase):

@@ -21,8 +21,8 @@ import boto.sts
 import boto.vpc
 import logging
 from boto.exception import EC2ResponseError
-import time
 
+from brkt_cli import util
 from brkt_cli.validation import ValidationError
 
 log = logging.getLogger(__name__)
@@ -181,42 +181,26 @@ class BaseAWSService(object):
         pass
 
 
-def retry_boto(error_code_regexp, max_retries=5, initial_sleep_seconds=0.25):
-    """ Call a boto function repeatedly until it succeeds.  If the call
-    fails with the expected error code, sleep and retry up to max_retries
-    times.  If the error code does not match error_code_regexp, fail
-    immediately.  The sleep interval is doubled on each retry.  With the
-    default settings, the total maximum sleep time is 7.75 seconds
-    (.25 + .50 + 1 + 2 + 4).
-    """
-    def retry_decorator(func):
-        def func_wrapper(*args, **kwargs):
-            retries = 0
-            sleep_seconds = initial_sleep_seconds
+class BotoRetryExceptionChecker(util.RetryExceptionChecker):
 
-            while True:
-                try:
-                    return func(*args, **kwargs)
-                except EC2ResponseError as e:
-                    if retries >= max_retries:
-                        log.error(
-                            'Exceeded %d retries for %s',
-                            max_retries,
-                            func.__name__
-                        )
-                        raise
+    def __init__(self, error_code_regexp):
+        self.error_code_regexp = error_code_regexp
 
-                    m = re.match(error_code_regexp, e.error_code)
-                    if not m:
-                        raise
+    def is_expected(self, exception):
+        if not isinstance(exception, EC2ResponseError):
+            return False
+        m = re.match(self.error_code_regexp, exception.error_code)
+        return bool(m)
 
-                time.sleep(sleep_seconds)
-                retries += 1
-                sleep_seconds *= 2
 
-        return func_wrapper
-
-    return retry_decorator
+def retry_boto(function, error_code_regexp, timeout=10.0,
+               initial_sleep_seconds=0.25):
+    return util.retry(
+        function,
+        exception_checker=BotoRetryExceptionChecker(error_code_regexp),
+        timeout=timeout,
+        initial_sleep_seconds=initial_sleep_seconds
+    )
 
 
 def _get_first_element(list, error_status):
@@ -311,12 +295,12 @@ class AWSService(BaseAWSService):
             log.debug('Failed to launch instance for %s', image_id)
             raise
 
-    @retry_boto(error_code_regexp=r'InvalidInstanceID\.NotFound')
     def get_instance(self, instance_id):
-        instances = self.conn.get_only_instances([instance_id])
+        get_only_instances = retry_boto(
+            self.conn.get_only_instances, r'InvalidInstanceID\.NotFound')
+        instances = get_only_instances([instance_id])
         return _get_first_element(instances, 'InvalidInstanceID.NotFound')
 
-    @retry_boto(error_code_regexp=r'.*\.NotFound')
     def create_tags(self, resource_id, name=None, description=None):
         tags = dict(self.default_tags)
         if name:
@@ -324,7 +308,8 @@ class AWSService(BaseAWSService):
         if description:
             tags['Description'] = description
         log.debug('Tagging %s with %s', resource_id, tags)
-        self.conn.create_tags([resource_id], tags)
+        create_tags = retry_boto(self.conn.create_tags, r'.*\.NotFound')
+        create_tags([resource_id], tags)
 
     def stop_instance(self, instance_id):
         log.debug('Stopping instance %s', instance_id)
@@ -335,9 +320,10 @@ class AWSService(BaseAWSService):
         log.debug('Terminating instance %s', instance_id)
         self.conn.terminate_instances([instance_id])
 
-    @retry_boto(error_code_regexp=r'InvalidVolume\.NotFound')
     def get_volume(self, volume_id):
-        volumes = self.conn.get_all_volumes(volume_ids=[volume_id])
+        get_all_volumes = retry_boto(
+            self.conn.get_all_volumes, r'InvalidVolume\.NotFound')
+        volumes = get_all_volumes(volume_ids=[volume_id])
         return _get_first_element(volumes, 'InvalidVolume.NotFound')
 
     def get_volumes(self, tag_key=None, tag_value=None):
@@ -347,13 +333,13 @@ class AWSService(BaseAWSService):
 
         return self.conn.get_all_volumes(filters=filters)
 
-    @retry_boto(error_code_regexp=r'InvalidSnapshot\.NotFound')
     def get_snapshots(self, *snapshot_ids):
-        return self.conn.get_all_snapshots(snapshot_ids)
+        get_all_snapshots = retry_boto(
+            self.conn.get_all_snapshots, r'InvalidSnapshot\.NotFound')
+        return get_all_snapshots(snapshot_ids)
 
-    @retry_boto(error_code_regexp=r'InvalidSnapshot\.NotFound')
     def get_snapshot(self, snapshot_id):
-        snapshots = self.conn.get_all_snapshots([snapshot_id])
+        snapshots = self.get_snapshots([snapshot_id])
         return _get_first_element(snapshots, 'InvalidSnapshot.NotFound')
 
     def create_snapshot(self, volume_id, name=None, description=None):
@@ -368,18 +354,19 @@ class AWSService(BaseAWSService):
                       snapshot=None,
                       volume_type=None,
                       encrypted=None):
-        return self.conn.create_volume(size,
-                                       zone,
-                                       snapshot=snapshot,
-                                       volume_type=volume_type,
-                                       encrypted=encrypted
-        )
+        return self.conn.create_volume(
+            size,
+            zone,
+            snapshot=snapshot,
+            volume_type=volume_type,
+            encrypted=encrypted)
 
-    @retry_boto(error_code_regexp=r'VolumeInUse')
     def delete_volume(self, volume_id):
         log.debug('Deleting volume %s', volume_id)
         try:
-            self.conn.delete_volume(volume_id)
+            delete_volume = retry_boto(
+                self.conn.delete_volume, r'VolumeInUse')
+            delete_volume(volume_id)
         except EC2ResponseError as e:
             if e.error_code != 'InvalidVolume.NotFound':
                 raise
@@ -404,14 +391,12 @@ class AWSService(BaseAWSService):
         return self.conn.get_all_images(filters=filters, owners=owners)
 
     def get_image(self, image_id, retry=False):
+        get_image = self.conn.get_image
         if retry:
-            @retry_boto(error_code_regexp=r'InvalidAMIID\.NotFound')
-            def get_with_retry(image_id):
-                return self.conn.get_image(image_id)
+            get_image = retry_boto(
+                self.conn.get_image, r'InvalidAMIID\.NotFound')
 
-            return get_with_retry(image_id)
-        else:
-            return self.conn.get_image(image_id)
+        return get_image(image_id)
 
     def delete_snapshot(self, snapshot_id):
         return self.conn.delete_snapshot(snapshot_id)
@@ -429,16 +414,13 @@ class AWSService(BaseAWSService):
                )
 
     def get_security_group(self, sg_id, retry=True):
+        get_all_security_groups = self.conn.get_all_security_groups
         if retry:
-            @retry_boto(error_code_regexp=r'InvalidGroup\.NotFound')
-            def get_with_retry(sg_id):
-                groups = self.conn.get_all_security_groups(group_ids=[sg_id])
-                return _get_first_element(groups, 'InvalidGroup.NotFound')
+            get_all_security_groups = retry_boto(
+                self.conn.get_all_security_groups, r'InvalidGroup\.NotFound')
 
-            get_with_retry(sg_id)
-        else:
-            groups = self.conn.get_all_security_groups(group_ids=[sg_id])
-            return _get_first_element(groups, 'InvalidGroup.NotFound')
+        groups = get_all_security_groups(group_ids=[sg_id])
+        return _get_first_element(groups, 'InvalidGroup.NotFound')
 
     def add_security_group_rule(self, sg_id, **kwargs):
         kwargs['group_id'] = sg_id
@@ -446,9 +428,12 @@ class AWSService(BaseAWSService):
         if not ok:
             raise Exception('Unknown error while adding security group rule')
 
-    @retry_boto(error_code_regexp=r'InvalidGroup\.InUse|DependencyViolation')
     def delete_security_group(self, sg_id):
-        ok = self.conn.delete_security_group(group_id=sg_id)
+        delete_security_group = retry_boto(
+            self.conn.delete_security_group,
+            r'InvalidGroup\.InUse|DependencyViolation'
+        )
+        ok = delete_security_group(group_id=sg_id)
         if not ok:
             raise Exception('Unknown error while deleting security group')
 
@@ -463,29 +448,30 @@ class AWSService(BaseAWSService):
         subnets = self.conn.get_all_subnets(subnet_ids=[subnet_id])
         return _get_first_element(subnets, 'InvalidSubnetID.NotFound')
 
-    @retry_boto(max_retries=20, error_code_regexp=r'InvalidParameterValue')
     def create_image(self,
                      instance_id,
                      name,
                      description=None,
                      no_reboot=True,
                      block_device_mapping=None):
-        return self.conn.create_image(instance_id,
-                                      name,
-                                      description=description,
-                                      no_reboot=no_reboot,
-                                      block_device_mapping=block_device_mapping
+        timeout = float(60 * 60)  # One hour.
+        create_image = retry_boto(
+            self.conn.create_image, r'InvalidParameterValue', timeout=timeout)
+        return create_image(
+            instance_id,
+            name,
+            description=description,
+            no_reboot=no_reboot,
+            block_device_mapping=block_device_mapping
         )
 
     def detach_volume(self, vol_id, instance_id=None, force=True):
-        return self.conn.detach_volume(vol_id,
-                                       instance_id=instance_id,
-                                       force=force
-        )
+        return self.conn.detach_volume(
+            vol_id, instance_id=instance_id, force=force)
 
-    @retry_boto(error_code_regexp=r'VolumeInUse')
     def attach_volume(self, vol_id, instance_id, device):
-        return self.conn.attach_volume(vol_id, instance_id, device)
+        attach_volume = retry_boto(self.conn.attach_volume, r'VolumeInUse')
+        return attach_volume(vol_id, instance_id, device)
 
     def get_default_vpc(self):
         vpcs = self.conn.get_all_vpcs(filters={'is-default': 'true'})
