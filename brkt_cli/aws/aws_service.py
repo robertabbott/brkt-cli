@@ -339,7 +339,7 @@ class AWSService(BaseAWSService):
         return get_all_snapshots(snapshot_ids)
 
     def get_snapshot(self, snapshot_id):
-        snapshots = self.get_snapshots([snapshot_id])
+        snapshots = self.get_snapshots(snapshot_id)
         return _get_first_element(snapshots, 'InvalidSnapshot.NotFound')
 
     def create_snapshot(self, volume_id, name=None, description=None):
