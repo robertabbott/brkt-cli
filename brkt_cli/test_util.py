@@ -14,6 +14,8 @@
 
 import unittest
 
+import time
+
 from brkt_cli import util
 from brkt_cli.validation import ValidationError
 
@@ -59,3 +61,69 @@ class TestBase64(unittest.TestCase):
             self.assertFalse('=' in encoded)
             self.assertEqual(
                 content, util.urlsafe_b64decode(encoded))
+
+
+class TestException(Exception):
+    pass
+
+
+class TestUnexpectedException(Exception):
+    pass
+
+
+class TestRetryExceptionChecker(util.RetryExceptionChecker):
+
+    def is_expected(self, exception):
+        return isinstance(exception, TestException)
+
+
+class TestRetry(unittest.TestCase):
+
+    def setUp(self):
+        self.num_calls = 0
+
+    def _fail_for_n_calls(self, n, sleep_time=0,
+                          exception_class=TestException):
+        self.num_calls += 1
+        time.sleep(sleep_time)
+        if self.num_calls <= n:
+            raise exception_class()
+
+    def _get_wrapped(self, timeout=1.0, on=None, use_exception_checker=True):
+        checker = None
+        if use_exception_checker:
+            checker = TestRetryExceptionChecker()
+        return util.retry(
+            self._fail_for_n_calls,
+            on=on,
+            exception_checker=checker,
+            initial_sleep_seconds=0,
+            timeout=timeout
+        )
+
+    def test_five_failures(self):
+        """ Test that we handle failing 5 times and succeeding the 6th
+        time.
+        """
+        self._get_wrapped()(5)
+        self.assertEqual(6, self.num_calls)
+
+    def test_timeout(self):
+        """ Test that we raise the underlying exception when the timeout
+        has been exceeded.
+        """
+        with self.assertRaises(TestException):
+            self._get_wrapped(timeout=0.05)(10, sleep_time=0.02)
+
+    def test_unexpected_exception(self):
+        """ Test that we raise the underlying exception when it's not
+        one of the expected exception types.
+        """
+        with self.assertRaises(TestUnexpectedException):
+            self._get_wrapped()(5, exception_class=TestUnexpectedException)
+        self.assertEqual(1, self.num_calls)
+
+    def test_on(self):
+        """ Test retry based on the exception type. """
+        self._get_wrapped(on=[TestException])(5)
+        self.assertEqual(6, self.num_calls)
