@@ -11,20 +11,20 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
+import abc
 import base64
-import random
+import logging
 import re
-import socket
 import time
 import uuid
-
-from googleapiclient import errors
 
 from brkt_cli.validation import ValidationError
 
 SLEEP_ENABLED = True
 MAX_BACKOFF_SECS = 10
-RETRYABLE_EXCEPTIONS = (socket.error, errors.HttpError)
+
+
+log = logging.getLogger(__name__)
 
 
 class BracketError(Exception):
@@ -47,36 +47,57 @@ class Deadline(object):
         return self.clock.time() >= self.deadline
 
 
-class RandExpBackoff(object):
-    """Provides a capped, randomized sequence of exponential backoff values.
-    Adds jitter (random duration between 0 and 1 sec) to help prevent
-    thundering herds.
+class RetryExceptionChecker(object):
+    """ Abstract class, implemented by callsites that need custom
+    exception checking for the retry() function.
     """
 
-    def __init__(self, max_backoff=MAX_BACKOFF_SECS):
-        self.max_backoff = max_backoff
-        self.count = 0
+    __metaclass__ = abc.ABCMeta
 
-    def get_backoff(self):
-        backoff = min(self.max_backoff, 2 ** self.count)
-        # Add jitter between 0.0 and 1.0 sec
-        backoff += random.random()
-        self.count += 1
-        return backoff
+    @abc.abstractmethod
+    def is_expected(self, exception):
+        pass
 
 
-def retry(meth, nattempts=5, on=RETRYABLE_EXCEPTIONS):
+def retry(function, on=None, exception_checker=None, timeout=15.0,
+          initial_sleep_seconds=0.25):
+    """ Retry the given function until it completes successfully.  Before
+    retrying, sleep for initial_sleep_seconds. Double the sleep time on each
+    retry.  If the timeout is exceeded or an unexpected exception is raised,
+    raise the underlying exception.
+
+    :param function the function that will be retried
+    :param on a list of expected Exception classes
+    :param exception_checker an instance of RetryExceptionChecker that is
+        used to determine if the exception is expected
+    :param timeout stop retrying if this number of seconds have lapsed
+    :param initial_sleep_seconds
+    """
+    start_time = time.time()
+
     def _wrapped(*args, **kwargs):
-        exp_backoff = RandExpBackoff()
-        for attempt in range(nattempts):
+        for attempt in xrange(1, 1000):
             try:
-                return meth(*args, **kwargs)
-            except on as e:
-                if attempt == nattempts - 1:
+                return function(*args, **kwargs)
+            except Exception as e:
+                now = time.time()
+
+                expected = False
+                if exception_checker and exception_checker.is_expected(e):
+                    expected = True
+                if on and e.__class__ in on:
+                    expected = True
+
+                if not expected:
+                    raise e
+                if now - start_time > timeout:
+                    log.error(
+                        'Exceeded timeout of %s seconds for %s',
+                        timeout,
+                        function.__name__)
                     raise e
                 else:
-                    backoff = exp_backoff.get_backoff()
-                    time.sleep(backoff)
+                    time.sleep(initial_sleep_seconds * float(attempt))
     return _wrapped
 
 

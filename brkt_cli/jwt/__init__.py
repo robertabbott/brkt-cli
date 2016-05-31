@@ -94,7 +94,11 @@ def read_signing_key(pem_path):
     except IOError as e:
         raise ValidationError(e)
     except ValueError:
-        raise ValidationError('%s must be a PEM private key' % pem_path)
+        if log.isEnabledFor(logging.DEBUG):
+            log.exception('Unable to load signing key %s', pem_path)
+        raise ValidationError(
+            'Signing key must be a 384-bit ECDSA private key (NIST P-384) in '
+            'PEM format')
 
     if signing_key.curve != NIST384p:
         raise ValidationError(
