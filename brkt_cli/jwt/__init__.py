@@ -235,8 +235,8 @@ def setup_make_jwt_args(subparsers):
         '--signing-key',
         metavar='PATH',
         help=(
-            'The private key that is used to sign the JWT. The key must be '
-            'in PEM format.'),
+            'The private key that is used to sign the JWT. The key must be a '
+            '384-bit ECDSA private key (NIST P-384) in PEM format.'),
         required=True
     )
     parser.add_argument(
