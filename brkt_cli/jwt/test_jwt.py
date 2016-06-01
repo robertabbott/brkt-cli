@@ -11,6 +11,7 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
+import hashlib
 import json
 from datetime import datetime, timedelta
 
@@ -122,6 +123,7 @@ class TestGenerateJWT(unittest.TestCase):
         header = json.loads(header_json)
         self.assertEqual('JWT', header['typ'])
         self.assertEqual('ES384', header['alg'])
+        self.assertTrue('kid' in header)
 
         # Check the payload
         payload = json.loads(payload_json)
@@ -137,11 +139,13 @@ class TestGenerateJWT(unittest.TestCase):
         exp_result = brkt_cli.jwt._timestamp_to_datetime(payload['exp'])
         self.assertEqual(exp, exp_result)
 
-        self.assertTrue('kid' in payload)
-
         # Check signature.
         verifying_key = _signing_key.get_verifying_key()
-        verifying_key.verify(signature, '%s.%s' % (header_b64, payload_b64))
+        verifying_key.verify(
+            signature,
+            '%s.%s' % (header_b64, payload_b64),
+            hashfunc=hashlib.sha384
+        )
 
     def test_claims(self):
         """ Test that claims specified by name are embedded into the JWT. """
