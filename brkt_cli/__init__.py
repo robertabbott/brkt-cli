@@ -37,7 +37,7 @@ BRKT_ENV_PROD = 'yetiapi.mgmt.brkt.com:443,hsmproxy.mgmt.brkt.com:443'
 
 # The list of modules that may be loaded.  Modules contain subcommands of
 # the brkt command and CSP-specific code.
-SUBCOMMAND_MODULE_NAMES = [
+SUBCOMMAND_MODULE_PATHS = [
     'brkt_cli.aws',
     'brkt_cli.gce',
     'brkt_cli.make_user_data',
@@ -350,13 +350,25 @@ def main():
 
     # Dynamically load subcommands from modules.
     subcommands = []
-    for module_name in SUBCOMMAND_MODULE_NAMES:
+    for module_path in SUBCOMMAND_MODULE_PATHS:
         try:
-            module = importlib.import_module(module_name)
+            module = importlib.import_module(module_path)
             subcommands.extend(module.get_subcommands())
         except ImportError as e:
-            subcommand_load_messages.append(
-                'Skipping module %s: %s' % (module_name, e))
+            # Parse the module name from the module path.
+            m = re.match(r'(.*\.)?(.+)', module_path)
+            module_name = None
+            if m:
+                module_name = m.group(2)
+
+            if module_name and \
+                    e.message == ('No module named ' + module_name):
+                # The subcommand module is not installed.
+                subcommand_load_messages.append(
+                    'Skipping module %s: %s' % (module_path, e))
+            else:
+                # There is an import problem inside the subcommand module.
+                raise e
 
     # Use metavar to hide any subcommands that we don't want to expose.
     exposed_subcommand_names = [s.name() for s in subcommands if s.exposed()]
