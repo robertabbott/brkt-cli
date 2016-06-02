@@ -512,7 +512,7 @@ def write_console_output(aws_svc, instance_id):
         if console_output.output:
             prefix = instance_id + '-'
             with tempfile.NamedTemporaryFile(
-                    prefix=prefix, suffix='.log', delete=False) as t:
+                    prefix=prefix, suffix='-console.txt', delete=False) as t:
                 t.write(console_output.output)
             return t
     except:
