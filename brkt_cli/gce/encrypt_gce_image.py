@@ -1,17 +1,21 @@
 #!/usr/bin/env python
 
+import httplib
 import logging
+import socket
 
 from brkt_cli.util import (
     add_brkt_env_to_brkt_config,
     add_token_to_user_data,
     Deadline,
+    retry,
 )
 
-from brkt_cli.validation import ValidationError
-from gce_service import gce_metadata_from_userdata
 from brkt_cli.encryptor_service import wait_for_encryption
 from brkt_cli.encryptor_service import wait_for_encryptor_up
+from brkt_cli.validation import ValidationError
+from gce_service import gce_metadata_from_userdata
+from googleapiclient import errors
 
 
 log = logging.getLogger(__name__)
@@ -76,7 +80,8 @@ def do_encryption(gce_svc,
 
         wait_for_encryptor_up(enc_svc, Deadline(600))
         wait_for_encryption(enc_svc)
-        gce_svc.delete_instance(zone, encryptor)
+        retry(function=gce_svc.delete_instance,
+                on=[httplib.BadStatusLine, socket.error, errors.HttpError])(zone, encryptor)
     except Exception as e:
         raise e
 
