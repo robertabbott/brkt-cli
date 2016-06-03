@@ -32,7 +32,7 @@ from brkt_cli.util import validate_dns_name_ip_address
 from brkt_cli.validation import ValidationError
 from encryptor_service import BracketEnvironment
 
-VERSION = '0.9.17pre1'
+VERSION = '1.0'
 BRKT_ENV_PROD = 'yetiapi.mgmt.brkt.com:443,hsmproxy.mgmt.brkt.com:443'
 
 # The list of modules that may be loaded.  Modules contain subcommands of
