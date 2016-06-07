@@ -1,5 +1,6 @@
 language: python
 python: "2.7"
-install: pip install boto requests google-api-python-client PyYAML oauthlib iso8601 ecdsa
+install: pip install boto cryptography google-api-python-client iso8601 oauthlib \
+pyjwt PyYAML requests
 script: python -m unittest discover
 cache: pip
