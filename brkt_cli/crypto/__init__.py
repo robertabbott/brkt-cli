@@ -46,7 +46,6 @@ def from_private_key_pem(pem, password=None):
     :raise TypeError if the key is encrypted but a password is not specified
     """
     private_key = serialization.load_pem_private_key(
-        # XXX
         pem, password=password, backend=default_backend()
     )
 
