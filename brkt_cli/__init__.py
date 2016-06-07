@@ -245,19 +245,19 @@ def _check_version():
     """
     try:
         url = 'http://pypi.python.org/pypi/brkt-cli/json'
-        r = requests.get(url)
+        r = requests.get(url, timeout=5.0)
         if r.status_code / 100 != 2:
             raise Exception(
                 'Error %d when opening %s' % (r.status_code, url))
         supported_versions = r.json()['releases'].keys()
     except Exception as e:
+        # If we can't get the list of versions from PyPI, print the error
+        # and return true.  We don't want the version check to block people
+        # from getting their work done.
+        if log.isEnabledFor(logging.DEBUG):
+            log.exception('Unable to load brkt-cli versions from PyPI')
         print(e, file=sys.stderr)
-        print(
-            'Version check failed.  You can bypass it with '
-            '--no-check-version',
-            file=sys.stderr
-        )
-        return False
+        return True
 
     if not _is_version_supported(VERSION, supported_versions):
         print(
