@@ -12,26 +12,16 @@
 # License for the specific language governing permissions and
 # limitations under the License.
 import argparse
+import unittest
+
+from brkt_cli import validation
 
 
-class ValidationError(Exception):
-    pass
+class TestValidation(unittest.TestCase):
 
-
-def min_int_argument(value, min_int):
-    """ Called by argparse to verify that the value is an integer that is
-    greater than or equal to min_int.
-
-    :return the parsed integer value
-    :raise argparse.ArgumentTypeError if value is not an integer or is
-    out of bounds
-    """
-    try:
-        n = int(value)
-    except ValueError:
-        raise argparse.ArgumentTypeError('%s is not an integer' % value)
-
-    if n < min_int:
-        raise argparse.ArgumentTypeError('must be >= %d' % min_int)
-
-    return n
+    def test_min_int_argument(self):
+        self.assertEqual(5, validation.min_int_argument('5', 5))
+        with self.assertRaises(argparse.ArgumentTypeError):
+            validation.min_int_argument('x', 1)
+        with self.assertRaises(argparse.ArgumentTypeError):
+            validation.min_int_argument('-1', 0)

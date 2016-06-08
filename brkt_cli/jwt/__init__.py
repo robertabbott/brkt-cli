@@ -66,7 +66,9 @@ class MakeJWTSubcommand(Subcommand):
                 name, value = util.parse_name_value(name_value)
                 claims[name] = value
 
-        print(make_jwt(crypto, exp=exp, nbf=nbf, claims=claims))
+        print(
+            make_jwt(crypto, exp=exp, nbf=nbf, cnc=values.cnc, claims=claims)
+        )
         return 0
 
 
@@ -207,11 +209,15 @@ def setup_make_jwt_args(subparsers):
             'multiple times.'),
         action='append'
     )
+
+    def cnc(value):
+        return brkt_cli.validation.min_int_argument(value, 1)
+
     parser.add_argument(
         '--cnc',
         metavar='N',
-        type=int,
-        help='Maximum number of concurrent instances'
+        type=cnc,
+        help='Maximum number of concurrent instances.  Must be at least 1.'
     )
     parser.add_argument(
         '--exp',
