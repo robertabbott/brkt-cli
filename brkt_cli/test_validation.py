@@ -19,7 +19,7 @@ from brkt_cli import validation
 
 class TestValidation(unittest.TestCase):
 
-    def min_int_argument(self):
+    def test_min_int_argument(self):
         self.assertEqual(5, validation.min_int_argument('5', 5))
         with self.assertRaises(argparse.ArgumentTypeError):
             validation.min_int_argument('x', 1)
