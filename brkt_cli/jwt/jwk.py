@@ -35,31 +35,22 @@ def _long_to_base64(n):
     return s.decode("ascii")
 
 
-def get_jwk(x, y):
-    """ Return the JSON web key representation of an ECDSA public key.
-
-    :param x the X value of the ECDSA public key as a long integer
-    :param y the Y value of hte ECDSA public key as a long integer
-    :return the JSON web key as a string
-    """
+def ecdsa_to_jwk(verifying_key):
+    """ Convert an ecdsa.VerifyingKey to the equivalent JWK. """
+    x = _long_to_base64(verifying_key.pubkey.point.x())
+    y = _long_to_base64(verifying_key.pubkey.point.y())
     return {
         'alg': 'ES384',
         'kty': 'EC',
         'crv': 'P-384',
-        'x': _long_to_base64(x),
-        'y': _long_to_base64(y)
+        'x': x,
+        'y': y
     }
 
 
-def get_thumbprint(x, y):
-    """ Return the thumbprint of an ECDSA public key, as specified by
-    RFC 7638.
-
-    :param x the X value of the ECDSA public key as a long integer
-    :param y the Y value of hte ECDSA public key as a long integer
-    :return the thumbprint as a string
-    """
-    jwk = get_jwk(x, y)
+def get_thumbprint(verifying_key):
+    """ Get the thumbprint of an ecdsa.VerifyingKey. """
+    jwk = ecdsa_to_jwk(verifying_key)
     thumbprint_json = \
         '{"crv":"%(crv)s","kty":"%(kty)s","x":"%(x)s","y":"%(y)s"}' % jwk
     log.debug('Thumbprint JSON: %s', thumbprint_json)

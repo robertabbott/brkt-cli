@@ -37,24 +37,17 @@ setup(
     description='Bracket Computing command line interface',
     url='http://brkt.com',
     license='Apache 2.0',
-    packages=[
-        'brkt_cli',
-        'brkt_cli.aws',
-        'brkt_cli.crypto',
-        'brkt_cli.gce',
-        'brkt_cli.jwt'
-    ],
+    packages=['brkt_cli', 'brkt_cli.aws', 'brkt_cli.gce', 'brkt_cli.jwt'],
     install_requires=[
         'boto>=2.38.0',
-        'cryptography>=1.3.2',
-        'google-api-python-client>=1.5.0',
-        'iso8601>=0.1.11',
-        'oauth2client>=2.0.0',
-        'oauthlib>=1.1.0',
-        'pyasn1>=0.1.9',
-        'pyjwt>=1.4.0',
-        'PyYaml>=3.11',
         'requests>=2.7.0',
+        'oauthlib>=1.1.0',
+        'oauth2client>=2.0.0',
+        'pyasn1>=0.1.9',
+        'google-api-python-client>=1.5.0',
+        'PyYaml>=3.11',
+        'iso8601>=0.1.11',
+        'ecdsa>=0.13'
     ],
     zip_safe=False,
     entry_points={

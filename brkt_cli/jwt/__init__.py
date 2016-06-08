@@ -11,9 +11,7 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
-from __future__ import print_function
-
-import getpass
+import hashlib
 import json
 import logging
 import re
@@ -21,14 +19,13 @@ import time
 from datetime import datetime
 
 import iso8601
-import jwt
-import sys
+from ecdsa import SigningKey, NIST384p
 
 import brkt_cli
-import brkt_cli.crypto
 from brkt_cli import util
 from brkt_cli.jwt import jwk
 from brkt_cli.subcommand import Subcommand
+from brkt_cli.util import urlsafe_b64encode
 from brkt_cli.validation import ValidationError
 
 log = logging.getLogger(__name__)
@@ -52,7 +49,7 @@ class MakeJWTSubcommand(Subcommand):
         return values.make_jwt_verbose
 
     def run(self, values):
-        crypto = read_signing_key(values.signing_key)
+        signing_key = read_signing_key(values.signing_key)
         exp = None
         if values.exp:
             exp = parse_timestamp(values.exp)
@@ -67,7 +64,7 @@ class MakeJWTSubcommand(Subcommand):
                 claims[name] = value
 
         print(
-            make_jwt(crypto, exp=exp, nbf=nbf, cnc=values.cnc, claims=claims)
+            make_jwt(signing_key, exp=exp, nbf=nbf, cnc=values.cnc, claims=claims)
         )
         return 0
 
@@ -90,35 +87,27 @@ def get_subcommands():
 def read_signing_key(pem_path):
     """ Read the signing key from a PEM file.
 
-    :return a brkt_cli.crypto.Crypto object
     :raise ValidationError if the file cannot be read or is malformed
     """
-    key_format_err = (
-        'Signing key must be a 384-bit ECDSA private key (NIST P-384)'
-    )
-
     try:
         with open(pem_path) as f:
-            pem = f.read()
-        if not brkt_cli.crypto.is_private_key(pem):
-            raise ValidationError(key_format_err)
-
-        password = None
-        if brkt_cli.crypto.is_encrypted_key(pem):
-            password = getpass.getpass('Encrypted private key password: ')
-        crypto = brkt_cli.crypto.from_private_key_pem(pem, password=password)
-    except (ValueError, IOError) as e:
+            key_string = f.read()
+        signing_key = SigningKey.from_pem(key_string)
+    except IOError as e:
+        raise ValidationError(e)
+    except ValueError:
         if log.isEnabledFor(logging.DEBUG):
-            log.exception('Unable to load signing key from %s', pem_path)
+            log.exception('Unable to load signing key %s', pem_path)
         raise ValidationError(
-            'Unable to load signing key from %s: %s' % (
-                pem_path, e)
-        )
+            'Signing key must be a 384-bit ECDSA private key (NIST P-384) in '
+            'PEM format')
 
-    log.debug('crypto.curve=%s', crypto.curve)
-    if crypto.curve != brkt_cli.crypto.SECP384R1:
-        raise ValidationError(key_format_err)
-    return crypto
+    if signing_key.curve != NIST384p:
+        raise ValidationError(
+            'Signing key uses %s. %s is required.' % (
+                signing_key.curve.name, NIST384p.name)
+        )
+    return signing_key
 
 
 def parse_timestamp(ts_string):
@@ -156,10 +145,10 @@ def parse_timestamp(ts_string):
     return dt
 
 
-def make_jwt(crypto, exp=None, nbf=None, cnc=None, claims=None):
+def make_jwt(signing_key, exp=None, nbf=None, cnc=None, claims=None):
     """ Generate a JWT.
 
-    :param crypto a brkt_cli.crypto.Crypto object
+    :param signing_key a SigningKey object
     :param exp expiration time as a datetime
     :param nbf not before as a datetime
     :param cnc maximum number of concurrent instances as an integer
@@ -167,27 +156,46 @@ def make_jwt(crypto, exp=None, nbf=None, cnc=None, claims=None):
     :return the JWT as a string
     """
 
-    kid = jwk.get_thumbprint(crypto.x, crypto.y)
+    header_dict = {
+        'typ': 'JWT',
+        'alg': 'ES384',
+        'kid': jwk.get_thumbprint(signing_key.get_verifying_key())
+    }
 
-    payload = {
+    payload_dict = {}
+    if claims:
+        payload_dict.update(claims)
+    payload_dict.update({
         'jti': util.make_nonce(),
         'iss': 'brkt-cli-' + brkt_cli.VERSION,
         'iat': int(time.time())
-    }
-    if claims:
-        payload.update(claims)
+    })
 
     if exp:
-        payload['exp'] = _datetime_to_timestamp(exp)
+        payload_dict['exp'] = _datetime_to_timestamp(exp)
     if nbf:
-        payload['nbf'] = _datetime_to_timestamp(nbf)
+        payload_dict['nbf'] = _datetime_to_timestamp(nbf)
     if cnc is not None:
-        payload['cnc'] = cnc
+        payload_dict['cnc'] = cnc
 
-    log.debug('kid=%s', kid)
-    log.debug('payload: %s', json.dumps(payload))
-    return jwt.encode(
-        payload, crypto.private_key, algorithm='ES384', headers={'kid': kid})
+    header_json = json.dumps(
+        header_dict, sort_keys=True, separators=(',', ':')
+    ).encode('utf-8')
+    header_b64 = urlsafe_b64encode(header_json)
+
+    payload_json = json.dumps(
+        payload_dict, sort_keys=True, separators=(',', ':')
+    ).encode('utf-8')
+    payload_b64 = urlsafe_b64encode(payload_json)
+
+    signature = signing_key.sign(
+        '%s.%s' % (header_b64, payload_b64), hashfunc=hashlib.sha384)
+    signature_b64 = urlsafe_b64encode(signature)
+
+    log.debug('Header: %s', header_json)
+    log.debug('Payload: %s', payload_json)
+
+    return '%s.%s.%s' % (header_b64, payload_b64, signature_b64)
 
 
 def setup_make_jwt_args(subparsers):
