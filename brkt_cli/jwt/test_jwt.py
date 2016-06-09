@@ -13,6 +13,7 @@
 # limitations under the License.
 import hashlib
 import json
+import uuid
 from datetime import datetime, timedelta
 
 import iso8601
@@ -108,9 +109,16 @@ class TestGenerateJWT(unittest.TestCase):
         nbf = now + timedelta(days=1)
         exp = now + timedelta(days=7)
         cnc = 10
+        customer = str(uuid.uuid4())
 
         jwt = brkt_cli.jwt.make_jwt(
-            _signing_key, nbf=nbf, exp=exp, cnc=cnc)
+            _signing_key,
+            nbf=nbf,
+            exp=exp,
+            cnc=cnc,
+            customer=customer,
+            claims={'one': 1, 'two': 2}
+        )
         after = datetime.now(tz=iso8601.UTC)
 
         # Decode the header and payload.
@@ -129,6 +137,10 @@ class TestGenerateJWT(unittest.TestCase):
         payload = json.loads(payload_json)
         self.assertTrue('jti' in payload)
         self.assertTrue(payload['iss'].startswith('brkt-cli'))
+        self.assertEqual(cnc, payload['cnc'])
+        self.assertEqual(customer, payload['customer'])
+        self.assertEqual(1, payload['one'])
+        self.assertEqual(2, payload['two'])
 
         iat = brkt_cli.jwt._timestamp_to_datetime(payload['iat'])
         self.assertTrue(now <= iat <= after)
