@@ -116,6 +116,9 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         if not encryptor_image:
             encryptor_image = gce_svc.get_latest_encryptor_image(zone,
                 image_bucket, image_file=image_file)
+        else:
+            # Keep user provided encryptor image
+            keep_encryptor = True
 
         validate_images(gce_svc, encrypted_image_name, encryptor_image, image_id, image_project)
 
