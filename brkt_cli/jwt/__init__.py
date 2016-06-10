@@ -240,7 +240,7 @@ def setup_make_jwt_args(subparsers):
         '--customer',
         metavar='UUID',
         type=uuid.UUID,
-        description=(
+        help=(
             'Required for API access when using a third party JWK server'
         )
     )
