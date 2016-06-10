@@ -11,6 +11,10 @@ from brkt_cli import util
 from brkt_cli.gce import encrypt_gce_image
 from brkt_cli.gce import update_gce_image
 from brkt_cli.gce import gce_service
+from brkt_cli.test_encryptor_service import (
+    DummyEncryptorService,
+    FailedEncryptionService
+)
 
 NONEXISTANT_IMAGE = 'image'
 NONEXISTANT_PROJECT = 'project'
@@ -18,6 +22,7 @@ IGNORE_IMAGE = 'ignore'
 TOKEN = 'token'
 
 log = logging.getLogger(__name__)
+
 
 def _new_id():
     return uuid.uuid4().hex[:6]
@@ -220,7 +225,7 @@ class TestRunEncryption(unittest.TestCase):
         gce_svc = DummyGCEService()
         encrypted_image = encrypt_gce_image.encrypt(
             gce_svc=gce_svc,
-            enc_svc_cls=test.DummyEncryptorService,
+            enc_svc_cls=DummyEncryptorService,
             image_id=IGNORE_IMAGE,
             encryptor_image='encryptor-image',
             encrypted_image_name='ubuntu-encrypted',
@@ -236,7 +241,7 @@ class TestRunEncryption(unittest.TestCase):
         gce_svc = DummyGCEService()
         encrypt_gce_image.encrypt(
             gce_svc=gce_svc,
-            enc_svc_cls=test.DummyEncryptorService,
+            enc_svc_cls=DummyEncryptorService,
             image_id=IGNORE_IMAGE,
             encryptor_image='encryptor-image',
             encrypted_image_name='ubuntu-encrypted',
@@ -341,7 +346,7 @@ class TestRunUpdate(unittest.TestCase):
         with self.assertRaises(Exception):
              update_gce_image.update_gce_image(
                 gce_svc=gce_svc,
-                enc_svc_cls=test.FailedEncryptionService,
+                enc_svc_cls=FailedEncryptionService,
                 image_id=IGNORE_IMAGE,
                 encryptor_image='encryptor-image',
                 encrypted_image_name='ubuntu-encrypted',
@@ -356,7 +361,7 @@ class TestRunUpdate(unittest.TestCase):
         gce_svc = DummyGCEService()
         encrypted_image = update_gce_image.update_gce_image(
             gce_svc=gce_svc,
-            enc_svc_cls=test.DummyEncryptorService,
+            enc_svc_cls=DummyEncryptorService,
             image_id=IGNORE_IMAGE,
             encryptor_image='encryptor-image',
             encrypted_image_name='centos-encrypted',
