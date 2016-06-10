@@ -94,9 +94,10 @@ def command_launch_gce_image(values, log):
 
 
 def command_update_encrypted_gce_image(values, log):
-    check_args(values)
     session_id = util.make_nonce()
     gce_svc = gce_service.GCEService(values.project, session_id, log)
+    check_args(values, gce_svc)
+
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
 
     brkt_env = None
@@ -120,7 +121,8 @@ def command_update_encrypted_gce_image(values, log):
         token=token,
         keep_encryptor=values.keep_encryptor,
         image_file=values.image_file,
-        image_bucket=values.bucket
+        image_bucket=values.bucket,
+        network=values.network
     )
 
     print(updated_image_id)
@@ -128,9 +130,9 @@ def command_update_encrypted_gce_image(values, log):
 
 
 def command_encrypt_gce_image(values, log):
-    check_args(values)
     session_id = util.make_nonce()
     gce_svc = gce_service.GCEService(values.project, session_id, log)
+    check_args(values, gce_svc)
 
     brkt_env = None
     if values.brkt_env:
@@ -156,7 +158,8 @@ def command_encrypt_gce_image(values, log):
         image_project=values.image_project,
         keep_encryptor=values.keep_encryptor,
         image_file=values.image_file,
-        image_bucket=values.bucket
+        image_bucket=values.bucket,
+        network=values.network
     )
     # Print the image name to stdout, in case the caller wants to process
     # the output.  Log messages go to stderr.
@@ -164,7 +167,9 @@ def command_encrypt_gce_image(values, log):
     return 0
 
 
-def check_args(values):
+def check_args(values, gce_svc):
+    if not gce_svc.network_exists(values.network):
+        raise ValidationError("Network provided does not exist")
     if values.encryptor_image:
         if values.bucket != 'prod':
             raise ValidationError("Please provided either an encryptor image or an image bucket")

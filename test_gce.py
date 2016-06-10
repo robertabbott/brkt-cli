@@ -57,6 +57,11 @@ class DummyGCEService(gce_service.BaseGCEService):
                 return
             time.sleep(5)
 
+    def get_network(self, nw):
+        if nw == 'test-nw' or nw == 'default':
+            return True
+        return False
+
     def get_image(self, image, image_project):
         if image == NONEXISTANT_IMAGE:
             raise
@@ -157,6 +162,7 @@ class DummyGCEService(gce_service.BaseGCEService):
                      zone,
                      name,
                      image,
+                     network=None,
                      disks=[],
                      metadata={},
                      delete_boot=False,

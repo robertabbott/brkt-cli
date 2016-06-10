@@ -80,6 +80,10 @@ class BaseGCEService(object):
         pass
 
     @abc.abstractmethod
+    def get_network(self, nw):
+        pass
+
+    @abc.abstractmethod
     def image_exists(self, image):
         pass
 
@@ -172,6 +176,7 @@ class BaseGCEService(object):
                      zone,
                      name,
                      image,
+                     network,
                      disks,
                      metadata,
                      delete_boot,
@@ -236,6 +241,17 @@ class GCEService(BaseGCEService):
             if self.get_snapshot(snapshot)['status'] == 'READY':
                 return
             time.sleep(5)
+
+    def get_network(self, nw):
+        return self.compute.networks().get(project=self.project,
+            network=nw).execute()
+
+    def network_exists(self, nw):
+        try:
+            self.get_network(nw)
+        except:
+            return False
+        return True
 
     def get_image(self, image, image_project=None):
         if image_project:
@@ -473,6 +489,7 @@ class GCEService(BaseGCEService):
                      zone,
                      name,
                      image,
+                     network='default',
                      disks=[],
                      metadata={},
                      delete_boot=False,
@@ -515,7 +532,7 @@ class GCEService(BaseGCEService):
             # Specify a network interface with NAT to access the public
             # internet.
             'networkInterfaces': [{
-                'network': 'global/networks/default',
+                'network': 'global/networks/%s' % network,
                 'accessConfigs': [
                     {'type': 'ONE_TO_ONE_NAT', 'name': 'External NAT'}
                 ]

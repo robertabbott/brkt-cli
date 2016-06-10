@@ -66,12 +66,14 @@ def do_encryption(gce_svc,
                    encryptor_image,
                    instance_name,
                    encrypted_image_disk,
-                   brkt_data):
+                   brkt_data,
+                   network):
     try:
         log.info('Launching encryptor instance')
         gce_svc.run_instance(zone=zone,
                              name=encryptor,
                              image=encryptor_image,
+                             network=network,
                              disks=[gce_svc.get_disk(zone, instance_name),
                                     gce_svc.get_disk(zone, encrypted_image_disk)],
                              metadata=gce_metadata_from_userdata(brkt_data))
@@ -108,7 +110,7 @@ def create_image(gce_svc, zone, encrypted_image_disk, encrypted_image_name, encr
 
 def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
             encrypted_image_name, zone, brkt_env, token, image_project=None,
-            keep_encryptor=False, image_file=None, image_bucket=None):
+            keep_encryptor=False, image_file=None, image_bucket=None, network=None):
     brkt_data = {}
     try:
         # create metavisor image from file in GCS bucket
@@ -133,7 +135,7 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
 
         # run encryptor instance with avatar_creator as root,
         # customer image and blank disk
-        do_encryption(gce_svc, enc_svc_cls, zone, encryptor, encryptor_image, instance_name, encrypted_image_disk, brkt_data)
+        do_encryption(gce_svc, enc_svc_cls, zone, encryptor, encryptor_image, instance_name, encrypted_image_disk, brkt_data, network)
 
         # create image
         create_image(gce_svc, zone, encrypted_image_disk, encrypted_image_name, encryptor)
