@@ -83,7 +83,7 @@ optional arguments:
   --guest-instance-type TYPE
                         The instance type to use when running the unencrypted
                         guest instance
-  --hvm                 Use the HVM encryptor (beta)
+  --hvm                 Use the HVM encryptor
   --no-validate         Don't validate AMIs, subnet, and security groups
   --proxy HOST:PORT     Use this HTTPS proxy during encryption. May be
                         specified multiple times.
@@ -123,7 +123,7 @@ optional arguments:
   --guest-instance-type TYPE
                         The instance type to use when running the unencrypted
                         guest instance
-  --hvm                 Use the HVM encryptor (beta)
+  --hvm                 Use the HVM encryptor
   --no-validate         Don't validate AMIs, subnet, and security groups
   --proxy HOST:PORT     Use this HTTPS proxy during encryption. May be
                         specified multiple times.
