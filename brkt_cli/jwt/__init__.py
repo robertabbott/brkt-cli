@@ -16,6 +16,7 @@ import json
 import logging
 import re
 import time
+import uuid
 from datetime import datetime
 
 import iso8601
@@ -56,6 +57,9 @@ class MakeJWTSubcommand(Subcommand):
         nbf = None
         if values.nbf:
             nbf = parse_timestamp(values.nbf)
+        customer = None
+        if values.customer:
+            customer = str(values.customer)
 
         claims = {}
         if values.claims:
@@ -64,7 +68,14 @@ class MakeJWTSubcommand(Subcommand):
                 claims[name] = value
 
         print(
-            make_jwt(signing_key, exp=exp, nbf=nbf, cnc=values.cnc, claims=claims)
+            make_jwt(
+                signing_key,
+                exp=exp,
+                nbf=nbf,
+                cnc=values.cnc,
+                customer=customer,
+                claims=claims
+            )
         )
         return 0
 
@@ -145,7 +156,8 @@ def parse_timestamp(ts_string):
     return dt
 
 
-def make_jwt(signing_key, exp=None, nbf=None, cnc=None, claims=None):
+def make_jwt(signing_key, exp=None, nbf=None, cnc=None, claims=None,
+             customer=None):
     """ Generate a JWT.
 
     :param signing_key a SigningKey object
@@ -153,6 +165,7 @@ def make_jwt(signing_key, exp=None, nbf=None, cnc=None, claims=None):
     :param nbf not before as a datetime
     :param cnc maximum number of concurrent instances as an integer
     :param claims a dictionary of claims
+    :param customer customer UUID as a string
     :return the JWT as a string
     """
 
@@ -177,6 +190,8 @@ def make_jwt(signing_key, exp=None, nbf=None, cnc=None, claims=None):
         payload_dict['nbf'] = _datetime_to_timestamp(nbf)
     if cnc is not None:
         payload_dict['cnc'] = cnc
+    if customer:
+        payload_dict['customer'] = customer
 
     header_json = json.dumps(
         header_dict, sort_keys=True, separators=(',', ':')
@@ -221,6 +236,14 @@ def setup_make_jwt_args(subparsers):
     def cnc(value):
         return brkt_cli.validation.min_int_argument(value, 1)
 
+    parser.add_argument(
+        '--customer',
+        metavar='UUID',
+        type=uuid.UUID,
+        description=(
+            'Required for API access when using a third party JWK server'
+        )
+    )
     parser.add_argument(
         '--cnc',
         metavar='N',
