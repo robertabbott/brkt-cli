@@ -40,7 +40,7 @@ def setup_encrypt_ami_args(parser):
     parser.add_argument(
         '--hvm',
         action='store_true',
-        help='Use the HVM encryptor (beta)',
+        help='Use the HVM encryptor',
         dest='hvm'
     )
     parser.add_argument(
