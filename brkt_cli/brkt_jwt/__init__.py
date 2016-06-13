@@ -24,7 +24,7 @@ from ecdsa import SigningKey, NIST384p
 
 import brkt_cli
 from brkt_cli import util
-from brkt_cli.jwt import jwk
+from brkt_cli.brkt_jwt import jwk
 from brkt_cli.subcommand import Subcommand
 from brkt_cli.util import urlsafe_b64encode
 from brkt_cli.validation import ValidationError
