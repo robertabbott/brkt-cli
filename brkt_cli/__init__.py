@@ -41,7 +41,7 @@ SUBCOMMAND_MODULE_PATHS = [
     'brkt_cli.aws',
     'brkt_cli.gce',
     'brkt_cli.make_user_data',
-    'brkt_cli.jwt',
+    'brkt_cli.brkt_jwt',
 ]
 
 log = logging.getLogger(__name__)
@@ -368,7 +368,7 @@ def main():
                     'Skipping module %s: %s' % (module_path, e))
             else:
                 # There is an import problem inside the subcommand module.
-                raise e
+                raise
 
     # Use metavar to hide any subcommands that we don't want to expose.
     exposed_subcommand_names = [s.name() for s in subcommands if s.exposed()]
