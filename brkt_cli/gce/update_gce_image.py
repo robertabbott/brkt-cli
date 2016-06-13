@@ -33,7 +33,7 @@ log = logging.getLogger(__name__)
 
 def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
             encrypted_image_name, zone, brkt_env, token, keep_encryptor=False,
-            image_file=None, image_bucket=None):
+            image_file=None, image_bucket=None, network=None):
     snap_created = None
     try:
         # create image from file in GCS bucket
@@ -68,6 +68,7 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
         gce_svc.run_instance(zone,
                              updater,
                              encryptor_image,
+                             network=network,
                              disks=[],
                              metadata=user_data)
         enc_svc = enc_svc_cls([gce_svc.get_instance_ip(updater, zone)])

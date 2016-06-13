@@ -53,6 +53,12 @@ def setup_update_gce_image_args(parser):
         dest='encryptor_image',
         required=False
     )
+    parser.add_argument(
+        '--network',
+        dest='network',
+        default='default',
+        required=False
+    )
 
     # Optional yeti endpoints. Hidden because it's only used for development.
     parser.add_argument(
