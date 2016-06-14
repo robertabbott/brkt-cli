@@ -151,7 +151,7 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
             wait_for_encryption(enc_svc)
         except Exception as e:
             log_exception_console(aws_svc, e, updater.id)
-            raise e
+            raise
 
         aws_svc.stop_instance(updater.id)
         encrypted_guest = wait_for_instance(

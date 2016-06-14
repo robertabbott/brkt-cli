@@ -344,7 +344,7 @@ def create_encryptor_security_group(aws_svc, vpc_id=None):
             aws_svc.delete_security_group(sg.id)
         except Exception as e2:
             log.warn('Failed deleting temporary security group: %s', e2)
-        raise e
+        raise
 
     aws_svc.create_tags(sg.id)
     return sg
@@ -648,7 +648,7 @@ def snapshot_encrypted_instance(aws_svc, enc_svc_cls, encryptor_instance,
         encryptor_service.wait_for_encryption(enc_svc)
     except encryptor_service.EncryptionError as e:
         log_exception_console(aws_svc, e, encryptor_instance.id)
-        raise e
+        raise
 
     log.info('Encrypted root drive is ready.')
     # The encryptor instance may modify its volume attachments while running,
