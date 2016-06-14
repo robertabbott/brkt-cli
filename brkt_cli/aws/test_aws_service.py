@@ -11,7 +11,7 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
-
+import ssl
 import unittest
 import uuid
 
@@ -362,13 +362,13 @@ class TestRetryBoto(unittest.TestCase):
         self.num_calls = 0
         brkt_cli.util.SLEEP_ENABLED = False
 
-    def _fail_for_n_calls(self, n):
+    def _fail_for_n_calls(self, n, status=400):
         """ Raise EC2ResponseError the first n times that the method is
         called.
         """
         self.num_calls += 1
         if self.num_calls <= n:
-            e = EC2ResponseError(None, None)
+            e = EC2ResponseError(status, None)
             e.error_code = 'InvalidInstanceID.NotFound'
             raise e
 
@@ -394,6 +394,33 @@ class TestRetryBoto(unittest.TestCase):
         )
         with self.assertRaises(EC2ResponseError):
             function(1)
+
+    def test_no_regexp(self):
+        """ Test that we raise the underlying exception when the error code
+        regexp is not specified.
+        """
+        function = aws_service.retry_boto(self._fail_for_n_calls)
+        with self.assertRaises(EC2ResponseError):
+            function(1)
+
+    def test_503(self):
+        """ Test that we retry when AWS returns a 503 status.
+        """
+        function = aws_service.retry_boto(
+            self._fail_for_n_calls, initial_sleep_seconds=0.0)
+        function(5, status=503)
+
+    def test_ssl_error(self):
+        """ Test that we retry on ssl.SSLError.  This is a case that was
+        seen in the field.
+        """
+
+        def raise_ssl_error():
+            self.num_calls += 1
+            if self.num_calls <= 5:
+                raise ssl.SSLError('Test')
+
+        aws_service.retry_boto(raise_ssl_error, initial_sleep_seconds=0.0)()
 
 
 class TestInstance(unittest.TestCase):
