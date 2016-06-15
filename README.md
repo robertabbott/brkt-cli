@@ -3,14 +3,6 @@ service.  It produces an encrypted version of an Amazon Machine Image, which can
 launched in EC2. It can also update an already encrypted version of an Amazon Machine Image,
 which can then be launched in EC2.
 
-## Requirements
-
-In order to use the Bracket service, you must be a
-registered Bracket customer.  Email support@brkt.com for
-more information.
-
-**brkt-cli** requires Python 2.7.
-
 ## Process
 
 The `encrypt-ami` subcommand performs the following steps to create an
@@ -28,22 +20,49 @@ required by the metavisor at runtime.
 The `update-encrypted-ami` subcommand updates an encrypted AMI with the latest
 version of the metavisor code.
 
-## Networking requirements
+## Requirements
 
-The following network connections are established during image encryption:
+In order to use the Bracket service, you must be a
+registered Bracket customer.  Email support@brkt.com for
+more information.
 
-* **brkt-cli** talks to the Encryptor instance on port 8000.
-* The Encryptor talks to the Bracket service at `yetiapi.mgmt.brkt.com`.  In
-order to do this, port 443 must be accessible on the following hosts:
-  * 52.32.38.106
-  * 52.35.101.76
-  * 52.88.55.6
-* Both **brkt-cli** and the Encryptor also need to access Amazon S3.
+**brkt-cli** requires Python 2.7.  We also recommend using
+[virtualenv](https://virtualenv.pypa.io/), to avoid conflicts between
+brkt-cli dependencies and Python packages that are managed by the operating
+system.  If you're not familiar with virtualenv, check out the
+[Virtual Environments](http://docs.python-guide.org/en/latest/dev/virtualenvs/)
+section of _The Hitchhiker's Guide to Python_.
 
-When launching the Encryptor instance, **brkt-cli** creates a temporary
-security group that allows inbound access on port 8000.  Alternately, you can
-use the `--security-group` option to specify one or more existing security
-groups.
+#### Windows and OS X
+
+Windows and OS X users need to use [pip 8](https://pip.pypa.io/).  pip 8
+supports Python Wheels, which include the binary portion of the
+[cryptography](https://cryptography.io/) library.  To
+[upgrade pip](https://pip.pypa.io/en/stable/installing/#upgrading-pip)
+to the latest version, run
+
+```
+$ pip install -U pip
+```
+
+#### Linux
+
+Linux users need to install several packages, which allow you to compile
+the cryptography library.  Ubuntu users need to run
+
+```
+$ sudo apt-get install build-essential libssl-dev libffi-dev python-dev
+```
+
+before installing brkt-cli.  RHEL and CentOS users need to run
+
+```
+$ sudo yum install gcc libffi-devel python-devel openssl-devel
+```
+
+For more details, see the
+[installation section](https://cryptography.io/en/latest/installation/) of
+the cryptography library documentation.
 
 ## Installation
 
@@ -60,6 +79,23 @@ $ pip install git+https://github.com/brkt/brkt-cli.git
 ```
 
 The master branch has the latest features and bug fixes, but is not as thoroughly tested as the official release.
+
+## Networking requirements
+
+The following network connections are established during image encryption:
+
+* **brkt-cli** talks to the Encryptor instance on port 8000.
+* The Encryptor talks to the Bracket service at `yetiapi.mgmt.brkt.com`.  In
+order to do this, port 443 must be accessible on the following hosts:
+  * 52.32.38.106
+  * 52.35.101.76
+  * 52.88.55.6
+* Both **brkt-cli** and the Encryptor also need to access Amazon S3.
+
+When launching the Encryptor instance, **brkt-cli** creates a temporary
+security group that allows inbound access on port 8000.  Alternately, you can
+use the `--security-group` option to specify one or more existing security
+groups.
 
 ## Usage
 ```
