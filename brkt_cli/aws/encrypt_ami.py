@@ -119,9 +119,9 @@ SLEEP_ENABLED = True
 AMI_NAME_MAX_LENGTH = 128
 
 BRACKET_ENVIRONMENT = "prod"
-ENCRYPTOR_AMIS_URL = "http://solo-brkt-%s-net.s3.amazonaws.com/amis.json"
+ENCRYPTOR_AMIS_URL = "https://solo-brkt-%s-net.s3.amazonaws.com/amis.json"
 HVM_ENCRYPTOR_AMIS_URL = \
-    "http://solo-brkt-%s-net.s3.amazonaws.com/hvm_amis.json"
+    "https://solo-brkt-%s-net.s3.amazonaws.com/hvm_amis.json"
 
 log = logging.getLogger(__name__)
 
