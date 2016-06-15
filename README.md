@@ -26,12 +26,15 @@ In order to use the Bracket service, you must be a
 registered Bracket customer.  Email support@brkt.com for
 more information.
 
-**brkt-cli** requires Python 2.7.  We also recommend using
-[virtualenv](https://virtualenv.pypa.io/), to avoid conflicts between
-brkt-cli dependencies and Python packages that are managed by the operating
-system.  If you're not familiar with virtualenv, check out the
+**brkt-cli** requires Python 2.7.
+
+We recommend using [virtualenv](https://virtualenv.pypa.io/), to avoid
+conflicts between **brkt-cli** dependencies and Python packages that are managed
+by the operating system.  If you're not familiar with virtualenv, check out the
 [Virtual Environments](http://docs.python-guide.org/en/latest/dev/virtualenvs/)
 section of _The Hitchhiker's Guide to Python_.
+
+You can also run **brkt-cli** in a [Docker container](#docker).
 
 #### Windows and OS X
 
@@ -54,7 +57,7 @@ the cryptography library.  Ubuntu users need to run
 $ sudo apt-get install build-essential libssl-dev libffi-dev python-dev
 ```
 
-before installing brkt-cli.  RHEL and CentOS users need to run
+before installing **brkt-cli**.  RHEL and CentOS users need to run
 
 ```
 $ sudo yum install gcc libffi-devel python-devel openssl-devel
@@ -235,3 +238,32 @@ ami-63733e09
 
 When the process completes, the new AMI id is written to stdout.  All log
 messages are written to stderr.
+
+## <a name="docker"/>Running in a Docker container
+
+**brkt-cli** ships with a `Dockerfile`, which allows you to run the `brkt`
+command in a Docker container. This creates a completely isolated environment,
+and avoids issues with Python libraries and platform-specific
+binaries.  To download the **brkt-cli** source and build the `brkt` container:
+
+```
+$ wget https://github.com/brkt/brkt-cli/archive/brkt-cli-<RELEASE-NUMBER>.zip
+$ cd brkt-cli-brkt-cli-<RELEASE-NUMBER>
+$ docker build -t brkt .
+```
+
+Be sure to substitute the actual release number for `<RELEASE-NUMBER>`.  Once
+the container is built, you can run it with the `docker run`
+command.  Note that you must pass any required environment variables or
+files into the container.  Some examples:
+
+```
+$ docker run -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+-e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
+brkt encrypt-ami --region us-west-2 ami-4133cb21
+```
+
+```
+$ docker run -v ~/keys:/keys brkt make-jwt --signing-key /keys/secret.pem
+eyJhbGciOiJFUzM4NCIsInR5cCI6IkpXVCIsImtpZCI6ImU2MTNhYzI0YzRkN2ExY...
+```
