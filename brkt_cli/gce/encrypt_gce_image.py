@@ -56,7 +56,7 @@ def setup_encryption(gce_svc,
         gce_svc.create_disk(zone, encrypted_image_disk, guest_size * 2 + 1)
     except Exception as e:
         log.info('Encryption setup failed')
-        raise e
+        raise
 
 
 def do_encryption(gce_svc,
@@ -68,24 +68,21 @@ def do_encryption(gce_svc,
                    encrypted_image_disk,
                    brkt_data,
                    network):
-    try:
-        log.info('Launching encryptor instance')
-        gce_svc.run_instance(zone=zone,
-                             name=encryptor,
-                             image=encryptor_image,
-                             network=network,
-                             disks=[gce_svc.get_disk(zone, instance_name),
-                                    gce_svc.get_disk(zone, encrypted_image_disk)],
-                             metadata=gce_metadata_from_userdata(brkt_data))
+    log.info('Launching encryptor instance')
+    gce_svc.run_instance(zone=zone,
+                         name=encryptor,
+                         image=encryptor_image,
+                         network=network,
+                         disks=[gce_svc.get_disk(zone, instance_name),
+                                gce_svc.get_disk(zone, encrypted_image_disk)],
+                         metadata=gce_metadata_from_userdata(brkt_data))
 
-        enc_svc = enc_svc_cls([gce_svc.get_instance_ip(encryptor, zone)])
+    enc_svc = enc_svc_cls([gce_svc.get_instance_ip(encryptor, zone)])
 
-        wait_for_encryptor_up(enc_svc, Deadline(600))
-        wait_for_encryption(enc_svc)
-        retry(function=gce_svc.delete_instance,
-                on=[httplib.BadStatusLine, socket.error, errors.HttpError])(zone, encryptor)
-    except Exception as e:
-        raise e
+    wait_for_encryptor_up(enc_svc, Deadline(600))
+    wait_for_encryption(enc_svc)
+    retry(function=gce_svc.delete_instance,
+            on=[httplib.BadStatusLine, socket.error, errors.HttpError])(zone, encryptor)
 
 
 def create_image(gce_svc, zone, encrypted_image_disk, encrypted_image_name, encryptor):
@@ -105,7 +102,7 @@ def create_image(gce_svc, zone, encrypted_image_disk, encrypted_image_name, encr
         log.info("Image %s successfully created!", encrypted_image_name)
     except Exception as e:
         log.info('Image creation failed')
-        raise e
+        raise
 
 
 def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
