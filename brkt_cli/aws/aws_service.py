@@ -14,13 +14,14 @@
 
 import abc
 import re
+import ssl
 import tempfile
 
 import boto
 import boto.sts
 import boto.vpc
 import logging
-from boto.exception import EC2ResponseError
+from boto.exception import EC2ResponseError, BotoServerError
 
 from brkt_cli import util
 from brkt_cli.validation import ValidationError
@@ -183,17 +184,25 @@ class BaseAWSService(object):
 
 class BotoRetryExceptionChecker(util.RetryExceptionChecker):
 
-    def __init__(self, error_code_regexp):
+    def __init__(self, error_code_regexp=None):
         self.error_code_regexp = error_code_regexp
 
     def is_expected(self, exception):
-        if not isinstance(exception, EC2ResponseError):
+        if isinstance(exception, ssl.SSLError):
+            # We've seen this in the field.
+            return True
+        if not isinstance(exception, BotoServerError):
             return False
-        m = re.match(self.error_code_regexp, exception.error_code)
-        return bool(m)
+        if exception.status == 503:
+            # This can happen when the AWS request limit has been exceeded.
+            return True
+        if self.error_code_regexp:
+            m = re.match(self.error_code_regexp, exception.error_code)
+            return bool(m)
+        return False
 
 
-def retry_boto(function, error_code_regexp, timeout=10.0,
+def retry_boto(function, error_code_regexp=None, timeout=10.0,
                initial_sleep_seconds=0.25):
     return util.retry(
         function,
@@ -276,7 +285,8 @@ class AWSService(BaseAWSService):
                 f.write(user_data)
 
         try:
-            reservation = self.conn.run_instances(
+            run_instances = retry_boto(self.conn.run_instances)
+            reservation = run_instances(
                 image_id=image_id,
                 placement=placement,
                 key_name=self.key_name,
@@ -313,12 +323,14 @@ class AWSService(BaseAWSService):
 
     def stop_instance(self, instance_id):
         log.debug('Stopping instance %s', instance_id)
-        instances = self.conn.stop_instances([instance_id])
+        stop_instances = retry_boto(self.conn.stop_instances)
+        instances = stop_instances([instance_id])
         return instances[0]
 
     def terminate_instance(self, instance_id):
         log.debug('Terminating instance %s', instance_id)
-        self.conn.terminate_instances([instance_id])
+        terminate_instances = retry_boto(self.conn.terminate_instances)
+        terminate_instances([instance_id])
 
     def get_volume(self, volume_id):
         get_all_volumes = retry_boto(
@@ -331,7 +343,8 @@ class AWSService(BaseAWSService):
         if tag_key and tag_value:
             filters['tag:%s' % tag_key] = tag_value
 
-        return self.conn.get_all_volumes(filters=filters)
+        get_all_volumes = retry_boto(self.conn.get_all_volumes)
+        return get_all_volumes(filters=filters)
 
     def get_snapshots(self, *snapshot_ids):
         get_all_snapshots = retry_boto(
@@ -344,7 +357,8 @@ class AWSService(BaseAWSService):
 
     def create_snapshot(self, volume_id, name=None, description=None):
         log.debug('Creating snapshot of %s', volume_id)
-        snapshot = self.conn.create_snapshot(volume_id, description)
+        create_snapshot = retry_boto(self.conn.create_snapshot)
+        snapshot = create_snapshot(volume_id, description)
         self.create_tags(snapshot.id, name=name)
         return snapshot
 
@@ -354,7 +368,8 @@ class AWSService(BaseAWSService):
                       snapshot=None,
                       volume_type=None,
                       encrypted=None):
-        return self.conn.create_volume(
+        create_volume = retry_boto(self.conn.create_volume)
+        return create_volume(
             size,
             zone,
             snapshot=snapshot,
@@ -378,7 +393,8 @@ class AWSService(BaseAWSService):
                        name=None,
                        description=None):
         log.debug('Registering image.')
-        return self.conn.register_image(
+        register_image = retry_boto(self.conn.register_image)
+        return register_image(
             name=name,
             description=description,
             architecture='x86_64',
@@ -388,7 +404,8 @@ class AWSService(BaseAWSService):
         )
 
     def get_images(self, filters=None, owners=None):
-        return self.conn.get_all_images(filters=filters, owners=owners)
+        get_all_images = retry_boto(self.conn.get_all_images)
+        return get_all_images(filters=filters, owners=owners)
 
     def get_image(self, image_id, retry=False):
         get_image = self.conn.get_image
@@ -399,7 +416,8 @@ class AWSService(BaseAWSService):
         return get_image(image_id)
 
     def delete_snapshot(self, snapshot_id):
-        return self.conn.delete_snapshot(snapshot_id)
+        delete_snapshot = retry_boto(self.conn.delete_snapshot)
+        return delete_snapshot(snapshot_id)
 
     def create_security_group(self, name, description, vpc_id=None):
         log.debug(
@@ -409,9 +427,10 @@ class AWSService(BaseAWSService):
         if vpc_id:
             log.debug('Using %s', vpc_id)
 
-        return self.conn.create_security_group(
-                    name, description, vpc_id=vpc_id
-               )
+        create_security_group = retry_boto(self.conn.create_security_group)
+        return create_security_group(
+            name, description, vpc_id=vpc_id
+        )
 
     def get_security_group(self, sg_id, retry=True):
         get_all_security_groups = self.conn.get_all_security_groups
@@ -424,7 +443,9 @@ class AWSService(BaseAWSService):
 
     def add_security_group_rule(self, sg_id, **kwargs):
         kwargs['group_id'] = sg_id
-        ok = self.conn.authorize_security_group(**kwargs)
+        authorize_security_group = retry_boto(
+            self.conn.authorize_security_group)
+        ok = authorize_security_group(**kwargs)
         if not ok:
             raise Exception('Unknown error while adding security group rule')
 
@@ -438,7 +459,8 @@ class AWSService(BaseAWSService):
             raise Exception('Unknown error while deleting security group')
 
     def get_key_pair(self, keyname):
-        key_pairs = self.conn.get_all_key_pairs(keynames=[keyname])
+        get_all_key_pairs = retry_boto(self.conn.get_all_key_pairs)
+        key_pairs = get_all_key_pairs(keynames=[keyname])
         return _get_first_element(key_pairs, 'InvalidKeyPair.NotFound')
 
     def get_console_output(self, instance_id):
@@ -466,7 +488,8 @@ class AWSService(BaseAWSService):
         )
 
     def detach_volume(self, vol_id, instance_id=None, force=True):
-        return self.conn.detach_volume(
+        detach_volume = retry_boto(self.conn.detach_volume)
+        return detach_volume(
             vol_id, instance_id=instance_id, force=force)
 
     def attach_volume(self, vol_id, instance_id, device):
@@ -474,15 +497,19 @@ class AWSService(BaseAWSService):
         return attach_volume(vol_id, instance_id, device)
 
     def get_default_vpc(self):
-        vpcs = self.conn.get_all_vpcs(filters={'is-default': 'true'})
+        get_all_vpcs = retry_boto(self.conn.get_all_vpcs)
+        vpcs = get_all_vpcs(filters={'is-default': 'true'})
         if len(vpcs) > 0:
             return vpcs[0]
         return None
 
     def get_instance_attribute(self, instance_id, attribute, dry_run=False):
-        return self.conn.get_instance_attribute(instance_id,
-                                                attribute,
-                                                dry_run=dry_run)
+        get_instance_attribute = retry_boto(self.conn.get_instance_attribute)
+        return get_instance_attribute(
+            instance_id,
+            attribute,
+            dry_run=dry_run
+        )
 
 
 def validate_image_name(name):

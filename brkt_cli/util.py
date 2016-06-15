@@ -89,13 +89,13 @@ def retry(function, on=None, exception_checker=None, timeout=15.0,
                     expected = True
 
                 if not expected:
-                    raise e
+                    raise
                 if now - start_time > timeout:
                     log.error(
                         'Exceeded timeout of %s seconds for %s',
                         timeout,
                         function.__name__)
-                    raise e
+                    raise
                 else:
                     time.sleep(initial_sleep_seconds * float(attempt))
     return _wrapped
