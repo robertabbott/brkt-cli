@@ -301,7 +301,7 @@ def validate_jwt(jwt):
         raise ValidationError('Unable to decode signature ' + parts[2])
 
     # Validate header.
-    expected_fields = ['typ', 'alg']
+    expected_fields = ['typ', 'alg', 'kid']
     missing_fields = [f for f in expected_fields if f not in header]
     if missing_fields:
         raise ValidationError(
@@ -309,7 +309,7 @@ def validate_jwt(jwt):
         )
 
     # Validate payload.
-    expected_fields = ['jti', 'iss', 'iat', 'kid']
+    expected_fields = ['jti', 'iss', 'iat']
     missing_fields = [f for f in expected_fields if f not in payload]
     if missing_fields:
         raise ValidationError(
