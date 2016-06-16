@@ -273,12 +273,11 @@ class TestJWT(unittest.TestCase):
 
         # Valid(ish) JWT.  The validation code doesn't currently go as far
         # as to validate the signature.
-        header = {'typ': 'JWT', 'alg': 'ES384'}
+        header = {'typ': 'JWT', 'alg': 'ES384', 'kid': 'abc'}
         payload = {
             'jti': brkt_cli.util.make_nonce(),
             'iss': 'brkt-cli-' + brkt_cli.VERSION,
-            'iat': int(time.time()),
-            'kid': 'abc'
+            'iat': int(time.time())
         }
         signature = 'Signed, sealed, delivered'
 
@@ -306,7 +305,7 @@ class TestJWT(unittest.TestCase):
             brkt_cli.validate_jwt(jwt)
 
         # Missing header field.
-        for missing_field in ['typ', 'alg']:
+        for missing_field in ['typ', 'alg', 'kid']:
             malformed_header = dict(header)
             del(malformed_header[missing_field])
             base64_malformed_header = brkt_cli.util.urlsafe_b64encode(
@@ -317,7 +316,7 @@ class TestJWT(unittest.TestCase):
                 brkt_cli.validate_jwt(jwt)
 
         # Missing payload field.
-        for missing_field in ['jti', 'iss', 'iat', 'kid']:
+        for missing_field in ['jti', 'iss', 'iat']:
             malformed_payload = dict(payload)
             del(malformed_payload[missing_field])
             base64_malformed_payload = brkt_cli.util.urlsafe_b64encode(
