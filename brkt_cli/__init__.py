@@ -388,16 +388,6 @@ def main():
     argv = sys.argv[1:]
     values = parser.parse_args(argv)
 
-    # Initialize logging.  Verbose logging can be specified for either
-    # the top-level "brkt" command or one of the subcommands.  We support
-    # both because users got confused when "brkt encrypt-ami -v" didn't work.
-    log_level = logging.INFO
-    if values.verbose:
-        log_level = logging.DEBUG
-
-    # Turn off logging for categories that we don't care about.
-    logging.getLogger('requests').setLevel(logging.ERROR)
-
     # Find the matching subcommand.
     subcommand = None
     for s in subcommands:
@@ -407,7 +397,13 @@ def main():
     if not subcommand:
         raise Exception('Could not find subcommand ' + values.subparser_name)
 
-    # Initialize logging.
+    # Turn off logging for categories that we don't care about.
+    logging.getLogger('requests').setLevel(logging.ERROR)
+
+    # Initialize logging.  Verbose logging can be specified for either
+    # the top-level "brkt" command or one of the subcommands.  We support
+    # both because users got confused when "brkt encrypt-ami -v" didn't work.
+    log_level = logging.INFO
     verbose = values.verbose
     if subcommand.verbose(values):
         verbose = True

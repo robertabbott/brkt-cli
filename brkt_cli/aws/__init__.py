@@ -103,14 +103,14 @@ def _run_subcommand(subcommand, values):
             'Unable to connect to AWS.  Are your AWS_ACCESS_KEY_ID and '
             'AWS_SECRET_ACCESS_KEY environment variables set?'
         )
-        if values.verbose:
+        if log.isEnabledFor(logging.DEBUG):
             log.exception(msg)
         else:
             log.error(msg)
     except EC2ResponseError as e:
         if e.error_code == 'AuthFailure':
             msg = 'Check your AWS login credentials and permissions'
-            if values.verbose:
+            if log.isEnabledFor(logging.DEBUG):
                 log.exception(msg)
             else:
                 log.error(msg + ': ' + e.error_message)
@@ -119,12 +119,12 @@ def _run_subcommand(subcommand, values):
             'InvalidSubnetID.NotFound',
             'InvalidGroup.NotFound'
         ):
-            if values.verbose:
+            if log.isEnabledFor(logging.DEBUG):
                 log.exception(e.error_message)
             else:
                 log.error(e.error_message)
         elif e.error_code == 'UnauthorizedOperation':
-            if values.verbose:
+            if log.isEnabledFor(logging.DEBUG):
                 log.exception(e.error_message)
             else:
                 log.error(e.error_message)
