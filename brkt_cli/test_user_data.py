@@ -58,12 +58,14 @@ class TestUserData(unittest.TestCase):
             if part.get_content_type() == BRKT_CONFIG_CONTENT_TYPE:
                 found_brkt_config = True
                 content = part.get_payload(decode=True)
-                self.assertEqual('{"foo": "bar"}', content)
+                self.assertEqual(
+                    '{"foo": "bar", "brkt": {"identity_token": "%s"}}' % jwt,
+                    content)
             if part.get_content_type() == BRKT_FILES_CONTENT_TYPE:
                 found_brkt_files = True
                 content = part.get_payload(decode=True)
                 self.assertTrue('/var/brkt/ami_config/proxy.yaml:' in content)
-                self.assertTrue('/var/brkt/ami_config/token.jwt:' in content)
+                self.assertFalse('/var/brkt/ami_config/token.jwt:' in content)
 
         self.assertTrue(found_brkt_config)
         self.assertTrue(found_brkt_files)

@@ -15,7 +15,7 @@ import logging
 
 import brkt_cli
 from brkt_cli.subcommand import Subcommand
-from brkt_cli.user_data import UserDataContainer, BRKT_FILES_CONTENT_TYPE
+from brkt_cli.user_data import combine_user_data
 
 log = logging.getLogger(__name__)
 
@@ -56,17 +56,10 @@ class MakeUserDataSubcommand(Subcommand):
         return values.make_user_data_verbose
 
     def run(self, values):
-        udc = UserDataContainer()
+        with open(values.jwt, 'r') as f:
+            token_val = f.read().rstrip()
 
-        if values.jwt:
-            jwt = brkt_cli.validate_jwt(values.jwt)
-            udc.add_file(
-                '/var/brkt/instance_config/token.jwt',
-                jwt,
-                BRKT_FILES_CONTENT_TYPE
-            )
-
-        print udc.to_mime_text()
+        print combine_user_data(brkt_config={}, jwt=token_val, do_gzip=False)
         return 0
 
 
