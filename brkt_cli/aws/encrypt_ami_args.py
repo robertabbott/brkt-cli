@@ -149,6 +149,25 @@ def setup_encrypt_ami_args(parser):
         dest='key_name'
     )
 
+    # Optional arguments for changing the behavior of our retry logic.  We
+    # use these options internally, to avoid intermittent AWS service failures
+    # when running concurrent encryption processes in integration tests.
+    parser.add_argument(
+        '--retry-timeout',
+        metavar='SECONDS',
+        type=float,
+        help=argparse.SUPPRESS,
+        default=10.0
+    )
+
+    parser.add_argument(
+        '--retry-initial-sleep-seconds',
+        metavar='SECONDS',
+        type=float,
+        help=argparse.SUPPRESS,
+        default=0.25
+    )
+
     # This option is still in development.
     """
     help=(

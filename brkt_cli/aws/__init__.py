@@ -323,7 +323,14 @@ def _validate_region(aws_svc, values):
 def command_encrypt_ami(values, log):
     session_id = util.make_nonce()
 
-    aws_svc = aws_service.AWSService(session_id)
+    aws_svc = aws_service.AWSService(
+        session_id,
+        retry_timeout=values.retry_timeout,
+        retry_initial_sleep_seconds=values.retry_initial_sleep_seconds
+    )
+    log.debug(
+        'Retry timeout=%.02f, initial sleep seconds=%.02f',
+        aws_svc.retry_timeout, aws_svc.retry_initial_sleep_seconds)
 
     # Validate the specified region.
     if values.validate:
@@ -392,7 +399,15 @@ def _get_updated_image_name(image_name, session_id):
 def command_update_encrypted_ami(values, log):
     nonce = util.make_nonce()
 
-    aws_svc = aws_service.AWSService(nonce)
+    aws_svc = aws_service.AWSService(
+        nonce,
+        retry_timeout=values.retry_timeout,
+        retry_initial_sleep_seconds=values.retry_initial_sleep_seconds
+    )
+    log.debug(
+        'Retry timeout=%.02f, initial sleep seconds=%.02f',
+        aws_svc.retry_timeout, aws_svc.retry_initial_sleep_seconds)
+
     _validate_region(aws_svc, values)
     encryptor_ami = (
         values.encryptor_ami or
