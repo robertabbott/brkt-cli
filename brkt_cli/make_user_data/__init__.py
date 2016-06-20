@@ -59,7 +59,7 @@ class MakeUserDataSubcommand(Subcommand):
         with open(values.jwt, 'r') as f:
             token_val = f.read().rstrip()
 
-        print combine_user_data(brkt_config={}, jwt=token_val, do_gzip=False)
+        print combine_user_data(brkt_config={}, jwt=token_val)
         return 0
 
 

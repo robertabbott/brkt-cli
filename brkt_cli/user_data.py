@@ -157,8 +157,7 @@ class UserDataContainer(object):
         return str(container)
 
 
-def combine_user_data(brkt_config=None, proxy_config=None, jwt=None,
-                      do_gzip=True):
+def combine_user_data(brkt_config=None, proxy_config=None, jwt=None):
     """ Combine the user data dictionary with the given proxy configuration
     into the gzipped multipart MIME binary that will be sent to the
     metavisor instance.
@@ -186,9 +185,10 @@ def combine_user_data(brkt_config=None, proxy_config=None, jwt=None,
         )
 
     user_data_string = udc.to_mime_text()
-    if not do_gzip:
-        return user_data_string
+    return user_data_string
 
+
+def gzip_user_data(user_data_string):
     out = StringIO()
     with gzip.GzipFile(fileobj=out, mode="w") as f:
         f.write(user_data_string)
