@@ -108,11 +108,12 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
             description=DESCRIPTION_GUEST_CREATOR % {'image_id': encrypted_ami}
         )
         # Run updater in same zone as guest so we can swap volumes
-        compressed_user_data = user_data.combine_user_data(
+        mime_user_data = user_data.combine_user_data(
             brkt_config,
             proxy_config=proxy_config,
             jwt=jwt
         )
+        compressed_user_data = user_data.gzip_user_data(mime_user_data)
         updater = aws_svc.run_instance(
             updater_ami,
             instance_type="c3.large",

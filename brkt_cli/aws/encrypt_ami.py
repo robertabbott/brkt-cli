@@ -396,11 +396,13 @@ def run_encryptor_instance(
         bdm['/dev/sdf'] = guest_unencrypted_root
         bdm['/dev/sdg'] = guest_encrypted_root
 
-    compressed_user_data = user_data.combine_user_data(
+    mime_user_data = user_data.combine_user_data(
         brkt_config,
         proxy_config=proxy_config,
         jwt=jwt
     )
+    compressed_user_data = user_data.gzip_user_data(mime_user_data)
+
     instance = aws_svc.run_instance(encryptor_image_id,
                                     security_group_ids=security_group_ids,
                                     user_data=compressed_user_data,
