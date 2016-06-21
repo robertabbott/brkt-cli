@@ -62,7 +62,8 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
                encrypted_ami_name, subnet_id=None, security_group_ids=None,
                enc_svc_class=encryptor_service.EncryptorService,
                ntp_servers=None, brkt_env=None,
-               guest_instance_type='m3.medium', proxy_config=None, jwt=None):
+               guest_instance_type='m3.medium', proxy_config=None, jwt=None,
+               status_port=encryptor_service.ENCRYPTOR_STATUS_PORT):
     encrypted_guest = None
     updater = None
     mv_root_id = None
@@ -76,9 +77,13 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
         # base to create a new AMI and preserve license
         # information embedded in the guest AMI
         log.info("Launching encrypted guest/updater")
-        brkt_config = {'brkt': {'solo_mode': 'updater'}}
+        brkt_config = {'brkt': {'solo_mode': 'updater',
+                                'status_port': status_port}}
         if ntp_servers:
             brkt_config['ntp-servers'] = ntp_servers
+
+        brkt_config['status_port'] = status_port
+
         add_brkt_env_to_brkt_config(brkt_env, brkt_config)
 
         if not security_group_ids:
@@ -87,7 +92,7 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
                 subnet = aws_svc.get_subnet(subnet_id)
                 vpc_id = subnet.vpc_id
             temp_sg_id = create_encryptor_security_group(
-                aws_svc, vpc_id=vpc_id).id
+                aws_svc, vpc_id=vpc_id, status_port=status_port).id
             security_group_ids = [temp_sg_id]
 
         encrypted_guest = aws_svc.run_instance(
@@ -144,7 +149,7 @@ def update_ami(aws_svc, encrypted_ami, updater_ami,
             else:
                 os.environ['NO_PROXY'] = updater.private_ip_address
 
-        enc_svc = enc_svc_class(host_ips)
+        enc_svc = enc_svc_class(host_ips, port=status_port)
         log.info('Waiting for updater service on %s (port %s on %s)',
                  updater.id, enc_svc.port, ', '.join(host_ips))
         wait_for_encryptor_up(enc_svc, Deadline(600))

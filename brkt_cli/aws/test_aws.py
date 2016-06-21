@@ -41,6 +41,7 @@ class DummyValues(object):
         self.encryptor_ami = None
         self.proxies = []
         self.proxy_config_file = None
+        self.status_port = None
 
 
 class TestValidation(unittest.TestCase):

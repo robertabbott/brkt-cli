@@ -25,3 +25,19 @@ class TestValidation(unittest.TestCase):
             validation.min_int_argument('x', 1)
         with self.assertRaises(argparse.ArgumentTypeError):
             validation.min_int_argument('-1', 0)
+
+    def test_max_int_argument(self):
+        self.assertEqual(5, validation.max_int_argument('5', 5))
+        with self.assertRaises(argparse.ArgumentTypeError):
+            validation.max_int_argument('x', 1)
+        with self.assertRaises(argparse.ArgumentTypeError):
+            validation.max_int_argument('3', 2)
+
+    def test_range_int_argument(self):
+        self.assertEqual(5, validation.range_int_argument('5', 5, 12))
+        self.assertEqual(5, validation.range_int_argument('5', 5, 12,
+                                                        exclusions=[4,7]))
+        with self.assertRaises(argparse.ArgumentTypeError):
+            validation.range_int_argument('x', 5, 12)
+        with self.assertRaises(argparse.ArgumentTypeError):
+            validation.range_int_argument('3', 7, 12)
