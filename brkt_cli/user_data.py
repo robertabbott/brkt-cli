@@ -20,7 +20,10 @@ from email.mime.text import MIMEText
 
 import yaml
 
-from brkt_cli.util import add_token_to_brkt_config
+from brkt_cli.util import (
+    add_token_to_brkt_config,
+    get_domain_from_brkt_config
+)
 
 # The directory for files saved on the Metavisor. We require that the dest
 # path for all --brkt-files be within this directory.
@@ -157,7 +160,8 @@ class UserDataContainer(object):
         return str(container)
 
 
-def combine_user_data(brkt_config=None, proxy_config=None, jwt=None):
+def combine_user_data(brkt_config=None, proxy_config=None, ca_cert=None,
+                      jwt=None):
     """ Combine the user data dictionary with the given proxy configuration
     into the gzipped multipart MIME binary that will be sent to the
     metavisor instance.
@@ -181,6 +185,14 @@ def combine_user_data(brkt_config=None, proxy_config=None, jwt=None):
         udc.add_file(
             '/var/brkt/ami_config/proxy.yaml',
             proxy_config,
+            BRKT_FILES_CONTENT_TYPE
+        )
+    if ca_cert:
+        domain = get_domain_from_brkt_config(brkt_config)
+        ca_cert_filename = "/var/brkt/ami_config/ca_cert.pem.%s" % (domain)
+        udc.add_file(
+            ca_cert_filename,
+            ca_cert,
             BRKT_FILES_CONTENT_TYPE
         )
 

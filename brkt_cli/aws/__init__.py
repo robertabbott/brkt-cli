@@ -17,6 +17,9 @@ import re
 import boto
 from boto.exception import EC2ResponseError, NoAuthHandlerFound
 
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+
 import brkt_cli
 from brkt_cli import encryptor_service, util
 from brkt_cli.aws import aws_service, encrypt_ami
@@ -358,6 +361,25 @@ def command_encrypt_ami(values, log):
     proxy_config = brkt_cli.get_proxy_config(values)
     jwt = brkt_cli.validate_jwt(values.jwt)
 
+    if values.ca_cert:
+        if not values.brkt_env:
+            raise ValidationError(
+                'Must specify --brkt-env when using --ca-cert.'
+            )
+        try:
+            with open(values.ca_cert, 'r') as f:
+                ca_cert_data = f.read()
+        except IOError as e:
+            raise ValidationError(e)
+        try:
+            parsed_cert = x509.load_pem_x509_certificate(ca_cert_data,
+                                                         default_backend())
+        except Exception as e:
+            raise ValidationError('Error validating CA cert: %s' % e)
+
+    else:
+        ca_cert_data = None
+
     encrypted_image_id = encrypt_ami.encrypt(
         aws_svc=aws_svc,
         enc_svc_cls=encryptor_service.EncryptorService,
@@ -369,6 +391,7 @@ def command_encrypt_ami(values, log):
         brkt_env=brkt_env,
         ntp_servers=values.ntp_servers,
         proxy_config=proxy_config,
+        ca_cert=ca_cert_data,
         guest_instance_type=values.guest_instance_type,
         jwt=jwt,
         status_port=values.status_port
