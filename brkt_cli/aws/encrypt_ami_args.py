@@ -14,6 +14,8 @@
 
 import argparse
 
+from brkt_cli import encryptor_service
+
 
 def setup_encrypt_ami_args(parser):
     parser.add_argument(
@@ -100,7 +102,7 @@ def setup_encrypt_ami_args(parser):
         '--status-port',
         metavar='PORT',
         dest='status_port',
-        type=int,
+        type=encryptor_service.status_port,
         help='Specify the port to receive http status of encryptor. Any port '
         'in range 1-65535 can be used except for port 81.',
         required=False

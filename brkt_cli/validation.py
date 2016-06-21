@@ -35,3 +35,30 @@ def min_int_argument(value, min_int):
         raise argparse.ArgumentTypeError('must be >= %d' % min_int)
 
     return n
+
+
+def max_int_argument(value, max_int):
+    """ Called by argparse to verify that the value is an integer that is
+    less than or equal to max_int.
+
+    :return the parsed integer value
+    :raise argparse.ArgumentTypeError if value is not an integer or is
+    out of bounds
+    """
+    try:
+        n = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError('%s is not an integer' % value)
+
+    if n > max_int:
+        raise argparse.ArgumentTypeError('must be <= %d' % max_int)
+
+    return n
+
+
+def range_int_argument(value, min_int, max_int, exclusions=[]):
+    n = min_int_argument(value, min_int)
+    n = max_int_argument(n, max_int)
+    if n in set(exclusions):
+        raise argparse.ArgumentTypeError('cannot be one of %s' % exclusions)
+    return n

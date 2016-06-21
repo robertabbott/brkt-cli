@@ -88,7 +88,7 @@ The master branch has the latest features and bug fixes, but is not as thoroughl
 The following network connections are established during image encryption:
 
 * **brkt-cli** talks to the Encryptor instance on port 8000 by default. This can
-be overriden using the --status-port flag which support any port other than port 81.
+be overridden using the --status-port flag which support any port other than port 81.
 * The Encryptor talks to the Bracket service at `yetiapi.mgmt.brkt.com`.  In
 order to do this, port 443 must be accessible on the following hosts:
   * 52.32.38.106

@@ -24,6 +24,7 @@ from brkt_cli.util import (
         Deadline,
         sleep
 )
+from brkt_cli import validation
 
 ENCRYPT_INITIALIZING = 'initial'
 ENCRYPT_DOWNLOADING = 'downloading'
@@ -242,3 +243,9 @@ def wait_for_encryption(enc_svc,
     # We've failed to get encryption status for _max_errs_ consecutive tries.
     # Assume that the server has crashed.
     raise EncryptionError('Encryption service unavailable')
+
+
+def status_port(value):
+    if not value:
+        return ENCRYPTOR_STATUS_PORT
+    return validation.range_int_argument(value, 1, 65535, exclusions=[81,])
