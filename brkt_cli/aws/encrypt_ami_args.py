@@ -103,6 +103,7 @@ def setup_encrypt_ami_args(parser):
         metavar='PORT',
         dest='status_port',
         type=encryptor_service.status_port,
+        default=encryptor_service.ENCRYPTOR_STATUS_PORT,
         help='Specify the port to receive http status of encryptor. Any port '
         'in range 1-65535 can be used except for port 81.',
         required=False
