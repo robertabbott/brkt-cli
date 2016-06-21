@@ -20,6 +20,8 @@ from email.mime.text import MIMEText
 
 import yaml
 
+from brkt_cli.util import add_token_to_brkt_config
+
 # The directory for files saved on the Metavisor. We require that the dest
 # path for all --brkt-files be within this directory.
 from StringIO import StringIO
@@ -162,12 +164,16 @@ def combine_user_data(brkt_config=None, proxy_config=None, jwt=None):
 
     :param brkt_config: dictionary of Bracket config values
     :param proxy_config: proxy.yaml contents
-    :param jwt: JSON Web Token that metavisor uses to auth with Yeti
+    :param jwt: JSON Web Token (string) that metavisor uses to auth with Yeti
+    :param do_gzip: boolean specifying whether output is gzipped
     :return: a gzipped multipart MIME binary
     """
     udc = UserDataContainer()
 
     brkt_config = brkt_config or {}
+    if jwt:
+        add_token_to_brkt_config(jwt, brkt_config)
+
     brkt_config_string = json.dumps(brkt_config)
     udc.add_part(BRKT_CONFIG_CONTENT_TYPE, brkt_config_string)
 
@@ -178,14 +184,11 @@ def combine_user_data(brkt_config=None, proxy_config=None, jwt=None):
             BRKT_FILES_CONTENT_TYPE
         )
 
-    if jwt:
-        udc.add_file(
-            '/var/brkt/ami_config/token.jwt',
-            jwt,
-            BRKT_FILES_CONTENT_TYPE
-        )
-
     user_data_string = udc.to_mime_text()
+    return user_data_string
+
+
+def gzip_user_data(user_data_string):
     out = StringIO()
     with gzip.GzipFile(fileobj=out, mode="w") as f:
         f.write(user_data_string)
