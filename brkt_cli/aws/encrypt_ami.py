@@ -364,7 +364,9 @@ def run_encryptor_instance(
     if ntp_servers:
         brkt_config['ntp-servers'] = ntp_servers
 
-    brkt_config['brkt']= {'status_port': status_port}
+    if 'brkt' not in brkt_config:
+        brkt_config['brkt'] = {}
+    brkt_config['brkt']['status_port'] = status_port
 
     image = aws_svc.get_image(encryptor_image_id)
     virtualization_type = image.virtualization_type

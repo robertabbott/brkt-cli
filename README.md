@@ -26,6 +26,8 @@ In order to use the Bracket service, you must be a
 registered Bracket customer.  Email support@brkt.com for
 more information.
 
+**brkt-cli** requires Python 2.7.
+
 We recommend using [virtualenv](https://virtualenv.pypa.io/), to avoid
 conflicts between **brkt-cli** dependencies and Python packages that are managed
 by the operating system.  If you're not familiar with virtualenv, check out the
