@@ -20,7 +20,7 @@ from email.mime.text import MIMEText
 
 import yaml
 
-from brkt_cli.util import add_token_to_user_data
+from brkt_cli.util import add_token_to_brkt_config
 
 # The directory for files saved on the Metavisor. We require that the dest
 # path for all --brkt-files be within this directory.
@@ -172,7 +172,7 @@ def combine_user_data(brkt_config=None, proxy_config=None, jwt=None):
 
     brkt_config = brkt_config or {}
     if jwt:
-        add_token_to_user_data(jwt, brkt_config)
+        add_token_to_brkt_config(jwt, brkt_config)
 
     brkt_config_string = json.dumps(brkt_config)
     udc.add_part(BRKT_CONFIG_CONTENT_TYPE, brkt_config_string)
