@@ -550,23 +550,6 @@ def validate_image_name(name):
     return name
 
 
-def validate_status_port(status_port):
-    """ Verify that the status port is valid.
-
-    :return: the status port if it's valid
-    :raises ValidationError if the status port is invalid
-    """
-    if status_port == 81:
-        raise ValidationError(
-            'Port 81 cannot be used for status port.'
-        )
-    if (status_port <= 0) or (status_port > 65535):
-        raise ValidationError(
-            'Port must be in the range 1-65535'
-        )
-    return status_port
-
-
 def validate_tag_key(key):
     """ Verify that the key is a valid EC2 tag key.
 

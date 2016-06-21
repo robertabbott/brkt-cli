@@ -277,12 +277,6 @@ def _connect_and_validate(aws_svc, values, encryptor_ami_id):
     if values.encrypted_ami_name:
         aws_service.validate_image_name(values.encrypted_ami_name)
 
-    if values.status_port:
-        values.status_port = \
-            aws_service.validate_status_port(values.status_port)
-    else:
-        values.status_port = encryptor_service.ENCRYPTOR_STATUS_PORT
-
     aws_svc.connect(values.region, key_name=values.key_name)
 
     try:
