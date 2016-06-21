@@ -97,6 +97,15 @@ def setup_encrypt_ami_args(parser):
         )
     )
     parser.add_argument(
+        '--status-port',
+        metavar='PORT',
+        dest='status_port',
+        type=int,
+        help='Specify the port to receive http status of encryptor. Any port '
+        'in range 1-65535 can be used except for port 81.',
+        required=False
+    )
+    parser.add_argument(
         '--subnet',
         metavar='ID',
         dest='subnet_id',

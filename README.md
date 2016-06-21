@@ -26,8 +26,6 @@ In order to use the Bracket service, you must be a
 registered Bracket customer.  Email support@brkt.com for
 more information.
 
-**brkt-cli** requires Python 2.7.
-
 We recommend using [virtualenv](https://virtualenv.pypa.io/), to avoid
 conflicts between **brkt-cli** dependencies and Python packages that are managed
 by the operating system.  If you're not familiar with virtualenv, check out the
@@ -87,7 +85,8 @@ The master branch has the latest features and bug fixes, but is not as thoroughl
 
 The following network connections are established during image encryption:
 
-* **brkt-cli** talks to the Encryptor instance on port 8000.
+* **brkt-cli** talks to the Encryptor instance on port 8000 by default. This can
+be overriden using the --status-port flag which support any port other than port 81.
 * The Encryptor talks to the Bracket service at `yetiapi.mgmt.brkt.com`.  In
 order to do this, port 443 must be accessible on the following hosts:
   * 52.32.38.106
@@ -132,6 +131,9 @@ optional arguments:
   --region NAME         AWS region (e.g. us-west-2)
   --security-group ID   Use this security group when running the encryptor
                         instance. May be specified multiple times.
+  --status-port         By default, port 8000 is used to talk to receive
+                        encryptor status. Any port in range 1-65535 except for
+			port 81 can be used.
   --subnet ID           Launch instances in this subnet
   --tag KEY=VALUE       Custom tag for resources created during encryption.
                         May be specified multiple times.
@@ -172,6 +174,9 @@ optional arguments:
   --region REGION       AWS region (e.g. us-west-2)
   --security-group ID   Use this security group when running the encryptor
                         instance. May be specified multiple times.
+  --status-port         By default, port 8000 is used to talk to receive
+                        updater status. Any port in range 1-65535 except for
+			port 81 can be used.
   --subnet ID           Launch instances in this subnet
   --ntp-server DNS Name
                         Optional NTP server to sync Metavisor clock. May be

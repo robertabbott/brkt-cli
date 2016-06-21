@@ -166,6 +166,7 @@ class DummyValues(object):
     def __init__(self):
         self.proxies = []
         self.proxy_config_file = None
+        self.status_port = None
 
 
 class TestCommandLineOptions(unittest.TestCase):

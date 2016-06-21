@@ -326,7 +326,8 @@ def wait_for_snapshots(aws_svc, *snapshot_ids):
         sleep(5)
 
 
-def create_encryptor_security_group(aws_svc, vpc_id=None):
+def create_encryptor_security_group(aws_svc, vpc_id=None, status_port=\
+                                    encryptor_service.ENCRYPTOR_STATUS_PORT):
     sg_name = NAME_ENCRYPTOR_SECURITY_GROUP % {'nonce': make_nonce()}
     sg_desc = DESCRIPTION_ENCRYPTOR_SECURITY_GROUP
     sg = aws_svc.create_security_group(sg_name, sg_desc, vpc_id=vpc_id)
@@ -334,8 +335,8 @@ def create_encryptor_security_group(aws_svc, vpc_id=None):
     try:
         aws_svc.add_security_group_rule(
             sg.id, ip_protocol='tcp',
-            from_port=encryptor_service.ENCRYPTOR_STATUS_PORT,
-            to_port=encryptor_service.ENCRYPTOR_STATUS_PORT,
+            from_port=status_port,
+            to_port=status_port,
             cidr_ip='0.0.0.0/0')
     except Exception as e:
         log.error('Failed adding security group rule to %s: %s', sg.id, e)
@@ -355,13 +356,15 @@ def run_encryptor_instance(
         snapshot, root_size,
         guest_image_id, brkt_env=None, security_group_ids=None,
         subnet_id=None, zone=None, ntp_servers=None, proxy_config=None,
-        jwt=None):
+        jwt=None, status_port=encryptor_service.ENCRYPTOR_STATUS_PORT):
     bdm = BlockDeviceMapping()
     brkt_config = {}
     add_brkt_env_to_brkt_config(brkt_env, brkt_config)
 
     if ntp_servers:
         brkt_config['ntp-servers'] = ntp_servers
+
+    brkt_config['brkt']= {'status_port': status_port}
 
     image = aws_svc.get_image(encryptor_image_id)
     virtualization_type = image.virtualization_type
@@ -623,7 +626,8 @@ def log_exception_console(aws_svc, e, id):
 
 def snapshot_encrypted_instance(aws_svc, enc_svc_cls, encryptor_instance,
                        encryptor_image, image_id=None, vol_type='', iops=None,
-                       legacy=False):
+                       legacy=False,
+                       status_port=encryptor_service.ENCRYPTOR_STATUS_PORT):
     # First wait for encryption to complete
     host_ips = []
     if encryptor_instance.ip_address:
@@ -638,7 +642,7 @@ def snapshot_encrypted_instance(aws_svc, enc_svc_cls, encryptor_instance,
         else:
             os.environ['NO_PROXY'] = encryptor_instance.private_ip_address
 
-    enc_svc = enc_svc_cls(host_ips)
+    enc_svc = enc_svc_cls(host_ips, port=status_port)
     log.info('Waiting for encryption service on %s (port %s on %s)',
              encryptor_instance.id, enc_svc.port, ', '.join(host_ips))
     encryptor_service.wait_for_encryptor_up(enc_svc, Deadline(600))
@@ -891,7 +895,8 @@ def register_ami(aws_svc, encryptor_instance, encryptor_image, name,
 def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
             encrypted_ami_name=None, subnet_id=None, security_group_ids=None,
             ntp_servers=None, proxy_config=None,
-            guest_instance_type='m3.medium', jwt=None):
+            guest_instance_type='m3.medium', jwt=None,
+            status_port=encryptor_service.ENCRYPTOR_STATUS_PORT):
     log.info('Starting encryptor session %s', aws_svc.session_id)
 
     encryptor_instance = None
@@ -951,7 +956,7 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
                 subnet = aws_svc.get_subnet(subnet_id)
                 vpc_id = subnet.vpc_id
             temp_sg_id = create_encryptor_security_group(
-                aws_svc, vpc_id=vpc_id).id
+                aws_svc, vpc_id=vpc_id, status_port=status_port).id
             security_group_ids = [temp_sg_id]
 
         encryptor_instance = run_encryptor_instance(
@@ -966,7 +971,8 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
             zone=guest_instance.placement,
             ntp_servers=ntp_servers,
             proxy_config=proxy_config,
-            jwt=jwt
+            jwt=jwt,
+            status_port=status_port
         )
 
         log.debug('Getting image %s', image_id)
@@ -981,7 +987,8 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
 
         mv_root_id, mv_bdm = snapshot_encrypted_instance(aws_svc, enc_svc_cls,
                 encryptor_instance, mv_image, image_id=image_id,
-                vol_type=vol_type, iops=iops, legacy=legacy)
+                vol_type=vol_type, iops=iops, legacy=legacy,
+                status_port=status_port)
         ami_info = register_ami(aws_svc, encryptor_instance, mv_image, name,
                 description, legacy=legacy, guest_instance=guest_instance,
                 mv_root_id=mv_root_id,

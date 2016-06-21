@@ -277,6 +277,12 @@ def _connect_and_validate(aws_svc, values, encryptor_ami_id):
     if values.encrypted_ami_name:
         aws_service.validate_image_name(values.encrypted_ami_name)
 
+    if values.status_port:
+        values.status_port = \
+            aws_service.validate_status_port(values.status_port)
+    else:
+        values.status_port = encryptor_service.ENCRYPTOR_STATUS_PORT
+
     aws_svc.connect(values.region, key_name=values.key_name)
 
     try:
@@ -370,7 +376,8 @@ def command_encrypt_ami(values, log):
         ntp_servers=values.ntp_servers,
         proxy_config=proxy_config,
         guest_instance_type=values.guest_instance_type,
-        jwt=jwt
+        jwt=jwt,
+        status_port=values.status_port
     )
     # Print the AMI ID to stdout, in case the caller wants to process
     # the output.  Log messages go to stderr.
@@ -471,7 +478,8 @@ def command_update_encrypted_ami(values, log):
         brkt_env=brkt_env,
         guest_instance_type=values.guest_instance_type,
         proxy_config=proxy_config,
-        jwt=jwt
+        jwt=jwt,
+        status_port=values.status_port,
     )
     print(updated_ami_id)
     return 0
