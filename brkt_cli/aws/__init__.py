@@ -375,7 +375,7 @@ def command_encrypt_ami(values, log):
             parsed_cert = x509.load_pem_x509_certificate(ca_cert_data,
                                                          default_backend())
         except Exception as e:
-            raise ValidationError('Error validating CA cert: %s', str(e))
+            raise ValidationError('Error validating CA cert: %s' % e)
 
     else:
         ca_cert_data = None
