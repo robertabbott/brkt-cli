@@ -141,7 +141,15 @@ def setup_encrypt_ami_args(parser):
         dest='brkt_env',
         help=argparse.SUPPRESS
     )
-
+    # Optional CA cert file for Brkt MCP. When an on-prem MCP is used
+    # (and thus, the MCP endpoints are provided in the --brkt-env arg), the
+    # CA cert for the MCP root CA must be 'baked into' the encrypted AMI.
+    parser.add_argument(
+        '--ca-cert',
+        metavar='CERT_FILE',
+        dest='ca_cert',
+        help=argparse.SUPPRESS
+    )
     # Optional AMI ID that's used to launch the encryptor instance.  This
     # argument is hidden because it's only used for development.
     parser.add_argument(

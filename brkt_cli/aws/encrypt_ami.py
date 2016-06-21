@@ -339,7 +339,8 @@ def run_encryptor_instance(
         snapshot, root_size,
         guest_image_id, brkt_env=None, security_group_ids=None,
         subnet_id=None, zone=None, ntp_servers=None, proxy_config=None,
-        jwt=None, status_port=encryptor_service.ENCRYPTOR_STATUS_PORT):
+        ca_cert=None, jwt=None,
+        status_port=encryptor_service.ENCRYPTOR_STATUS_PORT):
     bdm = BlockDeviceMapping()
     brkt_config = {}
     add_brkt_env_to_brkt_config(brkt_env, brkt_config)
@@ -382,6 +383,7 @@ def run_encryptor_instance(
     mime_user_data = user_data.combine_user_data(
         brkt_config,
         proxy_config=proxy_config,
+        ca_cert=ca_cert,
         jwt=jwt
     )
     compressed_user_data = user_data.gzip_user_data(mime_user_data)
@@ -885,7 +887,7 @@ def register_ami(aws_svc, encryptor_instance, encryptor_image, name,
 
 def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
             encrypted_ami_name=None, subnet_id=None, security_group_ids=None,
-            ntp_servers=None, proxy_config=None,
+            ntp_servers=None, proxy_config=None, ca_cert=None,
             guest_instance_type='m3.medium', jwt=None,
             status_port=encryptor_service.ENCRYPTOR_STATUS_PORT):
     log.info('Starting encryptor session %s', aws_svc.session_id)
@@ -962,6 +964,7 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami, brkt_env=None,
             zone=guest_instance.placement,
             ntp_servers=ntp_servers,
             proxy_config=proxy_config,
+            ca_cert=ca_cert,
             jwt=jwt,
             status_port=status_port
         )
