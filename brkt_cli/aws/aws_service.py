@@ -24,6 +24,7 @@ import logging
 from boto.exception import EC2ResponseError, BotoServerError
 
 from brkt_cli import util
+from brkt_cli.util import Deadline, BracketError
 from brkt_cli.validation import ValidationError
 
 log = logging.getLogger(__name__)
@@ -582,3 +583,31 @@ def validate_tag_value(value):
             'Tag value cannot start with "aws:"'
         )
     return value
+
+
+class VolumeError(BracketError):
+    pass
+
+
+def wait_for_volume(aws_svc, volume_id, timeout=30.0, state='available'):
+    """ Wait for the volume to be in the specified state.
+
+    :return the Volume object
+    :raise VolumeError if the timeout is exceeded
+    """
+    log.debug(
+        'Waiting for %s, timeout=%.02f, state=%s',
+        volume_id, timeout, state)
+
+    deadline = Deadline(timeout)
+    sleep_time = 0.5
+    while not deadline.is_expired():
+        volume = aws_svc.get_volume(volume_id)
+        if volume.status == state:
+            return volume
+        util.sleep(sleep_time)
+        sleep_time *= 2
+    raise VolumeError(
+        'Timed out waiting for %s to be in the %s state' %
+        (volume_id, state)
+    )
