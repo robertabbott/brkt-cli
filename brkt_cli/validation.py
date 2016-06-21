@@ -57,6 +57,15 @@ def max_int_argument(value, max_int):
 
 
 def range_int_argument(value, min_int, max_int, exclusions=[]):
+    """ Called by argparse to verify that
+    * the value is an integer and that
+    * min_int <= value <= max_int
+    * the value is not in the list of exclusions
+
+    :return the parsed integer value
+    :raise argparse.ArgumentTypeError if value is not an integer or is
+    out of bounds or in the list of exclusions
+    """
     n = min_int_argument(value, min_int)
     n = max_int_argument(n, max_int)
     if n in set(exclusions):
