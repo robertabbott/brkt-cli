@@ -265,12 +265,12 @@ command.  Note that you must pass any required environment variables or
 files into the container.  Some examples:
 
 ```
-$ docker run -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
+$ docker run --rm -e AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
 -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY \
-brkt encrypt-ami --region us-west-2 ami-4133cb21
+brkt encrypt-ami --region us-west-2 ami-9025e1f0
 ```
 
 ```
-$ docker run -v ~/keys:/keys brkt make-jwt --signing-key /keys/secret.pem
+$ docker run --rm -v ~/keys:/keys brkt make-jwt --signing-key /keys/secret.pem
 eyJhbGciOiJFUzM4NCIsInR5cCI6IkpXVCIsImtpZCI6ImU2MTNhYzI0YzRkN2ExY...
 ```
