@@ -341,7 +341,7 @@ def command_encrypt_ami(values, log):
 
     encryptor_ami = (
         values.encryptor_ami or
-        encrypt_ami.get_encryptor_ami(values.region, hvm=values.hvm)
+        encrypt_ami.get_encryptor_ami(values.region, pv=values.pv)
     )
 
     default_tags = encrypt_ami.get_default_tags(session_id, encryptor_ami)
@@ -435,7 +435,7 @@ def command_update_encrypted_ami(values, log):
     _validate_region(aws_svc, values)
     encryptor_ami = (
         values.encryptor_ami or
-        encrypt_ami.get_encryptor_ami(values.region, hvm=values.hvm)
+        encrypt_ami.get_encryptor_ami(values.region, pv=values.pv)
     )
 
     default_tags = encrypt_ami.get_default_tags(nonce, encryptor_ami)

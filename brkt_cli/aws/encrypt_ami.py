@@ -201,15 +201,15 @@ def get_encrypted_suffix():
     return NAME_ENCRYPTED_IMAGE_SUFFIX % {'nonce': make_nonce()}
 
 
-def get_encryptor_ami(region, hvm=False):
+def get_encryptor_ami(region, pv=False):
     bracket_env = os.getenv('BRACKET_ENVIRONMENT',
                             BRACKET_ENVIRONMENT)
     if not bracket_env:
         raise BracketError('No bracket environment found')
-    if hvm:
-        bucket_url = HVM_ENCRYPTOR_AMIS_URL % (bracket_env)
-    else:
+    if pv:
         bucket_url = ENCRYPTOR_AMIS_URL % (bracket_env)
+    else:
+        bucket_url = HVM_ENCRYPTOR_AMIS_URL % (bracket_env)
     log.debug('Getting encryptor AMI list from %s', bucket_url)
     r = urllib2.urlopen(bucket_url)
     if r.getcode() not in (200, 201):
