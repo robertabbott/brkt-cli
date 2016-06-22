@@ -51,6 +51,7 @@ from boto.ec2.blockdevicemapping import (
 )
 from boto.ec2.instance import InstanceAttribute
 from boto.exception import EC2ResponseError
+from brkt_cli.aws import aws_service
 
 from brkt_cli import encryptor_service, user_data
 from brkt_cli.util import (
@@ -189,24 +190,6 @@ def wait_for_instance(
     raise InstanceError(
         'Timed out waiting for %s to be in the %s state' %
         (instance_id, state)
-    )
-
-
-def wait_for_volume(
-        aws_svc, volume, timeout=300, state='available'):
-    log.debug(
-        'Waiting for %s, timeout=%d, state=%s',
-        volume.id, timeout, state)
-
-    deadline = Deadline(timeout)
-    while not deadline.is_expired():
-        volume = aws_svc.get_volume(volume.id)
-        if volume.status == state:
-            return volume
-        sleep(2)
-    raise InstanceError(
-        'Timed out waiting for %s to be in the %s state' %
-        (volume.id, state)
     )
 
 
@@ -501,6 +484,7 @@ def _snapshot_root_volume(aws_svc, instance, image_id):
             instance_id=instance.id,
             force=True
         )
+        aws_service.wait_for_volume(aws_svc, root_vol.volume_id)
         # And now delete it
         log.info('Deleting root volume %s', root_vol.volume_id)
         aws_svc.delete_volume(root_vol.volume_id)
@@ -747,6 +731,7 @@ def snapshot_encrypted_instance(aws_svc, enc_svc_cls, encryptor_instance,
             instance_id=encryptor_instance.id,
             force=True
         )
+        aws_service.wait_for_volume(aws_svc, mv_root_id)
         aws_svc.create_tags(
             mv_root_id, name=NAME_METAVISOR_ROOT_VOLUME)
 
@@ -825,6 +810,7 @@ def register_ami(aws_svc, encryptor_instance, encryptor_image, name,
                 instance_id=encryptor_instance.id,
                 force=True
             )
+            aws_service.wait_for_volume(aws_svc, bdm[d].volume_id)
             aws_svc.delete_volume(bdm[d].volume_id)
     else:
         guest_id = guest_instance.id
@@ -863,6 +849,7 @@ def register_ami(aws_svc, encryptor_instance, encryptor_image, name,
             instance_id=guest_instance.id,
             force=True
         )
+        aws_service.wait_for_volume(aws_svc, mv_root_id)
         aws_svc.delete_volume(mv_root_id)
 
     log.info('Registered AMI %s based on the snapshots.', ami)

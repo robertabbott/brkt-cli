@@ -82,6 +82,7 @@ class DummyAWSService(aws_service.BaseAWSService):
         self.run_instance_callback = None
         self.create_security_group_callback = None
         self.get_instance_callback = None
+        self.get_volume_callback = None
         self.terminate_instance_callback = None
         self.create_snapshot_callback = None
         self.get_snapshot_callback = None
@@ -173,7 +174,10 @@ class DummyAWSService(aws_service.BaseAWSService):
         return instance
 
     def get_volume(self, volume_id):
-        return self.volumes[volume_id]
+        volume = self.volumes[volume_id]
+        if self.get_volume_callback:
+            self.get_volume_callback(volume)
+        return volume
 
     def get_volumes(self, tag_key=None, tag_value=None):
         if tag_key and tag_value:
@@ -245,7 +249,8 @@ class DummyAWSService(aws_service.BaseAWSService):
         return volume
 
     def detach_volume(self, vol_id, **kwargs):
-        pass
+        self.volumes[vol_id].status = 'available'
+        return True
 
     def delete_volume(self, volume_id):
         del(self.volumes[volume_id])
@@ -483,4 +488,32 @@ class TestCustomTags(unittest.TestCase):
         with self.assertRaises(ValidationError):
             aws_service.validate_tag_value('aws:foobar')
 
+
+class TestVolume(unittest.TestCase):
+
+    def setUp(self):
+        brkt_cli.util.SLEEP_ENABLED = False
+        self.num_calls = 0
+
+    def test_wait_for_volume(self):
+        aws_svc, encryptor_image, guest_image = build_aws_service()
+
+        # Create a dummy volume.
+        volume = Volume()
+        volume.size = 8
+        volume.id = new_id()
+        volume.status = 'detaching'
+        aws_svc.volumes[volume.id] = volume
+
+        def transition_to_available(callback_volume):
+            self.num_calls += 1
+            self.assertEqual(volume, callback_volume)
+            self.assertFalse(self.num_calls > 5)
+
+            if self.num_calls == 5:
+                volume.status = 'available'
+
+        aws_svc.get_volume_callback = transition_to_available
+        result = aws_service.wait_for_volume(aws_svc, volume.id)
+        self.assertEqual(volume, result)
 
