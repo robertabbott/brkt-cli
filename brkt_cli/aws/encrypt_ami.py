@@ -121,7 +121,7 @@ AMI_NAME_MAX_LENGTH = 128
 
 BRACKET_ENVIRONMENT = "prod"
 PV_ENCRYPTOR_AMIS_URL = "https://solo-brkt-%s-net.s3.amazonaws.com/amis.json"
-HVENCRYPTOR_AMIS_URL = "https://solo-brkt-%s-net.s3.amazonaws.com/hvm_amis.json"
+ENCRYPTOR_AMIS_URL = "https://solo-brkt-%s-net.s3.amazonaws.com/hvm_amis.json"
 
 log = logging.getLogger(__name__)
 
