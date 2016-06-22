@@ -589,7 +589,7 @@ class VolumeError(BracketError):
     pass
 
 
-def wait_for_volume(aws_svc, volume_id, timeout=30.0, state='available'):
+def wait_for_volume(aws_svc, volume_id, timeout=600.0, state='available'):
     """ Wait for the volume to be in the specified state.
 
     :return the Volume object
