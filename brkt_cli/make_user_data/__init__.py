@@ -38,6 +38,8 @@ class MakeUserDataSubcommand(Subcommand):
         )
         parser.add_argument(
             '--jwt',
+            required=True,
+            metavar="JWT-STRING",
             help=(
                 'JSON Web Token that the encrypted instance will use to '
                 'authenticate with the Bracket service.  Use the make-jwt '
@@ -56,10 +58,7 @@ class MakeUserDataSubcommand(Subcommand):
         return values.make_user_data_verbose
 
     def run(self, values):
-        with open(values.jwt, 'r') as f:
-            token_val = f.read().rstrip()
-
-        print combine_user_data(brkt_config={}, jwt=token_val)
+        print combine_user_data(brkt_config={}, jwt=values.jwt)
         return 0
 
 
