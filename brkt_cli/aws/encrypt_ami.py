@@ -120,9 +120,8 @@ SLEEP_ENABLED = True
 AMI_NAME_MAX_LENGTH = 128
 
 BRACKET_ENVIRONMENT = "prod"
-ENCRYPTOR_AMIS_URL = "https://solo-brkt-%s-net.s3.amazonaws.com/amis.json"
-HVM_ENCRYPTOR_AMIS_URL = \
-    "https://solo-brkt-%s-net.s3.amazonaws.com/hvm_amis.json"
+PV_ENCRYPTOR_AMIS_URL = "https://solo-brkt-%s-net.s3.amazonaws.com/amis.json"
+ENCRYPTOR_AMIS_URL = "https://solo-brkt-%s-net.s3.amazonaws.com/hvm_amis.json"
 
 log = logging.getLogger(__name__)
 
@@ -201,13 +200,13 @@ def get_encrypted_suffix():
     return NAME_ENCRYPTED_IMAGE_SUFFIX % {'nonce': make_nonce()}
 
 
-def get_encryptor_ami(region, hvm=False):
+def get_encryptor_ami(region, pv=False):
     bracket_env = os.getenv('BRACKET_ENVIRONMENT',
                             BRACKET_ENVIRONMENT)
     if not bracket_env:
         raise BracketError('No bracket environment found')
-    if hvm:
-        bucket_url = HVM_ENCRYPTOR_AMIS_URL % (bracket_env)
+    if pv:
+        bucket_url = PV_ENCRYPTOR_AMIS_URL % (bracket_env)
     else:
         bucket_url = ENCRYPTOR_AMIS_URL % (bracket_env)
     log.debug('Getting encryptor AMI list from %s', bucket_url)

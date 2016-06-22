@@ -105,7 +105,7 @@ groups.
 ```
 $ brkt encrypt-ami --help
 usage: brkt encrypt-ami [-h] [--encrypted-ami-name NAME]
-                        [--guest-instance-type TYPE] [--hvm] [--no-validate]
+                        [--guest-instance-type TYPE] [--pv] [--no-validate]
                         [--proxy HOST:PORT | --proxy-config-file PATH]
                         --region NAME [--security-group ID] [--subnet ID]
                         [--tag KEY=VALUE] [--ntp-server DNS Name]
@@ -123,7 +123,7 @@ optional arguments:
   --guest-instance-type TYPE
                         The instance type to use when running the unencrypted
                         guest instance
-  --hvm                 Use the HVM encryptor
+  --pv                  Use the PV encryptor
   --no-validate         Don't validate AMIs, subnet, and security groups
   --proxy HOST:PORT     Use this HTTPS proxy during encryption. May be
                         specified multiple times.
@@ -146,7 +146,7 @@ optional arguments:
 ```
 $ brkt update-encrypted-ami --help
 usage: brkt update-encrypted-ami [-h] [--encrypted-ami-name NAME]
-                                 [--guest-instance-type TYPE] [--hvm]
+                                 [--guest-instance-type TYPE] [--pv]
                                  [--no-validate]
                                  [--proxy HOST:PORT | --proxy-config-file PATH]
                                  --region REGION [--security-group ID]
@@ -166,7 +166,7 @@ optional arguments:
   --guest-instance-type TYPE
                         The instance type to use when running the unencrypted
                         guest instance
-  --hvm                 Use the HVM encryptor
+  --pv                  Use the PV encryptor
   --no-validate         Don't validate AMIs, subnet, and security groups
   --proxy HOST:PORT     Use this HTTPS proxy during encryption. May be
                         specified multiple times.
