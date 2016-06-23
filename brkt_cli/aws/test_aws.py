@@ -42,6 +42,7 @@ class DummyValues(object):
         self.proxies = []
         self.proxy_config_file = None
         self.status_port = None
+        self.pv = None
 
 
 class TestValidation(unittest.TestCase):
@@ -102,35 +103,17 @@ class TestValidation(unittest.TestCase):
         # No name.
         values = DummyValues()
         values.ami = guest_image.id
-        brkt_cli.aws._connect_and_validate(aws_svc, values, encryptor_image.id)
+        brkt_cli.aws._validate(aws_svc, values, encryptor_image.id)
 
         # Unique name.
         guest_image.name = 'My image'
         values.encrypted_ami_name = 'Proposed name'
-        brkt_cli.aws._connect_and_validate(aws_svc, values, encryptor_image.id)
+        brkt_cli.aws._validate(aws_svc, values, encryptor_image.id)
 
         # Name collision.
         values.encrypted_ami_name = guest_image.name
         with self.assertRaises(ValidationError):
-            brkt_cli.aws._connect_and_validate(aws_svc, values, encryptor_image.id)
-
-    def test_no_validate(self):
-        """ Test that the --no-validate option turns off validation.
-        """
-        aws_svc, encryptor_image, guest_image = build_aws_service()
-        sg = aws_svc.create_security_group('test', 'test', vpc_id='vpc-1')
-
-        values = DummyValues()
-        values.security_group_ids = [sg.id]
-
-        # Validation checks that the security group is not in the default
-        # subnet.
-        with self.assertRaises(ValidationError):
-            brkt_cli.aws._connect_and_validate(aws_svc, values, encryptor_image.id)
-
-        # Exception is not raised when we turn off validation.
-        values.validate = False
-        brkt_cli.aws._connect_and_validate(aws_svc, values, encryptor_image.id)
+            brkt_cli.aws._validate(aws_svc, values, encryptor_image.id)
 
     def test_detect_double_encryption(self):
         """ Test that we disallow encryption of an already encrypted AMI.
@@ -147,8 +130,8 @@ class TestValidation(unittest.TestCase):
         # Make the guest image look like it was already encrypted and
         # make sure that validation fails.
         guest_image.tags[encrypt_ami.TAG_ENCRYPTOR] = 'ami-' + new_id()
-        self.assertTrue(
-            'encrypted' in brkt_cli.aws._validate_guest_ami(aws_svc, id))
+        with self.assertRaises(ValidationError):
+            brkt_cli.aws._validate_guest_ami(aws_svc, id)
 
     def test_validate_guest_image(self):
         """ Test validation of an encrypted guest image.
@@ -289,3 +272,26 @@ class TestValidation(unittest.TestCase):
         values.encryptor_ami = None
         with self.assertRaises(ValidationError):
             brkt_cli.aws._validate_region(aws_svc, values)
+
+
+class TestVirtualizationType(unittest.TestCase):
+
+    def test_use_pv_metavisor(self):
+        values = DummyValues()
+
+        guest_image = Image()
+
+        values.pv = None
+        guest_image.virtualization_type = 'paravirtual'
+        self.assertTrue(brkt_cli.aws._use_pv_metavisor(values, guest_image))
+
+        values.pv = True
+        self.assertTrue(brkt_cli.aws._use_pv_metavisor(values, guest_image))
+
+        values.pv = None
+        guest_image.virtualization_type = 'hvm'
+        self.assertFalse(brkt_cli.aws._use_pv_metavisor(values, guest_image))
+
+        values.pv = True
+        guest_image.virtualizaiton_type = 'hvm'
+        self.assertTrue(brkt_cli.aws._use_pv_metavisor(values, guest_image))

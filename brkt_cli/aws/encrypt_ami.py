@@ -37,13 +37,11 @@ AWS_SECRET_ACCESS_KEY environment variables, like you would when
 running the AWS command line utility.
 """
 
-import json
 import logging
 import os
 import string
 import tempfile
 import time
-import urllib2
 
 from boto.ec2.blockdevicemapping import (
     BlockDeviceMapping,
@@ -51,9 +49,9 @@ from boto.ec2.blockdevicemapping import (
 )
 from boto.ec2.instance import InstanceAttribute
 from boto.exception import EC2ResponseError
-from brkt_cli.aws import aws_service
 
 from brkt_cli import encryptor_service, user_data
+from brkt_cli.aws import aws_service
 from brkt_cli.util import (
     add_brkt_env_to_brkt_config,
     BracketError,
@@ -118,10 +116,6 @@ DEFAULT_DESCRIPTION_ENCRYPTED_IMAGE = \
 
 SLEEP_ENABLED = True
 AMI_NAME_MAX_LENGTH = 128
-
-BRACKET_ENVIRONMENT = "prod"
-PV_ENCRYPTOR_AMIS_URL = "https://solo-brkt-%s-net.s3.amazonaws.com/amis.json"
-ENCRYPTOR_AMIS_URL = "https://solo-brkt-%s-net.s3.amazonaws.com/hvm_amis.json"
 
 log = logging.getLogger(__name__)
 
@@ -198,27 +192,6 @@ def get_encrypted_suffix():
     the suffix is necessary because Amazon requires image names to be unique.
     """
     return NAME_ENCRYPTED_IMAGE_SUFFIX % {'nonce': make_nonce()}
-
-
-def get_encryptor_ami(region, pv=False):
-    bracket_env = os.getenv('BRACKET_ENVIRONMENT',
-                            BRACKET_ENVIRONMENT)
-    if not bracket_env:
-        raise BracketError('No bracket environment found')
-    if pv:
-        bucket_url = PV_ENCRYPTOR_AMIS_URL % (bracket_env)
-    else:
-        bucket_url = ENCRYPTOR_AMIS_URL % (bracket_env)
-    log.debug('Getting encryptor AMI list from %s', bucket_url)
-    r = urllib2.urlopen(bucket_url)
-    if r.getcode() not in (200, 201):
-        raise BracketError(
-            'Getting %s gave response: %s' % (bucket_url, r.text))
-    resp_json = json.loads(r.read())
-    ami = resp_json.get(region)
-    if not ami:
-        raise BracketError('No AMI for %s returned.' % region)
-    return ami
 
 
 def get_name_from_image(image):
