@@ -69,7 +69,7 @@ the cryptography library documentation.
 
 ## Installation
 
-The latest release of **brkt-cli** is 1.0.  Use pip to install **brkt-cli** and its dependencies:
+The latest release of **brkt-cli** is 1.0.1.  Use pip to install **brkt-cli** and its dependencies:
 
 ```
 $ pip install brkt-cli
