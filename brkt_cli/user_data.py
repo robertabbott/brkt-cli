@@ -12,28 +12,13 @@
 # License for the specific language governing permissions and
 # limitations under the License.
 import gzip
-import json
 import re
-from email import charset
+from email import charset, message_from_string
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-
-import yaml
-
-from brkt_cli.util import (
-    add_token_to_brkt_config,
-    get_domain_from_brkt_config
-)
-
-# The directory for files saved on the Metavisor. We require that the dest
-# path for all --brkt-files be within this directory.
 from StringIO import StringIO
 
-BRKT_FILE_PREFIX = '/var/brkt/instance_config'
-
-BRKT_CONFIG_CONTENT_TYPE = 'text/brkt-config'
-BRKT_FILES_CONTENT_TYPE = 'text/brkt-files'
-GUEST_FILES_CONTENT_TYPE = 'text/brkt-guest-files'
+import yaml
 
 # Load the part handler.  Note that this is only used on the guest.
 # On metavisor, we handle the parts in the cloudinit handler.
@@ -124,6 +109,20 @@ def _new_mime_part(container, content_type, payload):
     container.attach(message)
 
 
+def get_mime_part_payload(mime_data, part_content_type):
+    """ Return the payload for the part with the specified content-type.
+
+    Returns None if a part with the specified content-type is not found.
+    """
+    msg = message_from_string(mime_data)
+
+    for part in msg.walk():
+        if part.get_content_type() != part_content_type:
+            continue
+        return part.get_payload(decode=True)
+    return None
+
+
 class UserDataContainer(object):
     def __init__(self):
         self.parts = []
@@ -140,9 +139,6 @@ class UserDataContainer(object):
             'contents': content,
         }
 
-    def add_instance_config_file(self, filename, content):
-        self.add_file(filename, content, BRKT_FILES_CONTENT_TYPE)
-
     def to_mime_text(self):
         # These hard coded strings are to avoid having diffs in userdata
         # when nothing changed. Without this AWS sees the userdata has changed
@@ -158,46 +154,6 @@ class UserDataContainer(object):
                 _new_mime_part(container, content_type, yaml.safe_dump(files))
 
         return str(container)
-
-
-def combine_user_data(brkt_config=None, proxy_config=None, ca_cert=None,
-                      jwt=None):
-    """ Combine the user data dictionary with the given proxy configuration
-    into the gzipped multipart MIME binary that will be sent to the
-    metavisor instance.
-
-    :param brkt_config: dictionary of Bracket config values
-    :param proxy_config: proxy.yaml contents
-    :param jwt: JSON Web Token (string) that metavisor uses to auth with Yeti
-    :param do_gzip: boolean specifying whether output is gzipped
-    :return: a gzipped multipart MIME binary
-    """
-    udc = UserDataContainer()
-
-    brkt_config = brkt_config or {}
-    if jwt:
-        add_token_to_brkt_config(jwt, brkt_config)
-
-    brkt_config_string = json.dumps(brkt_config)
-    udc.add_part(BRKT_CONFIG_CONTENT_TYPE, brkt_config_string)
-
-    if proxy_config:
-        udc.add_file(
-            '/var/brkt/ami_config/proxy.yaml',
-            proxy_config,
-            BRKT_FILES_CONTENT_TYPE
-        )
-    if ca_cert:
-        domain = get_domain_from_brkt_config(brkt_config)
-        ca_cert_filename = "/var/brkt/ami_config/ca_cert.pem.%s" % (domain)
-        udc.add_file(
-            ca_cert_filename,
-            ca_cert,
-            BRKT_FILES_CONTENT_TYPE
-        )
-
-    user_data_string = udc.to_mime_text()
-    return user_data_string
 
 
 def gzip_user_data(user_data_string):

@@ -129,7 +129,6 @@ class APISession(object):
         if resp.status_code == 401:
             if not self._requests_auth.client.refresh_token:
                 raise APISessionError('Access token expired, no refresh token')
-            self._refresh()
             resp = self.session.request(
                 method, url, headers=headers, auth=self._requests_auth,
                 **kwargs)

@@ -3,11 +3,12 @@ import logging
 
 from brkt_cli.subcommand import Subcommand
 
-from brkt_cli import (
-    encryptor_service,
-    util
+from brkt_cli import encryptor_service, util
+from brkt_cli.instance_config import INSTANCE_METAVISOR_MODE
+from brkt_cli.instance_config_args import (
+    instance_config_from_values,
+    setup_instance_config_args
 )
-
 from brkt_cli.gce import (
     encrypt_gce_image,
     encrypt_gce_image_args,
@@ -30,6 +31,8 @@ class EncryptGCEImageSubcommand(Subcommand):
     def register(self, subparsers):
         encrypt_gce_image_parser = subparsers.add_parser('encrypt-gce-image')
         encrypt_gce_image_args.setup_encrypt_gce_image_args(encrypt_gce_image_parser)
+        setup_instance_config_args(encrypt_gce_image_parser,
+                                   brkt_env_default=brkt_cli.BRKT_ENV_PROD)
 
     def run(self, values):
         return _run_subcommand(self.name(), values)
@@ -43,6 +46,8 @@ class UpdateGCEImageSubcommand(Subcommand):
     def register(self, subparsers):
         update_gce_image_parser = subparsers.add_parser('update-gce-image')
         update_encrypted_gce_image_args.setup_update_gce_image_args(update_gce_image_parser)
+        setup_instance_config_args(update_gce_image_parser,
+                                   brkt_env_default=brkt_cli.BRKT_ENV_PROD)
 
     def run(self, values):
         return _run_subcommand(self.name(), values)
@@ -56,6 +61,8 @@ class LaunchGCEImageSubcommand(Subcommand):
     def register(self, subparsers):
         launch_gce_image_parser = subparsers.add_parser('launch-gce-image')
         launch_gce_image_args.setup_launch_gce_image_args(launch_gce_image_parser)
+        setup_instance_config_args(launch_gce_image_parser,
+                                   mode=INSTANCE_METAVISOR_MODE)
 
     def run(self, values):
         return _run_subcommand(self.name(), values)
@@ -78,10 +85,14 @@ def _run_subcommand(subcommand, values):
 
 def command_launch_gce_image(values, log):
     gce_svc = gce_service.GCEService(values.project, None, log)
+    instance_config = instance_config_from_values(values)
     if values.startup_script:
-        metadata = {'items': [{'key': 'startup-script', 'value': values.startup_script}]}
+        extra_items = [{'key': 'startup-script', 'value': values.startup_script}]
     else:
-        metadata = {}
+        extra_items = None
+    brkt_userdata = instance_config.make_userdata()
+    metadata = gce_service.gce_metadata_from_userdata(brkt_userdata,
+                                                      extra_items=extra_items)
     launch_gce_image.launch(log,
                             gce_svc,
                             values.image,
@@ -100,13 +111,6 @@ def command_update_encrypted_gce_image(values, log):
 
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
 
-    brkt_env = None
-    if values.brkt_env:
-        brkt_env = brkt_cli.parse_brkt_env(values.brkt_env)
-    else:
-        brkt_env = brkt_cli.parse_brkt_env(brkt_cli.BRKT_ENV_PROD)
-    token = brkt_cli._get_identity_token(brkt_env, values.api_email, values.api_password)
-
     gce_service.validate_image_name(encrypted_image_name)
 
     log.info('Starting updater session %s', gce_svc.get_session_id())
@@ -117,8 +121,7 @@ def command_update_encrypted_gce_image(values, log):
         encryptor_image=values.encryptor_image,
         encrypted_image_name=encrypted_image_name,
         zone=values.zone,
-        brkt_env=brkt_env,
-        token=token,
+        instance_config=instance_config_from_values(values),
         keep_encryptor=values.keep_encryptor,
         image_file=values.image_file,
         image_bucket=values.bucket,
@@ -134,16 +137,8 @@ def command_encrypt_gce_image(values, log):
     gce_svc = gce_service.GCEService(values.project, session_id, log)
     check_args(values, gce_svc)
 
-    brkt_env = None
-    if values.brkt_env:
-        brkt_env = brkt_cli.parse_brkt_env(values.brkt_env)
-    else:
-        brkt_env = brkt_cli.parse_brkt_env(brkt_cli.BRKT_ENV_PROD)
-    token = brkt_cli._get_identity_token(brkt_env, values.api_email, values.api_password)
-
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
     gce_service.validate_image_name(encrypted_image_name)
-
 
     log.info('Starting encryptor session %s', gce_svc.get_session_id())
     encrypted_image_id = encrypt_gce_image.encrypt(
@@ -153,8 +148,7 @@ def command_encrypt_gce_image(values, log):
         encryptor_image=values.encryptor_image,
         encrypted_image_name=encrypted_image_name,
         zone=values.zone,
-        brkt_env=brkt_env,
-        token=token,
+        instance_config=instance_config_from_values(values),
         image_project=values.image_project,
         keep_encryptor=values.keep_encryptor,
         image_file=values.image_file,
@@ -173,3 +167,11 @@ def check_args(values, gce_svc):
     if values.encryptor_image:
         if values.bucket != 'prod':
             raise ValidationError("Please provided either an encryptor image or an image bucket")
+    if values.jwt:
+        if values.api_email:
+            log.warning('Since JWT is provided, --brkt-email arg is ignored')
+        if values.api_password:
+            log.warning('Since JWT is provided, --brkt-password arg is ignored')
+    elif not values.api_email or not values.api_password:
+        raise ValidationError(
+            'Must provide either a JWT or both a brkt-email and a brkt-password')

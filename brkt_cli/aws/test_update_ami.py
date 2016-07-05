@@ -36,7 +36,6 @@ class TestRunUpdate(unittest.TestCase):
             aws_svc=aws_svc,
             enc_svc_cls=DummyEncryptorService,
             image_id=guest_image.id,
-            brkt_env=None,
             encryptor_ami=encryptor_image.id
         )
 
@@ -68,7 +67,6 @@ class TestRunUpdate(unittest.TestCase):
             aws_svc=aws_svc,
             enc_svc_cls=DummyEncryptorService,
             image_id=guest_image.id,
-            brkt_env=None,
             encryptor_ami=encryptor_image.id
         )
 

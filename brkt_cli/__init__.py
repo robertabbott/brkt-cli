@@ -27,10 +27,10 @@ import requests
 from brkt_cli import (
     util
 )
-from brkt_cli.proxy import Proxy
+from brkt_cli.proxy import Proxy, generate_proxy_config, validate_proxy_config
 from brkt_cli.util import validate_dns_name_ip_address
 from brkt_cli.validation import ValidationError
-from encryptor_service import BracketEnvironment
+from brkt_cli.encryptor_service import BracketEnvironment
 
 VERSION = '1.0.2pre1'
 BRKT_ENV_PROD = 'yetiapi.mgmt.brkt.com:443,hsmproxy.mgmt.brkt.com:443'
@@ -185,12 +185,12 @@ def get_proxy_config(values):
             with open(path) as f:
                 proxy_config = f.read()
         except IOError as e:
-            log.debug('Unable to read %s', path, e)
+            log.debug('Unable to read %s: %s', path, e)
             raise ValidationError('Unable to read %s' % path)
-        proxy.validate_proxy_config(proxy_config)
+        validate_proxy_config(proxy_config)
     elif values.proxies:
         proxies = _parse_proxies(*values.proxies)
-        proxy_config = proxy.generate_proxy_config(*proxies)
+        proxy_config = generate_proxy_config(*proxies)
         log.debug('Using proxy configuration:\n%s', proxy_config)
 
     return proxy_config

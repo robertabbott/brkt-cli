@@ -1,0 +1,171 @@
+# Copyright 2015 Bracket Computing, Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License").
+# You may not use this file except in compliance with the License.
+# A copy of the License is located at
+#
+# https://github.com/brkt/brkt-cli/blob/master/LICENSE
+#
+# or in the "license" file accompanying this file. This file is
+# distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+# CONDITIONS OF ANY KIND, either express or implied. See the
+# License for the specific language governing permissions and
+# limitations under the License.
+
+import argparse
+
+from cryptography import x509
+from cryptography.hazmat.backends import default_backend
+
+from brkt_cli import (
+    get_proxy_config,
+    parse_brkt_env,
+    _get_identity_token
+)
+from brkt_cli.instance_config import (
+    InstanceConfig,
+    INSTANCE_CREATOR_MODE
+)
+from brkt_cli.util import (
+    add_brkt_env_to_brkt_config,
+    get_domain_from_brkt_env
+)
+from brkt_cli.validation import ValidationError
+
+
+def setup_instance_config_args(parser, mode=INSTANCE_CREATOR_MODE,
+                               brkt_env_default=None):
+    parser.add_argument(
+        '--ntp-server',
+        metavar='DNS Name',
+        dest='ntp_servers',
+        action='append',
+        help=(
+            'Optional NTP server to sync Metavisor clock. '
+            'May be specified multiple times.'
+        )
+    )
+
+    proxy_group = parser.add_mutually_exclusive_group()
+    proxy_group.add_argument(
+        '--proxy',
+        metavar='HOST:PORT',
+        help=(
+            'Use this HTTPS proxy during encryption.  '
+            'May be specified multiple times.'
+        ),
+        dest='proxies',
+        action='append'
+    )
+    proxy_group.add_argument(
+        '--proxy-config-file',
+        metavar='PATH',
+        help='Path to proxy.yaml file that will be used during encryption',
+        dest='proxy_config_file'
+    )
+
+    # Optional yeti endpoints. Hidden because it's only used for development.
+    # If you're using this option, it should be passed as a comma separated
+    # list of endpoints. ie blb.*.*.brkt.net:7002,blb.*.*.brkt.net:7001 the
+    # endpoints must also be in order: api_host,hsmproxy_host
+    parser.add_argument(
+        '--brkt-env',
+        dest='brkt_env',
+        default=brkt_env_default,
+        help=argparse.SUPPRESS
+    )
+    # Optional CA cert file for Brkt MCP. When an on-prem MCP is used
+    # (and thus, the MCP endpoints are provided in the --brkt-env arg), the
+    # CA cert for the MCP root CA must be 'baked into' the encrypted AMI.
+    if mode is INSTANCE_CREATOR_MODE:
+        parser.add_argument(
+            '--ca-cert',
+            metavar='CERT_FILE',
+            dest='ca_cert',
+            help=argparse.SUPPRESS
+        )
+
+    # This option is still in development.
+    """
+    help=(
+        'JSON Web Token that the encrypted instance will use to '
+        'authenticate with the Bracket service.  Use the make-jwt '
+        'subcommand to generate a JWT.'
+    )
+    """
+    parser.add_argument(
+        '--jwt',
+        help=argparse.SUPPRESS
+    )
+
+
+def instance_config_from_values(values=None, mode=INSTANCE_CREATOR_MODE):
+    brkt_config = {}
+    if values is None:
+        return InstanceConfig(brkt_config, mode)
+
+    # First handle the args that affect brkt_config
+    brkt_env = None
+    if values.brkt_env:
+        brkt_env = parse_brkt_env(values.brkt_env)
+        add_brkt_env_to_brkt_config(brkt_env, brkt_config)
+
+    if values.jwt:
+        brkt_config['identity_token'] = values.jwt
+    elif 'api_email' in values and 'api_password' in values:
+        if not brkt_env:
+            raise ValidationError(
+                'Must specify brkt-env when using email and password to get token'
+            )
+        token = _get_identity_token(brkt_env, values.api_email,
+                                    values.api_password)
+        brkt_config['identity_token'] = token
+
+    if values.ntp_servers:
+        brkt_config['ntp_servers'] = values.ntp_servers
+
+    ic = InstanceConfig(brkt_config, mode)
+
+    # Now handle the args that cause files to be added to brkt-files
+    proxy_config = get_proxy_config(values)
+    if proxy_config:
+        ic.add_brkt_file('proxy.yaml', proxy_config)
+
+    if 'ca_cert' in values and values.ca_cert:
+        if mode != INSTANCE_CREATOR_MODE:
+            raise ValidationError(
+                'Can only specify ca-cert for instance in Creator mode'
+            )
+        if not values.brkt_env:
+            raise ValidationError(
+                'Must specify brkt-env when specifying ca-cert.'
+            )
+        try:
+            with open(values.ca_cert, 'r') as f:
+                ca_cert_data = f.read()
+        except IOError as e:
+            raise ValidationError(e)
+        try:
+            parsed_cert = x509.load_pem_x509_certificate(ca_cert_data,
+                                                         default_backend())
+        except Exception as e:
+            raise ValidationError('Error validating CA cert: %s' % e)
+
+        domain = get_domain_from_brkt_env(brkt_env)
+
+        ca_cert_filename = 'ca_cert.pem.' + domain
+        ic.add_brkt_file(ca_cert_filename, ca_cert_data)
+
+    return ic
+
+
+def instance_config_args_to_values(cli_args, mode=INSTANCE_CREATOR_MODE):
+    """ Convenience function for testing instance_config settings
+
+    :param cli_args: string with args separated by spaces
+    @return the values object as returned from argparser.parse_args()
+    """
+    parser = argparse.ArgumentParser()
+    setup_instance_config_args(parser, mode)
+    argv = cli_args.split()
+    return parser.parse_args(argv)

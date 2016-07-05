@@ -13,10 +13,9 @@
 # limitations under the License.
 
 import unittest
-
 import time
 
-from brkt_cli import util
+from brkt_cli import parse_brkt_env, util
 from brkt_cli.validation import ValidationError
 
 
@@ -46,6 +45,18 @@ class TestUtil(unittest.TestCase):
         )
         with self.assertRaises(ValidationError):
             util.parse_name_value('abc')
+
+
+class TestBrktEnv(unittest.TestCase):
+
+    def test_add_brkt_env_to_user_data(self):
+        userdata = {}
+        api_host_port = 'api.example.com:777'
+        hsmproxy_host_port = 'hsmproxy.example.com:888'
+        expected_userdata = {'api_host': api_host_port, 'hsmproxy_host': hsmproxy_host_port}
+        brkt_env = parse_brkt_env(api_host_port + ',' + hsmproxy_host_port)
+        util.add_brkt_env_to_brkt_config(brkt_env, userdata)
+        self.assertEqual(userdata, expected_userdata)
 
 
 class TestBase64(unittest.TestCase):
