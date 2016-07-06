@@ -28,23 +28,13 @@ def setup_update_gce_image_args(parser):
         default='prod',
         required=False
     )
-
-    # The email and password options will be deprecated soon (per Grant).
     parser.add_argument(
-         '--brkt-email',
-         metavar='EMAIL',
-         dest='api_email',
-         help='Bracket user email',
-         required=False  # arg is optional because the --jwt arg may be used instead
+        '--token',
+        help='Bracket token, created with make-token',
+        metavar='TOKEN',
+        dest='token',
+        required=True
     )
-    parser.add_argument(
-         '--brkt-password',
-         metavar='PASSWORD',
-         dest='api_password',
-         help='Bracket user password',
-         required=False  # arg is optional because the --jwt arg may be used instead
-    )
-
     parser.add_argument(
         '--project',
         help='GCE project name',

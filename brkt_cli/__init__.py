@@ -75,45 +75,6 @@ def parse_tags(tag_strings):
     return tags
 
 
-def _api_login(api_addr, api_email, api_password, https=True):
-    scheme = 'https' if https else 'http'
-    r = requests.post(
-        '%s://%s/oauth/credentials' % (scheme, api_addr),
-        json={
-            'username': api_email,
-            'password': api_password,
-            'grant_type': 'password'
-        },
-        headers={'Content-Type': 'application/json'},
-        verify=False)
-    resp = r.json()
-    if 'id_token' not in resp:
-        raise Exception('No id_token in reponse %s', r.text)
-    s = requests.Session()
-    s.headers.update({
-        'Authorization': 'Bearer %s' % resp['id_token'],
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-    })
-    return s
-
-
-def _get_identity_token(brkt_env, api_email, api_password):
-    # Use the customer facing instead of mv facing api endpoint
-    # (this removes 'yetiapi.' and replaces it with 'api.')
-    api_host = 'api.' + brkt_env.api_host.split('.', 1)[-1]
-    session = _api_login(api_host, api_email, api_password, https=True)
-    response = session.post(
-        'https://%s:%d/api/v1/identity/create_token' % (
-            api_host, brkt_env.api_port),
-        verify=False)
-    if response.status_code != 201:
-        raise ValidationError(
-            "Couldn't get an identity token: %s: %s" % (
-                response.status_code, response.content))
-    return response.json()['token']
-
-
 def parse_brkt_env(brkt_env_string):
     """ Parse the --brkt-env value.  The value is in the following format:
 

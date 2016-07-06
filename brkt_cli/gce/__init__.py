@@ -167,11 +167,5 @@ def check_args(values, gce_svc):
     if values.encryptor_image:
         if values.bucket != 'prod':
             raise ValidationError("Please provided either an encryptor image or an image bucket")
-    if values.jwt:
-        if values.api_email:
-            log.warning('Since JWT is provided, --brkt-email arg is ignored')
-        if values.api_password:
-            log.warning('Since JWT is provided, --brkt-password arg is ignored')
-    elif not values.api_email or not values.api_password:
-        raise ValidationError(
-            'Must provide either a JWT or both a brkt-email and a brkt-password')
+    if not values.token:
+        raise ValidationError('Must provide either a token')
