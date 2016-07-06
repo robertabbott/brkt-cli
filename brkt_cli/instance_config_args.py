@@ -20,7 +20,6 @@ from cryptography.hazmat.backends import default_backend
 from brkt_cli import (
     get_proxy_config,
     parse_brkt_env,
-    _get_identity_token
 )
 from brkt_cli.instance_config import (
     InstanceConfig,
@@ -84,18 +83,16 @@ def setup_instance_config_args(parser, mode=INSTANCE_CREATOR_MODE,
             dest='ca_cert',
             help=argparse.SUPPRESS
         )
-
-    # This option is still in development.
-    """
-    help=(
-        'JSON Web Token that the encrypted instance will use to '
-        'authenticate with the Bracket service.  Use the make-jwt '
-        'subcommand to generate a JWT.'
-    )
-    """
     parser.add_argument(
-        '--jwt',
-        help=argparse.SUPPRESS
+        '--token',
+        help=(
+            'Token that the encrypted instance will use to '
+            'authenticate with the Bracket service.  Use the make-token '
+            'subcommand to generate a token.'
+        ),
+        metavar='TOKEN',
+        dest='token',
+        required=False
     )
 
 
@@ -110,16 +107,8 @@ def instance_config_from_values(values=None, mode=INSTANCE_CREATOR_MODE):
         brkt_env = parse_brkt_env(values.brkt_env)
         add_brkt_env_to_brkt_config(brkt_env, brkt_config)
 
-    if values.jwt:
-        brkt_config['identity_token'] = values.jwt
-    elif 'api_email' in values and 'api_password' in values:
-        if not brkt_env:
-            raise ValidationError(
-                'Must specify brkt-env when using email and password to get token'
-            )
-        token = _get_identity_token(brkt_env, values.api_email,
-                                    values.api_password)
-        brkt_config['identity_token'] = token
+    if values.token:
+        brkt_config['identity_token'] = values.token
 
     if values.ntp_servers:
         brkt_config['ntp_servers'] = values.ntp_servers
@@ -146,8 +135,7 @@ def instance_config_from_values(values=None, mode=INSTANCE_CREATOR_MODE):
         except IOError as e:
             raise ValidationError(e)
         try:
-            parsed_cert = x509.load_pem_x509_certificate(ca_cert_data,
-                                                         default_backend())
+            x509.load_pem_x509_certificate(ca_cert_data, default_backend())
         except Exception as e:
             raise ValidationError('Error validating CA cert: %s' % e)
 

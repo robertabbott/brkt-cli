@@ -184,7 +184,7 @@ class TestInstanceConfigFromCliArgs(unittest.TestCase):
         self.assertEqual(server_list, [ntp_server1, ntp_server2])
 
     def test_jwt(self):
-        cli_args = '--jwt %s' % test_jwt
+        cli_args = '--token %s' % test_jwt
         brkt_config = _get_brkt_config_for_cli_args(cli_args)
         self.assertEqual(brkt_config['identity_token'], test_jwt)
 

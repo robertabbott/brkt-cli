@@ -168,4 +168,4 @@ def check_args(values, gce_svc):
         if values.bucket != 'prod':
             raise ValidationError("Please provided either an encryptor image or an image bucket")
     if not values.token:
-        raise ValidationError('Must provide either a token')
+        raise ValidationError('Must provide a token')

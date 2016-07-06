@@ -29,13 +29,6 @@ def setup_update_gce_image_args(parser):
         required=False
     )
     parser.add_argument(
-        '--token',
-        help='Bracket token, created with make-token',
-        metavar='TOKEN',
-        dest='token',
-        required=True
-    )
-    parser.add_argument(
         '--project',
         help='GCE project name',
         dest='project',
