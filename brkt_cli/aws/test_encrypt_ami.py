@@ -28,11 +28,15 @@ from brkt_cli import ValidationError, encryptor_service
 from brkt_cli.aws import aws_service, encrypt_ami, update_ami
 from brkt_cli.aws import test_aws_service
 from brkt_cli.aws.test_aws_service import build_aws_service
+from brkt_cli.instance_config import BRKT_CONFIG_CONTENT_TYPE
+from brkt_cli.instance_config_args import (
+    instance_config_args_to_values,
+    instance_config_from_values
+)
 from brkt_cli.test_encryptor_service import (
     DummyEncryptorService,
     FailedEncryptionService
 )
-from brkt_cli.user_data import BRKT_CONFIG_CONTENT_TYPE
 
 
 class TestSnapshotProgress(unittest.TestCase):
@@ -98,7 +102,6 @@ class TestRunEncryption(unittest.TestCase):
             aws_svc=aws_svc,
             enc_svc_cls=DummyEncryptorService,
             image_id=guest_image.id,
-            brkt_env=None,
             encryptor_ami=encryptor_image.id
         )
         self.assertIsNotNone(encrypted_ami_id)
@@ -113,7 +116,6 @@ class TestRunEncryption(unittest.TestCase):
                 aws_svc=aws_svc,
                 enc_svc_cls=FailedEncryptionService,
                 image_id=guest_image.id,
-                brkt_env=None,
                 encryptor_ami=encryptor_image.id
             )
             self.fail('Encryption should have failed')
@@ -135,7 +137,6 @@ class TestRunEncryption(unittest.TestCase):
                 aws_svc=aws_svc,
                 enc_svc_cls=FailedEncryptionService,
                 image_id=guest_image.id,
-                brkt_env=None,
                 encryptor_ami=encryptor_image.id
             )
             self.fail('Encryption should have failed')
@@ -165,7 +166,6 @@ class TestRunEncryption(unittest.TestCase):
             aws_svc=aws_svc,
             enc_svc_cls=DummyEncryptorService,
             image_id=guest_image.id,
-            brkt_env=None,
             encryptor_ami=encryptor_image.id
         )
 
@@ -183,7 +183,6 @@ class TestRunEncryption(unittest.TestCase):
             enc_svc_cls=DummyEncryptorService,
             image_id=guest_image.id,
             encryptor_ami=encryptor_image.id,
-            brkt_env=None,
             encrypted_ami_name=name
         )
         ami = aws_svc.get_image(image_id)
@@ -407,15 +406,16 @@ class TestBrktEnv(unittest.TestCase):
                     d['brkt']['hsmproxy_host']
                 )
 
-        brkt_env = brkt_cli.parse_brkt_env(
-            api_host_port + ',' + hsmproxy_host_port)
+        cli_args = '--brkt-env %s,%s' % (api_host_port, hsmproxy_host_port)
+        values = instance_config_args_to_values(cli_args)
+        ic = instance_config_from_values(values)
         aws_svc.run_instance_callback = run_instance_callback
         encrypt_ami.encrypt(
             aws_svc=aws_svc,
             enc_svc_cls=DummyEncryptorService,
             image_id=guest_image.id,
-            brkt_env=brkt_env,
-            encryptor_ami=encryptor_image.id
+            encryptor_ami=encryptor_image.id,
+            instance_config=ic
         )
 
     def test_brkt_env_update(self):
@@ -432,8 +432,9 @@ class TestBrktEnv(unittest.TestCase):
 
         api_host_port = 'api.example.com:777'
         hsmproxy_host_port = 'hsmproxy.example.com:888'
-        brkt_env = brkt_cli.parse_brkt_env(
-            api_host_port + ',' + hsmproxy_host_port)
+        cli_args = '--brkt-env %s,%s' % (api_host_port, hsmproxy_host_port)
+        values = instance_config_args_to_values(cli_args)
+        ic = instance_config_from_values(values)
 
         def run_instance_callback(args):
             if args.image_id == encryptor_image.id:
@@ -457,5 +458,5 @@ class TestBrktEnv(unittest.TestCase):
             aws_svc, encrypted_ami_id, encryptor_image.id,
             'Test updated AMI',
             enc_svc_class=DummyEncryptorService,
-            brkt_env=brkt_env
+            instance_config=ic
         )

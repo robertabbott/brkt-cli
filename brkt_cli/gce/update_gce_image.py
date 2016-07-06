@@ -15,14 +15,11 @@
 import logging
 
 from brkt_cli.gce import encrypt_gce_image
-from brkt_cli.util import (
-    add_brkt_env_to_brkt_config,
-    add_token_to_brkt_config,
-    Deadline,
-)
+from brkt_cli.gce.gce_service import gce_metadata_from_userdata
+from brkt_cli.util import add_brkt_env_to_brkt_config, Deadline
+
 from brkt_cli.encryptor_service import wait_for_encryption
 from brkt_cli.encryptor_service import wait_for_encryptor_up
-from gce_service import gce_metadata_from_userdata
 
 """
 Create an encrypted GCE image (with new metavisor) based
@@ -31,8 +28,9 @@ on an existing encrypted GCE image.
 
 log = logging.getLogger(__name__)
 
+
 def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
-            encrypted_image_name, zone, brkt_env, token, keep_encryptor=False,
+            encrypted_image_name, zone, instance_config, keep_encryptor=False,
             image_file=None, image_bucket=None, network=None):
     snap_created = None
     try:
@@ -61,10 +59,8 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
         snap_created = True
 
         log.info("Launching encrypted updater")
-        brkt_data = {'brkt': {'solo_mode': 'updater'}}
-        add_brkt_env_to_brkt_config(brkt_env, brkt_data)
-        add_token_to_brkt_config(token, brkt_data)
-        user_data = gce_metadata_from_userdata(brkt_data)
+        instance_config.brkt_config['solo_mode'] = 'updater'
+        user_data = gce_metadata_from_userdata(instance_config.make_userdata())
         gce_svc.run_instance(zone,
                              updater,
                              encryptor_image,

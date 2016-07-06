@@ -20,22 +20,23 @@ import urllib2
 import boto
 from boto.exception import EC2ResponseError, NoAuthHandlerFound
 
-from cryptography import x509
-from cryptography.hazmat.backends import default_backend
-
 import brkt_cli
 from brkt_cli import encryptor_service, util
 from brkt_cli.aws import aws_service, encrypt_ami
+from brkt_cli.instance_config_args import (
+    instance_config_from_values,
+    setup_instance_config_args
+)
 from brkt_cli.subcommand import Subcommand
 from brkt_cli.util import BracketError
 from brkt_cli.validation import ValidationError
-from encrypt_ami import (
+from brkt_cli.aws.encrypt_ami import (
     TAG_ENCRYPTOR,
     TAG_ENCRYPTOR_AMI,
     TAG_ENCRYPTOR_SESSION_ID)
-import encrypt_ami_args
-import update_encrypted_ami_args
-from update_ami import update_ami
+import brkt_cli.aws.encrypt_ami_args
+import brkt_cli.aws.update_encrypted_ami_args
+from brkt_cli.aws.update_ami import update_ami
 
 log = logging.getLogger(__name__)
 
@@ -65,6 +66,7 @@ class EncryptAMISubcommand(Subcommand):
             description='Create an encrypted AMI from an existing AMI.'
         )
         encrypt_ami_args.setup_encrypt_ami_args(encrypt_ami_parser)
+        setup_instance_config_args(encrypt_ami_parser)
 
     def run(self, values):
         return _run_subcommand(self.name(), values)
@@ -92,6 +94,8 @@ class UpdateAMISubcommand(Subcommand):
             )
         )
         update_encrypted_ami_args.setup_update_encrypted_ami(
+            update_encrypted_ami_parser)
+        setup_instance_config_args(
             update_encrypted_ami_parser)
 
     def run(self, values):
@@ -389,36 +393,10 @@ def command_encrypt_ami(values, log):
     default_tags = encrypt_ami.get_default_tags(session_id, encryptor_ami)
     default_tags.update(brkt_cli.parse_tags(values.tags))
     aws_svc.default_tags = default_tags
-    brkt_cli.validate_ntp_servers(values.ntp_servers)
 
     if values.validate:
         _validate(aws_svc, values, encryptor_ami)
-
-    brkt_env = None
-    if values.brkt_env:
-        brkt_env = brkt_cli.parse_brkt_env(values.brkt_env)
-
-    proxy_config = brkt_cli.get_proxy_config(values)
-    jwt = brkt_cli.validate_jwt(values.jwt)
-
-    if values.ca_cert:
-        if not values.brkt_env:
-            raise ValidationError(
-                'Must specify --brkt-env when using --ca-cert.'
-            )
-        try:
-            with open(values.ca_cert, 'r') as f:
-                ca_cert_data = f.read()
-        except IOError as e:
-            raise ValidationError(e)
-        try:
-            parsed_cert = x509.load_pem_x509_certificate(ca_cert_data,
-                                                         default_backend())
-        except Exception as e:
-            raise ValidationError('Error validating CA cert: %s' % e)
-
-    else:
-        ca_cert_data = None
+        brkt_cli.validate_ntp_servers(values.ntp_servers)
 
     encrypted_image_id = encrypt_ami.encrypt(
         aws_svc=aws_svc,
@@ -428,12 +406,8 @@ def command_encrypt_ami(values, log):
         encrypted_ami_name=values.encrypted_ami_name,
         subnet_id=values.subnet_id,
         security_group_ids=values.security_group_ids,
-        brkt_env=brkt_env,
-        ntp_servers=values.ntp_servers,
-        proxy_config=proxy_config,
-        ca_cert=ca_cert_data,
         guest_instance_type=values.guest_instance_type,
-        jwt=jwt,
+        instance_config=instance_config_from_values(values),
         status_port=values.status_port
     )
     # Print the AMI ID to stdout, in case the caller wants to process
@@ -524,12 +498,6 @@ def command_update_encrypted_ami(values, log):
     log.debug('Image name: %s', encrypted_ami_name)
     aws_service.validate_image_name(encrypted_ami_name)
 
-    brkt_env = None
-    if values.brkt_env:
-        brkt_env = brkt_cli.parse_brkt_env(values.brkt_env)
-    proxy_config = brkt_cli.get_proxy_config(values)
-    jwt = brkt_cli.validate_jwt(values.jwt)
-
     # Initial validation done
     log.info(
         'Updating %s with new metavisor %s',
@@ -540,13 +508,9 @@ def command_update_encrypted_ami(values, log):
         aws_svc, encrypted_image.id, encryptor_ami, encrypted_ami_name,
         subnet_id=values.subnet_id,
         security_group_ids=values.security_group_ids,
-        ntp_servers=values.ntp_servers,
-        brkt_env=brkt_env,
         guest_instance_type=values.guest_instance_type,
-        proxy_config=proxy_config,
-        jwt=jwt,
+        instance_config=instance_config_from_values(values),
         status_port=values.status_port,
     )
     print(updated_ami_id)
     return 0
-

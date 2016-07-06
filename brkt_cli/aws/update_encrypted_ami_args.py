@@ -52,25 +52,6 @@ def setup_update_encrypted_ami(parser):
         default=True,
         help="Don't validate AMIs, subnet, and security groups"
     )
-
-    proxy_group = parser.add_mutually_exclusive_group()
-    proxy_group.add_argument(
-        '--proxy',
-        metavar='HOST:PORT',
-        help=(
-            'Use this HTTPS proxy during encryption.  '
-            'May be specified multiple times.'
-        ),
-        dest='proxies',
-        action='append'
-    )
-    proxy_group.add_argument(
-        '--proxy-config-file',
-        metavar='PATH',
-        help='Path to proxy.yaml file that will be used during encryption',
-        dest='proxy_config_file'
-    )
-
     parser.add_argument(
         '--region',
         metavar='REGION',
@@ -105,22 +86,6 @@ def setup_update_encrypted_ami(parser):
         dest='subnet_id',
         help='Launch instances in this subnet'
     )
-    parser.add_argument(
-        '--ntp-server',
-        metavar='DNS Name',
-        dest='ntp_servers',
-        action='append',
-        help=(
-            'Optional NTP server to sync Metavisor clock. '
-            'May be specified multiple times.'
-        )
-    )
-    # Optional yeti endpoints. Hidden because it's only used for development.
-    parser.add_argument(
-        '--brkt-env',
-        dest='brkt_env',
-        help=argparse.SUPPRESS
-    )
     # Optional EC2 SSH key pair name to use for launching the guest
     # and encryptor instances.  This argument is hidden because it's only
     # used for development.
@@ -147,7 +112,6 @@ def setup_update_encrypted_ami(parser):
         action='store_true',
         help='Print status information to the console'
     )
-
     # Optional hidden argument for specifying the metavisor AMI.  This
     # argument is hidden because it's only used for development.  It can
     # also be used to override the default AMI if it's determined to be
@@ -158,7 +122,6 @@ def setup_update_encrypted_ami(parser):
         help=argparse.SUPPRESS,
         dest='encryptor_ami'
     )
-
     # Optional arguments for changing the behavior of our retry logic.  We
     # use these options internally, to avoid intermittent AWS service failures
     # when running concurrent encryption processes in integration tests.
@@ -169,24 +132,10 @@ def setup_update_encrypted_ami(parser):
         help=argparse.SUPPRESS,
         default=10.0
     )
-
     parser.add_argument(
         '--retry-initial-sleep-seconds',
         metavar='SECONDS',
         type=float,
         help=argparse.SUPPRESS,
         default=0.25
-    )
-
-    # This option is still in development.
-    """
-    help=(
-        'JSON Web Token that the encrypted instance will use to '
-        'authenticate with the Bracket service.  Use the make-jwt '
-        'subcommand to generate a JWT.'
-    )
-    """
-    parser.add_argument(
-        '--jwt',
-        help=argparse.SUPPRESS
     )

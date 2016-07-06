@@ -11,6 +11,7 @@ from brkt_cli import util
 from brkt_cli.gce import encrypt_gce_image
 from brkt_cli.gce import update_gce_image
 from brkt_cli.gce import gce_service
+from brkt_cli.instance_config import InstanceConfig
 from brkt_cli.test_encryptor_service import (
     DummyEncryptorService,
     FailedEncryptionService
@@ -88,7 +89,6 @@ class DummyGCEService(gce_service.BaseGCEService):
             self.disks.remove(disk)
             return
         raise test.TestException('disk doesnt exist')
-
 
     def wait_instance(self, name, zone):
         return
@@ -236,8 +236,7 @@ class TestRunEncryption(unittest.TestCase):
             encryptor_image='encryptor-image',
             encrypted_image_name='ubuntu-encrypted',
             zone='us-central1-a',
-            brkt_env=None,
-            token=TOKEN,
+            instance_config=InstanceConfig({'identity_token': TOKEN})
         )
         self.assertIsNotNone(encrypted_image)
         self.assertEqual(len(gce_svc.disks), 0)
@@ -252,8 +251,7 @@ class TestRunEncryption(unittest.TestCase):
             encryptor_image='encryptor-image',
             encrypted_image_name='ubuntu-encrypted',
             zone='us-central1-a',
-            brkt_env=None,
-            token=TOKEN,
+            instance_config=InstanceConfig({'identity_token': TOKEN})
         )
         self.assertEqual(len(gce_svc.disks), 0)
         self.assertEqual(len(gce_svc.instances), 0)
@@ -268,8 +266,7 @@ class TestRunEncryption(unittest.TestCase):
                 encryptor_image='encryptor-image',
                 encrypted_image_name='ubuntu-encrypted',
                 zone='us-central1-a',
-                brkt_env=None,
-                token=TOKEN,
+                instance_config=InstanceConfig({'identity_token': TOKEN})
             )
         self.assertEqual(len(gce_svc.disks), 0)
         self.assertEqual(len(gce_svc.instances), 0)
@@ -326,22 +323,6 @@ class TestImageValidation(unittest.TestCase):
              )
 
 
-class TestBrktEnv(unittest.TestCase):
-
-    def setUp(self):
-        util.SLEEP_ENABLED = False
-
-    def test_add_brkt_env_to_user_data(self):
-        userdata = {}
-        api_host_port = 'api.example.com:777'
-        hsmproxy_host_port = 'hsmproxy.example.com:888'
-        expected_userdata = {'brkt':{'api_host': api_host_port, 'hsmproxy_host': hsmproxy_host_port}}
-        brkt_env = brkt_cli.parse_brkt_env(
-            api_host_port + ',' + hsmproxy_host_port)
-        util.add_brkt_env_to_brkt_config(brkt_env, userdata)
-        self.assertEqual(userdata, expected_userdata)
-
-
 class TestRunUpdate(unittest.TestCase):
 
     def setUp(self):
@@ -357,8 +338,7 @@ class TestRunUpdate(unittest.TestCase):
                 encryptor_image='encryptor-image',
                 encrypted_image_name='ubuntu-encrypted',
                 zone='us-central1-a',
-                brkt_env=None,
-                token=TOKEN
+                instance_config=InstanceConfig({'identity_token': TOKEN})
             )
         self.assertEqual(len(gce_svc.disks), 0)
         self.assertEqual(len(gce_svc.instances), 0)
@@ -372,8 +352,7 @@ class TestRunUpdate(unittest.TestCase):
             encryptor_image='encryptor-image',
             encrypted_image_name='centos-encrypted',
             zone='us-central1-a',
-            brkt_env=None,
-            token=TOKEN
+            instance_config=InstanceConfig({'identity_token': TOKEN})
         )
 
         self.assertIsNotNone(encrypted_image)

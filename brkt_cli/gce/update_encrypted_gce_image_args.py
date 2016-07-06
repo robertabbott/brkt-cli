@@ -28,20 +28,23 @@ def setup_update_gce_image_args(parser):
         default='prod',
         required=False
     )
+
+    # The email and password options will be deprecated soon (per Grant).
     parser.add_argument(
          '--brkt-email',
          metavar='EMAIL',
          dest='api_email',
          help='Bracket user email',
-         required=True
-     )
+         required=False  # arg is optional because the --jwt arg may be used instead
+    )
     parser.add_argument(
          '--brkt-password',
          metavar='PASSWORD',
          dest='api_password',
          help='Bracket user password',
-         required=True
-     )
+         required=False  # arg is optional because the --jwt arg may be used instead
+    )
+
     parser.add_argument(
         '--project',
         help='GCE project name',
@@ -59,14 +62,6 @@ def setup_update_gce_image_args(parser):
         default='default',
         required=False
     )
-
-    # Optional yeti endpoints. Hidden because it's only used for development.
-    parser.add_argument(
-        '--brkt-env',
-        dest='brkt_env',
-        help=argparse.SUPPRESS
-    )
-
     # Optional arg <image name>.image.tar.gz for specifying metavisor
     # image file if you don't want to use the latest image
     parser.add_argument(
@@ -75,7 +70,6 @@ def setup_update_gce_image_args(parser):
         required=False,
         help=argparse.SUPPRESS
     )
-
     parser.add_argument(
         '--keep-encryptor',
         dest='keep_encryptor',

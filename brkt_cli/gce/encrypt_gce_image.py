@@ -4,23 +4,18 @@ import httplib
 import logging
 import socket
 
-from brkt_cli.util import (
-    add_brkt_env_to_brkt_config,
-    add_token_to_brkt_config,
-    Deadline,
-    retry,
-)
-
 from brkt_cli.encryptor_service import wait_for_encryption
 from brkt_cli.encryptor_service import wait_for_encryptor_up
+from brkt_cli.gce.gce_service import gce_metadata_from_userdata
+from brkt_cli.util import Deadline, retry
 from brkt_cli.validation import ValidationError
-from gce_service import gce_metadata_from_userdata
 from googleapiclient import errors
 
 
 log = logging.getLogger(__name__)
 
-def validate_images(gce_svc, encrypted_image_name,  encryptor, guest_image, image_project=None):
+
+def validate_images(gce_svc, encrypted_image_name, encryptor, guest_image, image_project=None):
     # check that image to be updated exists
     if not gce_svc.image_exists(guest_image, image_project):
         raise ValidationError('Image %s does not exist. Cannot encrypt' % guest_image)
@@ -39,8 +34,6 @@ def setup_encryption(gce_svc,
                      encrypted_image_disk,
                      instance_name,
                      zone,
-                     brkt_env,
-                     brkt_data,
                      image_project):
     try:
         # create disk from guest image
@@ -65,9 +58,10 @@ def do_encryption(gce_svc,
                    encryptor,
                    encryptor_image,
                    instance_name,
+                   instance_config,
                    encrypted_image_disk,
-                   brkt_data,
                    network):
+    metadata = gce_metadata_from_userdata(instance_config.make_userdata())
     log.info('Launching encryptor instance')
     gce_svc.run_instance(zone=zone,
                          name=encryptor,
@@ -75,7 +69,7 @@ def do_encryption(gce_svc,
                          network=network,
                          disks=[gce_svc.get_disk(zone, instance_name),
                                 gce_svc.get_disk(zone, encrypted_image_disk)],
-                         metadata=gce_metadata_from_userdata(brkt_data))
+                         metadata=metadata)
 
     enc_svc = enc_svc_cls([gce_svc.get_instance_ip(encryptor, zone)])
 
@@ -101,14 +95,13 @@ def create_image(gce_svc, zone, encrypted_image_disk, encrypted_image_name, encr
         gce_svc.wait_snapshot(encrypted_image_name)
         log.info("Image %s successfully created!", encrypted_image_name)
     except Exception as e:
-        log.info('Image creation failed')
+        log.info('Image creation failed: %s', e)
         raise
 
 
 def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
-            encrypted_image_name, zone, brkt_env, token, image_project=None,
+            encrypted_image_name, zone, instance_config, image_project=None,
             keep_encryptor=False, image_file=None, image_bucket=None, network=None):
-    brkt_data = {}
     try:
         # create metavisor image from file in GCS bucket
         log.info('Retrieving encryptor image from GCS bucket')
@@ -121,18 +114,19 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
 
         validate_images(gce_svc, encrypted_image_name, encryptor_image, image_id, image_project)
 
-        add_brkt_env_to_brkt_config(brkt_env, brkt_data)
-        add_token_to_brkt_config(token, brkt_data)
         instance_name = 'brkt-guest-' + gce_svc.get_session_id()
         encryptor = instance_name + '-encryptor'
         encrypted_image_disk = 'encrypted-image-' + gce_svc.get_session_id()
 
         # create guest root disk and blank disk to dd to
-        setup_encryption(gce_svc, image_id, encrypted_image_disk, instance_name, zone, brkt_env, brkt_data, image_project)
+        setup_encryption(gce_svc, image_id, encrypted_image_disk,
+                         instance_name, zone, image_project)
 
         # run encryptor instance with avatar_creator as root,
         # customer image and blank disk
-        do_encryption(gce_svc, enc_svc_cls, zone, encryptor, encryptor_image, instance_name, encrypted_image_disk, brkt_data, network)
+        do_encryption(gce_svc, enc_svc_cls, zone, encryptor, encryptor_image,
+                      instance_name, instance_config, encrypted_image_disk,
+                      network)
 
         # create image
         create_image(gce_svc, zone, encrypted_image_disk, encrypted_image_name, encryptor)

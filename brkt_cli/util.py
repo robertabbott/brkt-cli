@@ -114,40 +114,24 @@ def add_brkt_env_to_brkt_config(brkt_env, brkt_config):
     :param brkt_config a dictionary that contains configuration data
     """
     if brkt_env:
-        if 'brkt' not in brkt_config:
-            brkt_config['brkt'] = {}
         api_host_port = '%s:%d' % (brkt_env.api_host, brkt_env.api_port)
         hsmproxy_host_port = '%s:%d' % (
             brkt_env.hsmproxy_host, brkt_env.hsmproxy_port)
-        brkt_config['brkt']['api_host'] = api_host_port
-        brkt_config['brkt']['hsmproxy_host'] = hsmproxy_host_port
+        brkt_config['api_host'] = api_host_port
+        brkt_config['hsmproxy_host'] = hsmproxy_host_port
 
 
-def get_domain_from_brkt_config(brkt_config):
-    """Return the domain string from the api_host in the brkt_config.
+def get_domain_from_brkt_env(brkt_env):
+    """Return the domain string from the api_host in the brkt_env. """
 
-    Raises ValidationError if it doesn't like brkt_config.
-    """
-
-    if not brkt_config or 'brkt' not in brkt_config:
-        raise ValidationError('Invalid brkt_config: %s' % brkt_config)
-    brkt_env = brkt_config['brkt']
-
-    if 'api_host' not in brkt_env:
+    api_host = brkt_env.api_host
+    if not api_host:
         raise ValidationError('api_host endpoint not in brkt_env: %s' %
                               brkt_env)
-    # Remove the port string from api_host
-    api_host = brkt_env['api_host'].split(':')[0]
 
     # Consider the domain to be everything after the first '.' in
     # the api_host.
     return api_host.split('.', 1)[1]
-
-
-def add_token_to_brkt_config(identity_token, user_data):
-    if 'brkt' not in user_data:
-        user_data['brkt'] = {}
-    user_data['brkt']['identity_token'] = identity_token
 
 
 def make_nonce():

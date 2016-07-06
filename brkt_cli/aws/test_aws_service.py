@@ -516,4 +516,3 @@ class TestVolume(unittest.TestCase):
         aws_svc.get_volume_callback = transition_to_available
         result = aws_service.wait_for_volume(aws_svc, volume.id)
         self.assertEqual(volume, result)
-

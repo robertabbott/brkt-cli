@@ -15,8 +15,10 @@ import logging
 
 import brkt_cli
 from brkt_cli.subcommand import Subcommand
-from brkt_cli.user_data import combine_user_data
-
+from brkt_cli.instance_config_args import (
+    instance_config_from_values,
+    setup_instance_config_args
+)
 log = logging.getLogger(__name__)
 
 
@@ -36,16 +38,9 @@ class MakeUserDataSubcommand(Subcommand):
                 'Metavisor and cloud-init when running an instance.'
             )
         )
-        parser.add_argument(
-            '--jwt',
-            required=True,
-            metavar="JWT-STRING",
-            help=(
-                'JSON Web Token that the encrypted instance will use to '
-                'authenticate with the Bracket service.  Use the make-jwt '
-                'subcommand to generate a JWT.'
-            )
-        )
+
+        setup_instance_config_args(parser)
+
         parser.add_argument(
             '-v',
             '--verbose',
@@ -58,7 +53,8 @@ class MakeUserDataSubcommand(Subcommand):
         return values.make_user_data_verbose
 
     def run(self, values):
-        print combine_user_data(brkt_config={}, jwt=values.jwt)
+        instance_cfg = instance_config_from_values(values)
+        print instance_cfg.make_userdata()
         return 0
 
 

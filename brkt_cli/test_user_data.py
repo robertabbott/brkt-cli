@@ -11,58 +11,59 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
+
 import email
+import json
 import unittest
 
-from brkt_cli import proxy, user_data
-from brkt_cli.proxy import Proxy
-from brkt_cli.user_data import (
-    UserDataContainer,
-    BRKT_CONFIG_CONTENT_TYPE,
-    BRKT_FILES_CONTENT_TYPE
-)
+from brkt_cli.user_data import get_mime_part_payload, UserDataContainer
 
 
 class TestUserData(unittest.TestCase):
 
-    def test_user_data_container(self):
+    def test_add_part(self):
         udc = UserDataContainer()
-        udc.add_file('test.txt', '1 2 3', 'text/plain')
+        ct = 'text/brkt-config'
+        cfg_json = '{"brkt": "identity_token": "foo"}'
+        udc.add_part(ct, cfg_json)
         mime = udc.to_mime_text()
-        self.assertTrue('test.txt: {contents: 1 2 3}' in mime)
+        actual_payload = get_mime_part_payload(mime, ct)
+        self.assertEqual(actual_payload, cfg_json)
 
-    def test_combine_user_data(self):
-        """ Test combining Bracket config data with HTTP proxy config data.
-        """
-        brkt_config = {'foo': 'bar'}
-        p = Proxy(host='proxy1.example.com', port=8001)
-        proxy_config = proxy.generate_proxy_config(p)
-        jwt = (
-            'eyJhbGciOiAiRVMzODQiLCAidHlwIjogIkpXVCJ9.eyJpc3MiOiAiYnJrdC1jb'
-            'GktMC45LjE3cHJlMSIsICJpYXQiOiAxNDYzNDI5MDg1LCAianRpIjogImJlN2J'
-            'mYzYwIiwgImtpZCI6ICJhYmMifQ.U2lnbmVkLCBzZWFsZWQsIGRlbGl2ZXJlZA'
-        )
-        mime_data = user_data.combine_user_data(
-            brkt_config,
-            proxy_config=proxy_config,
-            jwt=jwt
-        )
+    def test_add_file(self):
+        udc = UserDataContainer()
+        ct = 'text/plain'
+        udc.add_file('test.txt', '1 2 3', ct)
+        mime = udc.to_mime_text()
+        expected_payload = 'test.txt: {contents: 1 2 3}\n'
+        actual_payload = get_mime_part_payload(mime, ct)
+        self.assertEqual(actual_payload, expected_payload)
 
-        msg = email.message_from_string(mime_data)
-        found_brkt_config = False
-        found_brkt_files = False
+        bogus_payload = get_mime_part_payload(mime, 'text/bogus')
+        self.assertEqual(bogus_payload, None)
 
-        for part in msg.walk():
-            if part.get_content_type() == BRKT_CONFIG_CONTENT_TYPE:
-                found_brkt_config = True
-                content = part.get_payload(decode=True)
-                self.assertEqual(
-                    '{"foo": "bar", "brkt": {"identity_token": "%s"}}' % jwt,
-                    content)
-            if part.get_content_type() == BRKT_FILES_CONTENT_TYPE:
-                found_brkt_files = True
-                content = part.get_payload(decode=True)
-                self.assertTrue('/var/brkt/ami_config/proxy.yaml:' in content)
+    def test_add_files_and_config(self):
+        udc = UserDataContainer()
 
-        self.assertTrue(found_brkt_config)
-        self.assertTrue(found_brkt_files)
+        file1_contents = 'Never gonna give you up.'
+        file2_contents = 'Never\ngonna\tlet you\n\ndown!!'
+        udc.add_file('rick.html', file1_contents, 'text/html')
+        udc.add_file('/var/brkt/roll.html', file2_contents, 'text/html')
+
+        file3_contents = '{"all-I-wanted": "Pepsi"}'
+        udc.add_file('/etc/motd.txt', file3_contents, 'text/brkt-config')
+
+        mime = udc.to_mime_text()
+        payload = get_mime_part_payload(mime, 'text/html')
+        expected1 = 'rick.html: {contents: %s}\n' % file1_contents
+        self.assertTrue(expected1 in payload,
+                       '%s not found in:\n%s' % (expected1, payload))
+        expected2 = '/var/brkt/roll.html: {contents: %s}\n' % \
+                    json.dumps(file2_contents)
+        self.assertTrue(expected2 in payload,
+                       '%s not found in:\n%s' % (expected2, payload))
+
+        payload = get_mime_part_payload(mime, 'text/brkt-config')
+        expected3 = '/etc/motd.txt: {contents: \'%s' % file3_contents
+        self.assertTrue(expected3 in payload,
+                       '%s not found in:\n%s' % (expected3, payload))

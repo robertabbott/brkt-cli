@@ -219,7 +219,6 @@ class GCEService(BaseGCEService):
         except:
             log.exception('Cleanup failed')
 
-
     def list_zones(self):
         zones = []
         zones_resp = self.compute.zones().list(project=self.project).execute()
@@ -353,7 +352,7 @@ class GCEService(BaseGCEService):
 
     def create_snapshot(self, zone, disk, snapshot_name):
         disk_url = "projects/%s/zones/%s/disks/%s" % (self.project, zone, disk)
-        body = {'sourceDisk':disk_url, 'name':snapshot_name}
+        body = {'sourceDisk': disk_url, 'name': snapshot_name}
         self.compute.disks().createSnapshot(project=self.project, disk=disk, body=body, zone=zone).execute()
 
     def delete_snapshot(self, snapshot_name):
@@ -570,11 +569,12 @@ class GCEService(BaseGCEService):
         }
 
 
-def gce_metadata_from_userdata(brkt_data):
-    gce_metadata = {}
-    gce_metadata['items']= [{'key': 'brkt',
-                                  'value': json.dumps(brkt_data)}]
-    return gce_metadata
+def gce_metadata_from_userdata(brkt_data, extra_items=None):
+    """ brkt_data is a JSON blob containing the brkt-config """
+    items_list = [{'key': 'brkt', 'value': brkt_data}]
+    if extra_items:
+        items_list.extend(extra_items)
+    return { 'items': items_list }
 
 
 def get_image_name(encrypted_image_name, name):

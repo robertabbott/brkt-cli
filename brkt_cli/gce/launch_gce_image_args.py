@@ -53,16 +53,3 @@ def setup_launch_gce_image_args(parser):
         metavar='SCRIPT',
         required=False
     )
-
-    # Optional yeti endpoints. Hidden because it's only used for development.
-    # If you're using this option, it should be passed as a comma separated
-    # list of endpoints. ie blb.*.*.brkt.net:7002,blb.*.*.brkt.net:7001 the
-    # endpoints must also be in order: api_host,hsmproxy_host
-    parser.add_argument(
-        '--brkt-env',
-        dest='brkt_env',
-        help=argparse.SUPPRESS
-    )
-
-    # Optional Image Name that's used to launch the encryptor instance. This
-    # argument is hidden because it's only used for development.
