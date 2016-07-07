@@ -13,11 +13,14 @@
 # limitations under the License.
 import abc
 import base64
+import getpass
 import logging
 import re
 import time
 import uuid
 
+import brkt_cli
+import brkt_cli.crypto
 from brkt_cli.validation import ValidationError
 
 SLEEP_ENABLED = True
@@ -196,3 +199,36 @@ def parse_name_value(name_value):
         raise ValidationError(
             '%s is not in the format NAME=VALUE' % name_value)
     return m.group(1), m.group(2)
+
+
+def read_private_key(pem_path):
+    """ Read a private key from a PEM file.
+
+    :return a brkt_cli.crypto.Crypto object
+    :raise ValidationError if the file cannot be read or is malformed, or
+    if the PEM does not represent a 384-bit ECDSA private key.
+    """
+    key_format_err = (
+        'Signing key must be a 384-bit ECDSA private key (NIST P-384)'
+    )
+
+    try:
+        with open(pem_path) as f:
+            pem = f.read()
+        if not brkt_cli.crypto.is_private_key(pem):
+            raise ValidationError(key_format_err)
+
+        password = None
+        if brkt_cli.crypto.is_encrypted_key(pem):
+            password = getpass.getpass('Encrypted private key password: ')
+        crypto = brkt_cli.crypto.from_private_key_pem(pem, password=password)
+    except (ValueError, IOError) as e:
+        if log.isEnabledFor(logging.DEBUG):
+            log.exception('Unable to load signing key from %s', pem_path)
+        raise ValidationError(
+            'Unable to load signing key: %s' % e)
+
+    log.debug('crypto.curve=%s', crypto.curve)
+    if crypto.curve != brkt_cli.crypto.SECP384R1:
+        raise ValidationError(key_format_err)
+    return crypto
