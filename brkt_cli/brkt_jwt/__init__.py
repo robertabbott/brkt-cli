@@ -32,7 +32,7 @@ from brkt_cli.validation import ValidationError
 log = logging.getLogger(__name__)
 
 
-SUBCOMMAND_NAME = 'make-jwt'
+SUBCOMMAND_NAME = 'make-token'
 
 
 class MakeJWTSubcommand(Subcommand):
