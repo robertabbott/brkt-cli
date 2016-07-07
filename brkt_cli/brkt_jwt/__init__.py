@@ -13,7 +13,6 @@
 # limitations under the License.
 from __future__ import print_function
 
-import getpass
 import json
 import logging
 import re
@@ -25,7 +24,6 @@ import iso8601
 import jwt
 
 import brkt_cli
-import brkt_cli.crypto
 from brkt_cli import util
 from brkt_cli.brkt_jwt import jwk
 from brkt_cli.subcommand import Subcommand
@@ -52,7 +50,7 @@ class MakeJWTSubcommand(Subcommand):
         return values.make_jwt_verbose
 
     def run(self, values):
-        crypto = read_signing_key(values.signing_key)
+        crypto = util.read_private_key(values.signing_key)
         exp = None
         if values.exp:
             exp = parse_timestamp(values.exp)
@@ -95,38 +93,6 @@ def _datetime_to_timestamp(dt):
 
 def get_subcommands():
     return [MakeJWTSubcommand()]
-
-
-def read_signing_key(pem_path):
-    """ Read the signing key from a PEM file.
-
-    :return a brkt_cli.crypto.Crypto object
-    :raise ValidationError if the file cannot be read or is malformed
-    """
-    key_format_err = (
-        'Signing key must be a 384-bit ECDSA private key (NIST P-384)'
-    )
-
-    try:
-        with open(pem_path) as f:
-            pem = f.read()
-        if not brkt_cli.crypto.is_private_key(pem):
-            raise ValidationError(key_format_err)
-
-        password = None
-        if brkt_cli.crypto.is_encrypted_key(pem):
-            password = getpass.getpass('Encrypted private key password: ')
-        crypto = brkt_cli.crypto.from_private_key_pem(pem, password=password)
-    except (ValueError, IOError) as e:
-        if log.isEnabledFor(logging.DEBUG):
-            log.exception('Unable to load signing key from %s', pem_path)
-        raise ValidationError(
-            'Unable to load signing key: %s' % e)
-
-    log.debug('crypto.curve=%s', crypto.curve)
-    if crypto.curve != brkt_cli.crypto.SECP384R1:
-        raise ValidationError(key_format_err)
-    return crypto
 
 
 def parse_timestamp(ts_string):
