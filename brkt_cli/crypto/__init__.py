@@ -33,10 +33,41 @@ class Crypto(object):
     def __init__(self):
         self.private_key = None
         self.public_key = None
+        self.public_key_pem = None
 
         self.x = None
         self.y = None
         self.curve = None
+
+    def get_private_key_pem(self, password=None):
+        if password is not None:
+            encryption = serialization.BestAvailableEncryption(password)
+        else:
+            encryption = serialization.NoEncryption()
+
+        return self.private_key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.TraditionalOpenSSL,
+            encryption
+        )
+
+
+def _from_private_key(private_key):
+    public_key = private_key.public_key()
+    numbers = public_key.public_numbers()
+
+    crypto = Crypto()
+    crypto.private_key = private_key
+    crypto.public_key = public_key
+    crypto.public_key_pem = public_key.public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+    crypto.x = numbers.x
+    crypto.y = numbers.y
+    crypto.curve = numbers.curve.name
+
+    return crypto
 
 
 def from_private_key_pem(pem, password=None):
@@ -48,18 +79,14 @@ def from_private_key_pem(pem, password=None):
     private_key = serialization.load_pem_private_key(
         pem, password=password, backend=default_backend()
     )
+    return _from_private_key(private_key)
 
-    public_key = private_key.public_key()
-    numbers = public_key.public_numbers()
 
-    crypto = Crypto()
-    crypto.private_key = private_key
-    crypto.public_key = public_key
-    crypto.x = numbers.x
-    crypto.y = numbers.y
-    crypto.curve = numbers.curve.name
-
-    return crypto
+def new():
+    """ Return a new Crypto object based on a generated private key.
+    """
+    private_key = ec.generate_private_key(ec.SECP384R1(), default_backend())
+    return _from_private_key(private_key)
 
 
 def is_encrypted_key(pem):
