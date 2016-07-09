@@ -26,7 +26,7 @@ DESCRIPTION_LOG_SNAPSHOT = \
     'Log volume from %(instance_id)s'
 
 
-def _snapshot_log_volume(aws_svc, instance_id, bracket_aws_account):
+def snapshot_log_volume(aws_svc, instance_id, bracket_aws_account):
     """ Snapshot the log volume of the given instance.
 
     :except SnapshotError if the snapshot goes into an error state
@@ -62,18 +62,18 @@ def _snapshot_log_volume(aws_svc, instance_id, bracket_aws_account):
     except:
         clean_up(aws_svc, snapshot_ids=[snapshot.id])
         raise
+    return snapshot
 
+
+def _share_snapshot(snapshot, bracket_aws_account):
     log.info(
         'Sharing snapshot %s with AWS account %s',
         snapshot.id, bracket_aws_account
     )
     snapshot.share(user_ids=[bracket_aws_account])
-    ret_values = snapshot.id
-    log.debug('Returning %s', str(ret_values))
-    return ret_values
 
 
 def share(aws_svc=None, instance_id='', bracket_aws_account=''):
-    snapshot_id = _snapshot_log_volume(aws_svc, instance_id,
-                                       bracket_aws_account)
-    print snapshot_id
+    snapshot = snapshot_log_volume(aws_svc, instance_id, bracket_aws_account)
+    _share_snapshot(snapshot, bracket_aws_account)
+    print snapshot.id
