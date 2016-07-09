@@ -73,8 +73,7 @@ def _snapshot_log_volume(aws_svc, instance_id, bracket_aws_account):
     return ret_values
 
 
-def share(aws_svc=None, logshare_svc=None, instance_id='',
-          bracket_aws_account=''):
+def share(aws_svc=None, instance_id='', bracket_aws_account=''):
     snapshot_id = _snapshot_log_volume(aws_svc, instance_id,
                                        bracket_aws_account)
     print snapshot_id
