@@ -22,7 +22,7 @@ from boto.exception import EC2ResponseError, NoAuthHandlerFound
 
 import brkt_cli
 from brkt_cli import encryptor_service, util
-from brkt_cli.aws import aws_service, encrypt_ami
+from brkt_cli.aws import aws_service, encrypt_ami, share_logs
 from brkt_cli.instance_config_args import (
     instance_config_from_values,
     setup_instance_config_args
@@ -34,6 +34,8 @@ from brkt_cli.aws.encrypt_ami import (
     TAG_ENCRYPTOR,
     TAG_ENCRYPTOR_AMI,
     TAG_ENCRYPTOR_SESSION_ID)
+
+import brkt_cli.aws.share_logs_args
 import brkt_cli.aws.encrypt_ami_args
 import brkt_cli.aws.update_encrypted_ami_args
 from brkt_cli.aws.update_ami import update_ami
@@ -45,6 +47,30 @@ METAVISOR_AMI_REGION_NAMES = ['us-east-1', 'us-west-1', 'us-west-2']
 BRACKET_ENVIRONMENT = "prod"
 PV_ENCRYPTOR_AMIS_URL = "https://solo-brkt-%s-net.s3.amazonaws.com/amis.json"
 ENCRYPTOR_AMIS_URL = "https://solo-brkt-%s-net.s3.amazonaws.com/hvm_amis.json"
+
+
+class ShareLogsSubcommand(Subcommand):
+
+    def name(self):
+        return 'share-logs'
+
+    def init_logging(self, verbose):
+        # Set boto logging to FATAL, since boto logs auth errors and 401s
+        # at ERROR level.
+        boto.log.setLevel(logging.FATAL)
+
+    def verbose(self, values):
+        return values.share_logs_verbose
+
+    def register(self, subparsers):
+        share_logs_parser = subparsers.add_parser(
+            'share-logs',
+            description='Share logs from an existing encrypted instance.'
+        )
+        share_logs_args.setup_share_logs_args(share_logs_parser)
+
+    def run(self, values):
+        return _run_subcommand(self.name(), values)
 
 
 class EncryptAMISubcommand(Subcommand):
@@ -103,7 +129,9 @@ class UpdateAMISubcommand(Subcommand):
 
 
 def get_subcommands():
-    return [EncryptAMISubcommand(), UpdateAMISubcommand()]
+    return [EncryptAMISubcommand(),
+            ShareLogsSubcommand(),
+            UpdateAMISubcommand()]
 
 
 def _run_subcommand(subcommand, values):
@@ -112,6 +140,8 @@ def _run_subcommand(subcommand, values):
             return command_encrypt_ami(values, log)
         if subcommand == 'update-encrypted-ami':
             return command_update_encrypted_ami(values, log)
+        if subcommand == 'share-logs':
+            return command_share_logs(values, log)
     except NoAuthHandlerFound:
         msg = (
             'Unable to connect to AWS.  Are your AWS_ACCESS_KEY_ID and '
@@ -513,4 +543,44 @@ def command_update_encrypted_ami(values, log):
         status_port=values.status_port,
     )
     print(updated_ami_id)
+    return 0
+
+
+def _validate_log_instance(aws_svc, instance_id):
+    pass
+
+
+def command_share_logs(values, log):
+    nonce = util.make_nonce()
+
+    aws_svc = aws_service.AWSService(
+        nonce,
+        retry_timeout=values.retry_timeout,
+        retry_initial_sleep_seconds=values.retry_initial_sleep_seconds
+    )
+    log.debug(
+        'Retry timeout=%.02f, initial sleep seconds=%.02f',
+        aws_svc.retry_timeout, aws_svc.retry_initial_sleep_seconds)
+
+    if values.validate:
+        # Validate the region before connecting.
+        region_names = [r.name for r in aws_svc.get_regions()]
+        if values.region not in region_names:
+            raise ValidationError(
+                'Invalid region %s.  Supported regions: %s.' %
+                (values.region, ', '.join(region_names)))
+
+    aws_svc.connect(values.region)
+
+    if values.validate:
+        _validate_log_instance(
+            aws_svc, values.instance_id)
+    else:
+        log.info('Skipping instance validation.')
+
+    share_logs.share(
+        aws_svc,
+        instance_id=values.instance_id,
+        bracket_aws_account=values.bracket_aws_account
+    )
     return 0
