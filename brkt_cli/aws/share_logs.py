@@ -26,7 +26,7 @@ DESCRIPTION_LOG_SNAPSHOT = \
     'Log volume from %(instance_id)s'
 
 
-def snapshot_log_volume(aws_svc, instance_id, bracket_aws_account):
+def snapshot_log_volume(aws_svc, instance_id):
     """ Snapshot the log volume of the given instance.
 
     :except SnapshotError if the snapshot goes into an error state
@@ -74,6 +74,6 @@ def _share_snapshot(snapshot, bracket_aws_account):
 
 
 def share(aws_svc=None, instance_id='', bracket_aws_account=''):
-    snapshot = snapshot_log_volume(aws_svc, instance_id, bracket_aws_account)
+    snapshot = snapshot_log_volume(aws_svc, instance_id)
     _share_snapshot(snapshot, bracket_aws_account)
     print snapshot.id
