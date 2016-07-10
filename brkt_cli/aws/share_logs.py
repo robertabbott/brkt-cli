@@ -17,13 +17,15 @@ from brkt_cli.aws.encrypt_ami import (
     clean_up,
     wait_for_snapshots
 )
+from datetime import datetime
 
 log = logging.getLogger(__name__)
 
 # Snapshot names.
-NAME_LOG_SNAPSHOT = 'Bracket system log volume'
+NAME_LOG_SNAPSHOT = 'Bracket logs from %(instance_id)s'
 DESCRIPTION_LOG_SNAPSHOT = \
-    'Log volume from %(instance_id)s'
+    'Bracket logs from %(instance_id)s in AWS account %(aws_account)s '\
+    'taken at %(timestamp)s'
 
 
 def snapshot_log_volume(aws_svc, instance_id):
@@ -49,8 +51,12 @@ def snapshot_log_volume(aws_svc, instance_id):
 
     snapshot = aws_svc.create_snapshot(
         vol.id,
-        name=NAME_LOG_SNAPSHOT,
-        description=DESCRIPTION_LOG_SNAPSHOT % {'instance_id': instance_id}
+        name=NAME_LOG_SNAPSHOT % {'instance_id': instance_id},
+        description=DESCRIPTION_LOG_SNAPSHOT % {
+            'instance_id': instance_id,
+            'aws_account': image.owner_id,
+            'timestamp': datetime.utcnow().strftime('%b %d %Y %I:%M%p UTC')
+        }
     )
     log.info(
         'Creating snapshot %s of log volume for instance %s',
