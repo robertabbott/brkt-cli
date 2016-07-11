@@ -22,7 +22,12 @@ from boto.exception import EC2ResponseError, NoAuthHandlerFound
 
 import brkt_cli
 from brkt_cli import encryptor_service, util
-from brkt_cli.aws import aws_service, encrypt_ami
+from brkt_cli.aws import (
+    aws_service,
+    diag,
+    encrypt_ami,
+    share_logs
+)
 from brkt_cli.instance_config_args import (
     instance_config_from_values,
     setup_instance_config_args
@@ -34,7 +39,10 @@ from brkt_cli.aws.encrypt_ami import (
     TAG_ENCRYPTOR,
     TAG_ENCRYPTOR_AMI,
     TAG_ENCRYPTOR_SESSION_ID)
+
+import brkt_cli.aws.diag_args
 import brkt_cli.aws.encrypt_ami_args
+import brkt_cli.aws.share_logs_args
 import brkt_cli.aws.update_encrypted_ami_args
 from brkt_cli.aws.update_ami import update_ami
 
@@ -45,6 +53,54 @@ METAVISOR_AMI_REGION_NAMES = ['us-east-1', 'us-west-1', 'us-west-2']
 BRACKET_ENVIRONMENT = "prod"
 PV_ENCRYPTOR_AMIS_URL = "https://solo-brkt-%s-net.s3.amazonaws.com/amis.json"
 ENCRYPTOR_AMIS_URL = "https://solo-brkt-%s-net.s3.amazonaws.com/hvm_amis.json"
+
+
+class DiagSubcommand(Subcommand):
+    def name(self):
+        return 'diag'
+
+    def init_logging(self, verbose):
+        # Set boto logging to FATAL, since boto logs auth errors and 401s
+        # at ERROR level.
+        boto.log.setLevel(logging.FATAL)
+
+    def verbose(self, values):
+        return values.diag_verbose
+
+    def register(self, subparsers):
+        diag_parser = subparsers.add_parser(
+            'diag',
+            description='Create instance to diagnose an existing encrypted ' \
+            'instance.'
+        )
+        diag_args.setup_diag_args(diag_parser)
+
+    def run(self, values):
+        return _run_subcommand(self.name(), values)
+
+
+class ShareLogsSubcommand(Subcommand):
+
+    def name(self):
+        return 'share-logs'
+
+    def init_logging(self, verbose):
+        # Set boto logging to FATAL, since boto logs auth errors and 401s
+        # at ERROR level.
+        boto.log.setLevel(logging.FATAL)
+
+    def verbose(self, values):
+        return values.share_logs_verbose
+
+    def register(self, subparsers):
+        share_logs_parser = subparsers.add_parser(
+            'share-logs',
+            description='Share logs from an existing encrypted instance.'
+        )
+        share_logs_args.setup_share_logs_args(share_logs_parser)
+
+    def run(self, values):
+        return _run_subcommand(self.name(), values)
 
 
 class EncryptAMISubcommand(Subcommand):
@@ -103,13 +159,21 @@ class UpdateAMISubcommand(Subcommand):
 
 
 def get_subcommands():
-    return [EncryptAMISubcommand(), UpdateAMISubcommand()]
+    return [
+        DiagSubcommand(),
+        EncryptAMISubcommand(),
+        ShareLogsSubcommand(),
+        UpdateAMISubcommand()]
 
 
 def _run_subcommand(subcommand, values):
     try:
+        if subcommand == 'diag':
+            return command_diag(values, log)
         if subcommand == 'encrypt-ami':
             return command_encrypt_ami(values, log)
+        if subcommand == 'share-logs':
+            return command_share_logs(values, log)
         if subcommand == 'update-encrypted-ami':
             return command_update_encrypted_ami(values, log)
     except NoAuthHandlerFound:
@@ -513,4 +577,101 @@ def command_update_encrypted_ami(values, log):
         status_port=values.status_port,
     )
     print(updated_ami_id)
+    return 0
+
+
+def _validate_log_instance(aws_svc, instance_id):
+    pass
+
+
+def _validate_log_snapshot(aws_svc, snapshot_id):
+    pass
+
+
+def command_diag(values, log):
+    nonce = util.make_nonce()
+
+    aws_svc = aws_service.AWSService(
+        nonce,
+        retry_timeout=values.retry_timeout,
+        retry_initial_sleep_seconds=values.retry_initial_sleep_seconds
+    )
+    log.debug(
+        'Retry timeout=%.02f, initial sleep seconds=%.02f',
+        aws_svc.retry_timeout, aws_svc.retry_initial_sleep_seconds)
+
+    if values.snapshot_id and values.instance_id:
+        raise ValidationError("Only one of --instance-id or --snapshot-id "
+                              "may be specified")
+
+    if not values.snapshot_id and not values.instance_id:
+        raise ValidationError("--instance-id or --snapshot-id "
+                              "must be specified")
+
+    if values.validate:
+        # Validate the region before connecting.
+        region_names = [r.name for r in aws_svc.get_regions()]
+        if values.region not in region_names:
+            raise ValidationError(
+                'Invalid region %s.  Supported regions: %s.' %
+                (values.region, ', '.join(region_names)))
+
+    aws_svc.connect(values.region, key_name=values.key_name)
+    default_tags = {}
+    default_tags.update(brkt_cli.parse_tags(values.tags))
+    aws_svc.default_tags = default_tags
+
+    if values.validate:
+        if values.key_name:
+            aws_svc.get_key_pair(values.key_name)
+        if values.instance_id:
+            _validate_log_instance(
+                aws_svc, values.instance_id)
+        _validate_subnet_and_security_groups(
+            aws_svc, values.subnet_id, values.security_group_ids)
+    else:
+        log.info('Skipping validation.')
+
+    diag.diag(
+        aws_svc,
+        instance_id=values.instance_id,
+        snapshot_id=values.snapshot_id,
+        ssh_keypair=values.key_name
+    )
+    return 0
+
+
+def command_share_logs(values, log):
+    nonce = util.make_nonce()
+
+    aws_svc = aws_service.AWSService(
+        nonce,
+        retry_timeout=values.retry_timeout,
+        retry_initial_sleep_seconds=values.retry_initial_sleep_seconds
+    )
+    log.debug(
+        'Retry timeout=%.02f, initial sleep seconds=%.02f',
+        aws_svc.retry_timeout, aws_svc.retry_initial_sleep_seconds)
+
+    if values.validate:
+        # Validate the region before connecting.
+        region_names = [r.name for r in aws_svc.get_regions()]
+        if values.region not in region_names:
+            raise ValidationError(
+                'Invalid region %s.  Supported regions: %s.' %
+                (values.region, ', '.join(region_names)))
+
+    aws_svc.connect(values.region)
+
+    if values.validate:
+        _validate_log_instance(
+            aws_svc, values.instance_id)
+    else:
+        log.info('Skipping instance validation.')
+
+    share_logs.share(
+        aws_svc,
+        instance_id=values.instance_id,
+        bracket_aws_account=values.bracket_aws_account
+    )
     return 0
