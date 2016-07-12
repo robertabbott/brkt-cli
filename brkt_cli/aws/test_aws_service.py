@@ -338,6 +338,9 @@ class DummyAWSService(aws_service.BaseAWSService):
             return dict()
         return None
 
+    def retry(self, function, error_code_regexp=None, timeout=None):
+        return function
+
 
 def build_aws_service():
     aws_svc = DummyAWSService()
