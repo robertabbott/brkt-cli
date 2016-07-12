@@ -13,6 +13,7 @@
 # limitations under the License.
 import unittest
 
+from brkt_cli import util
 from brkt_cli.aws import (
     encrypt_ami, test_aws_service, update_ami
 )
@@ -25,7 +26,7 @@ from brkt_cli.test_encryptor_service import (
 class TestRunUpdate(unittest.TestCase):
 
     def setUp(self):
-        encrypt_ami.SLEEP_ENABLED = False
+        util.SLEEP_ENABLED = False
 
     def test_subnet_and_security_groups(self):
         """ Test that the subnet and security group ids are passed through

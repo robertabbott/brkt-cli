@@ -115,7 +115,6 @@ SUFFIX_ENCRYPTED_IMAGE = (
 DEFAULT_DESCRIPTION_ENCRYPTED_IMAGE = \
     'Based on %(image_id)s, encrypted by Bracket Computing'
 
-SLEEP_ENABLED = True
 AMI_NAME_MAX_LENGTH = 128
 
 log = logging.getLogger(__name__)
