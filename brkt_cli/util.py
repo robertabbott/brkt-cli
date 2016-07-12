@@ -62,6 +62,11 @@ class RetryExceptionChecker(object):
         pass
 
 
+def sleep(seconds):
+    if SLEEP_ENABLED:
+        time.sleep(seconds)
+
+
 def retry(function, on=None, exception_checker=None, timeout=15.0,
           initial_sleep_seconds=0.25):
     """ Retry the given function until it completes successfully.  Before
@@ -100,13 +105,8 @@ def retry(function, on=None, exception_checker=None, timeout=15.0,
                         function.__name__)
                     raise
                 else:
-                    time.sleep(initial_sleep_seconds * float(attempt))
+                    sleep(initial_sleep_seconds * float(attempt))
     return _wrapped
-
-
-def sleep(seconds):
-    if SLEEP_ENABLED:
-        time.sleep(seconds)
 
 
 def add_brkt_env_to_brkt_config(brkt_env, brkt_config):

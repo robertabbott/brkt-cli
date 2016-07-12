@@ -306,7 +306,7 @@ def create_encryptor_security_group(aws_svc, vpc_id=None, status_port=\
     return sg
 
 
-def run_encryptor_instance(
+def _run_encryptor_instance(
         aws_svc, encryptor_image_id, snapshot, root_size, guest_image_id,
         security_group_ids=None, subnet_id=None, zone=None,
         instance_config=None,
@@ -346,14 +346,37 @@ def run_encryptor_instance(
         bdm['/dev/sdf'] = guest_unencrypted_root
         bdm['/dev/sdg'] = guest_encrypted_root
 
+    # If security groups were not specified, create a temporary security
+    # group that allows us to poll the metavisor for encryption progress.
+    temp_sg_id = None
+    run_instance = aws_svc.run_instance
+
+    if not security_group_ids:
+        vpc_id = None
+        if subnet_id:
+            subnet = aws_svc.get_subnet(subnet_id)
+            vpc_id = subnet.vpc_id
+        temp_sg_id = create_encryptor_security_group(
+            aws_svc, vpc_id=vpc_id, status_port=status_port).id
+        security_group_ids = [temp_sg_id]
+
+        # Wrap with a retry, to handle eventual consistency issues with
+        # the newly-created group.
+        run_instance = aws_svc.retry(
+            aws_svc.run_instance,
+            error_code_regexp='InvalidGroup\.NotFound'
+        )
+
     user_data = instance_config.make_userdata()
     compressed_user_data = gzip_user_data(user_data)
-    instance = aws_svc.run_instance(encryptor_image_id,
-                                    security_group_ids=security_group_ids,
-                                    user_data=compressed_user_data,
-                                    placement=zone,
-                                    block_device_map=bdm,
-                                    subnet_id=subnet_id)
+    instance = run_instance(
+        encryptor_image_id,
+        security_group_ids=security_group_ids,
+        user_data=compressed_user_data,
+        placement=zone,
+        block_device_map=bdm,
+        subnet_id=subnet_id
+    )
     aws_svc.create_tags(
         instance.id,
         name=NAME_ENCRYPTOR,
@@ -379,7 +402,7 @@ def run_encryptor_instance(
         aws_svc.create_tags(
             bdm['/dev/sdg'].volume_id, name=NAME_ENCRYPTED_ROOT_VOLUME)
 
-    return instance
+    return instance, temp_sg_id
 
 
 def run_guest_instance(aws_svc, image_id, subnet_id=None,
@@ -880,7 +903,7 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
             log.warn("AMI must have root_device_name in block_device_mapping "
                     "in order to preserve guest OS license information")
             legacy = True
-    if (guest_image.root_device_name != "/dev/sda1"):
+    if guest_image.root_device_name != "/dev/sda1":
         log.warn("Guest Operating System license information will not be "
                  "preserved because the root disk is attached at %s "
                  "instead of /dev/sda1", guest_image.root_device_name)
@@ -893,25 +916,16 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
             aws_svc, guest_instance, image_id
         )
 
-        if (guest_image.virtualization_type == 'hvm'):
+        if guest_image.virtualization_type == 'hvm':
             net_sriov_attr = aws_svc.get_instance_attribute(guest_instance.id,
                                                             "sriovNetSupport")
-            if (net_sriov_attr.get("sriovNetSupport") == "simple"):
+            if net_sriov_attr.get("sriovNetSupport") == "simple":
                 log.warn("Guest Operating System license information will not "
                          "be preserved because guest has sriovNetSupport "
                          "enabled and metavisor does not support sriovNet")
                 legacy = True
 
-        if not security_group_ids:
-            vpc_id = None
-            if subnet_id:
-                subnet = aws_svc.get_subnet(subnet_id)
-                vpc_id = subnet.vpc_id
-            temp_sg_id = create_encryptor_security_group(
-                aws_svc, vpc_id=vpc_id, status_port=status_port).id
-            security_group_ids = [temp_sg_id]
-
-        encryptor_instance = run_encryptor_instance(
+        encryptor_instance, temp_sg_id = _run_encryptor_instance(
             aws_svc=aws_svc,
             encryptor_image_id=encryptor_ami,
             snapshot=snapshot_id,
