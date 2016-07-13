@@ -19,6 +19,7 @@ import zlib
 
 from boto.ec2.snapshot import Snapshot
 from boto.ec2.volume import Volume
+from boto.exception import EC2ResponseError
 from boto.vpc import Subnet
 
 import brkt_cli
@@ -460,3 +461,32 @@ class TestBrktEnv(unittest.TestCase):
             enc_svc_class=DummyEncryptorService,
             instance_config=ic
         )
+
+    def test_security_group_eventual_consistency(self):
+        """ Test that we handle eventually consistency issues when creating
+        a temporary security group.
+        """
+        aws_svc, encryptor_image, guest_image = build_aws_service()
+
+        self.call_count = 0
+
+        def run_instance_callback(args):
+            if args.image_id == encryptor_image.id:
+                self.call_count += 1
+                if self.call_count < 3:
+                    # Simulate eventual consistency error while creating
+                    # security group.
+                    e = EC2ResponseError(None, None)
+                    e.error_code = 'InvalidGroup.NotFound'
+                    raise e
+
+        aws_svc.run_instance_callback = run_instance_callback
+
+        encrypt_ami.encrypt(
+            aws_svc=aws_svc,
+            enc_svc_cls=DummyEncryptorService,
+            image_id=guest_image.id,
+            encryptor_ami=encryptor_image.id
+        )
+
+        self.assertEquals(3, self.call_count)

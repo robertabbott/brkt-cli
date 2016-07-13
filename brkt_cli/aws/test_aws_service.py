@@ -334,12 +334,15 @@ class DummyAWSService(aws_service.BaseAWSService):
         return self.default_vpc
 
     def get_instance_attribute(self, instance_id, attribute, dry_run=False):
-        if (attribute == "sriovNetSupport"):
+        if attribute == 'sriovNetSupport':
             return dict()
         return None
 
     def retry(self, function, error_code_regexp=None, timeout=None):
-        return function
+        return aws_service.retry_boto(
+            function,
+            error_code_regexp=error_code_regexp
+        )
 
 
 def build_aws_service():

@@ -13,7 +13,9 @@
 # limitations under the License.
 import unittest
 
+from boto.exception import EC2ResponseError
 from brkt_cli import util
+
 from brkt_cli.aws import (
     encrypt_ami, test_aws_service, update_ami
 )
@@ -43,9 +45,10 @@ class TestRunUpdate(unittest.TestCase):
         self.call_count = 0
 
         def run_instance_callback(args):
-            self.call_count += 1
-            self.assertEqual('subnet-1', args.subnet_id)
-            self.assertEqual(['sg-1', 'sg-2'], args.security_group_ids)
+            if args.image_id == encryptor_image.id:
+                self.call_count += 1
+                self.assertEqual('subnet-1', args.subnet_id)
+                self.assertEqual(['sg-1', 'sg-2'], args.security_group_ids)
 
         aws_svc.run_instance_callback = run_instance_callback
         ami_id = update_ami(
@@ -55,7 +58,7 @@ class TestRunUpdate(unittest.TestCase):
             enc_svc_class=DummyEncryptorService
         )
 
-        self.assertEqual(2, self.call_count)
+        self.assertEqual(1, self.call_count)
         self.assertIsNotNone(ami_id)
 
     def test_guest_instance_type(self):
@@ -85,3 +88,35 @@ class TestRunUpdate(unittest.TestCase):
             subnet_id='subnet-1', security_group_ids=['sg-1', 'sg-2'],
             enc_svc_class=DummyEncryptorService, guest_instance_type='t2.micro'
         )
+
+    def test_security_group_eventual_consistency(self):
+        """ Test that we handle eventually consistency issues when creating
+        a temporary security group.
+        """
+        aws_svc, encryptor_image, guest_image = build_aws_service()
+        encrypted_ami_id = encrypt_ami.encrypt(
+            aws_svc=aws_svc,
+            enc_svc_cls=DummyEncryptorService,
+            image_id=guest_image.id,
+            encryptor_ami=encryptor_image.id
+        )
+
+        self.call_count = 0
+
+        def run_instance_callback(args):
+            if args.image_id == encryptor_image.id:
+                self.call_count += 1
+                if self.call_count < 3:
+                    # Simulate eventual consistency error while creating
+                    # security group.
+                    e = EC2ResponseError(None, None)
+                    e.error_code = 'InvalidGroup.NotFound'
+                    raise e
+
+        aws_svc.run_instance_callback = run_instance_callback
+        update_ami(
+            aws_svc, encrypted_ami_id, encryptor_image.id,
+            'Test updated AMI',
+            enc_svc_class=DummyEncryptorService
+        )
+        self.assertEqual(3, self.call_count)

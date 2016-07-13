@@ -27,15 +27,15 @@ import os
 
 from boto.ec2.blockdevicemapping import EBSBlockDeviceType
 
-from brkt_cli import encryptor_service, user_data
-from brkt_cli.util import Deadline
 import encrypt_ami
+from brkt_cli import encryptor_service
 from brkt_cli.encryptor_service import (
     wait_for_encryptor_up,
     wait_for_encryption,
 )
 from brkt_cli.instance_config import InstanceConfig
 from brkt_cli.user_data import gzip_user_data
+from brkt_cli.util import Deadline
 from encrypt_ami import (
     clean_up,
     create_encryptor_security_group,
@@ -82,21 +82,11 @@ def update_ami(aws_svc, encrypted_ami, updater_ami, encrypted_ami_name,
         instance_config.brkt_config['solo_mode'] = 'updater'
         instance_config.brkt_config['status_port'] = status_port
 
-        if not security_group_ids:
-            vpc_id = None
-            if subnet_id:
-                subnet = aws_svc.get_subnet(subnet_id)
-                vpc_id = subnet.vpc_id
-            temp_sg_id = create_encryptor_security_group(
-                aws_svc, vpc_id=vpc_id, status_port=status_port).id
-            security_group_ids = [temp_sg_id]
-
         encrypted_guest = aws_svc.run_instance(
             encrypted_ami,
             instance_type=guest_instance_type,
             ebs_optimized=False,
             subnet_id=subnet_id,
-            security_group_ids=security_group_ids,
             user_data=json.dumps(instance_config.brkt_config))
         aws_svc.create_tags(
             encrypted_guest.id,
@@ -107,7 +97,27 @@ def update_ami(aws_svc, encrypted_ami, updater_ami, encrypted_ami_name,
 
         user_data = instance_config.make_userdata()
         compressed_user_data = gzip_user_data(user_data)
-        updater = aws_svc.run_instance(
+
+        # If the user didn't specify a security group, create a temporary
+        # security group that allows brkt-cli to get status from the updater.
+        run_instance = aws_svc.run_instance
+        if not security_group_ids:
+            vpc_id = None
+            if subnet_id:
+                subnet = aws_svc.get_subnet(subnet_id)
+                vpc_id = subnet.vpc_id
+            temp_sg_id = create_encryptor_security_group(
+                aws_svc, vpc_id=vpc_id, status_port=status_port).id
+            security_group_ids = [temp_sg_id]
+
+            # Wrap with a retry, to handle eventual consistency issues with
+            # the newly-created group.
+            run_instance = aws_svc.retry(
+                aws_svc.run_instance,
+                error_code_regexp='InvalidGroup\.NotFound'
+            )
+
+        updater = run_instance(
             updater_ami,
             instance_type="c3.large",
             user_data=compressed_user_data,
