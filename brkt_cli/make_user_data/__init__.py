@@ -36,7 +36,8 @@ class MakeUserDataSubcommand(Subcommand):
             description=(
                 'Generate MIME multipart user-data that is passed to '
                 'Metavisor and cloud-init when running an instance.'
-            )
+            ),
+            formatter_class=brkt_cli.SortingHelpFormatter
         )
 
         setup_instance_config_args(parser)

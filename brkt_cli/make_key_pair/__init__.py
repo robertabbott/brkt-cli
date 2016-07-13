@@ -45,7 +45,8 @@ class MakeKeyPairSubcommand(Subcommand):
                 'Generate a 384-bit ECDSA public and private key pair '
                 '(NIST P-384) in OpenSSL PEM format.  The keys are written '
                 'to stdout by default.'
-            )
+            ),
+            formatter_class=brkt_cli.SortingHelpFormatter
         )
         parser.add_argument(
             '--no-passphrase',
