@@ -67,6 +67,7 @@ class DummyAWSService(aws_service.BaseAWSService):
         self.tagged_volumes = []
         self.subnets = {}
         self.security_groups = {}
+        self.region = 'us-west-2'
         self.regions = [
             RegionInfo(name='us-west-2'),
             RegionInfo(name='eu-west-1')
@@ -92,7 +93,7 @@ class DummyAWSService(aws_service.BaseAWSService):
         return self.regions
 
     def connect(self, region, key_name=None):
-        pass
+        self.region = region
 
     def run_instance(self,
                      image_id,
@@ -106,6 +107,7 @@ class DummyAWSService(aws_service.BaseAWSService):
                      instance_profile_name=None):
         instance = Instance()
         instance.id = new_id()
+        instance.image_id = image_id
         instance.root_device_name = '/dev/sda1'
         instance._state.code = 0
         instance._state.name = 'pending'
