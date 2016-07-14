@@ -60,9 +60,17 @@ from brkt_cli.util import (
     make_nonce,
     sleep,
     append_suffix)
+from datetime import datetime
 
 # End user-visible terminology.  These are resource names and descriptions
 # that the user will see in his or her EC2 console.
+
+# Snapshot names.
+NAME_LOG_SNAPSHOT = 'Bracket logs from %(instance_id)s'
+DESCRIPTION_LOG_SNAPSHOT = \
+    'Bracket logs from %(instance_id)s in AWS account %(aws_account)s '\
+    'taken at %(timestamp)s'
+
 
 # Guest instance names.
 NAME_GUEST_CREATOR = 'Bracket guest'
@@ -597,9 +605,52 @@ def log_exception_console(aws_svc, e, id):
         )
 
 
+def snapshot_log_volume(aws_svc, instance_id):
+    """ Snapshot the log volume of the given instance.
+
+    :except SnapshotError if the snapshot goes into an error state
+    """
+
+    # Snapshot root volume.
+    instance = aws_svc.get_instance(instance_id)
+    bdm = instance.block_device_mapping
+
+    image = aws_svc.get_image(instance.image_id)
+    if image.virtualization_type == 'paravirtual':
+        log_vol = bdm["/dev/sda3"]
+    elif image.virtualization_type == 'hvm':
+        log_vol = bdm["/dev/sda1"]
+    else:
+        raise Exception('Unknown virtualization type %s' %
+                        image.virtualization_type)
+
+    vol = aws_svc.get_volume(log_vol.volume_id)
+
+    snapshot = aws_svc.create_snapshot(
+        vol.id,
+        name=NAME_LOG_SNAPSHOT % {'instance_id': instance_id},
+        description=DESCRIPTION_LOG_SNAPSHOT % {
+            'instance_id': instance_id,
+            'aws_account': image.owner_id,
+            'timestamp': datetime.utcnow().strftime('%b %d %Y %I:%M%p UTC')
+        }
+    )
+    log.info(
+        'Creating snapshot %s of log volume for instance %s',
+        snapshot.id, instance_id
+    )
+
+    try:
+        wait_for_snapshots(aws_svc, snapshot.id)
+    except:
+        clean_up(aws_svc, snapshot_ids=[snapshot.id])
+        raise
+    return snapshot
+
+
 def snapshot_encrypted_instance(aws_svc, enc_svc_cls, encryptor_instance,
                        encryptor_image, image_id=None, vol_type='', iops=None,
-                       legacy=False,
+                       legacy=False, save_encryptor_logs=True,
                        status_port=encryptor_service.ENCRYPTOR_STATUS_PORT):
     # First wait for encryption to complete
     host_ips = []
@@ -616,15 +667,23 @@ def snapshot_encrypted_instance(aws_svc, enc_svc_cls, encryptor_instance,
             os.environ['NO_PROXY'] = encryptor_instance.private_ip_address
 
     enc_svc = enc_svc_cls(host_ips, port=status_port)
-    log.info('Waiting for encryption service on %s (port %s on %s)',
-             encryptor_instance.id, enc_svc.port, ', '.join(host_ips))
-    encryptor_service.wait_for_encryptor_up(enc_svc, Deadline(600))
-
-    log.info('Creating encrypted root drive.')
     try:
+        log.info('Waiting for encryption service on %s (port %s on %s)',
+             encryptor_instance.id, enc_svc.port, ', '.join(host_ips))
+        encryptor_service.wait_for_encryptor_up(enc_svc, Deadline(600))
+        log.info('Creating encrypted root drive.')
         encryptor_service.wait_for_encryption(enc_svc)
-    except encryptor_service.EncryptionError as e:
+    except (BracketError, encryptor_service.EncryptionError) as e:
         log_exception_console(aws_svc, e, encryptor_instance.id)
+        if save_encryptor_logs:
+            log.info('Saving logs from encryptor instance in snapshot')
+            log_snapshot = snapshot_log_volume(aws_svc, encryptor_instance.id)
+            log.info('Encryptor logs saved in snapshot %(snapshot_id)s. '
+                     'Run `brkt share-logs --region %(region)s '
+                     '--snapshot-id %(snapshot_id)s` '
+                     'to share this snapshot with Bracket support' %
+                     {'snapshot_id': log_snapshot.id,
+                      'region': aws_svc.region})
         raise
 
     log.info('Encrypted root drive is ready.')
@@ -871,6 +930,7 @@ def register_ami(aws_svc, encryptor_instance, encryptor_image, name,
 def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
             encrypted_ami_name=None, subnet_id=None, security_group_ids=None,
             guest_instance_type='m3.medium', instance_config=None,
+            save_encryptor_logs=True,
             status_port=encryptor_service.ENCRYPTOR_STATUS_PORT):
     log.info('Starting encryptor session %s', aws_svc.session_id)
 
@@ -951,7 +1011,7 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
         mv_root_id, mv_bdm = snapshot_encrypted_instance(aws_svc, enc_svc_cls,
                 encryptor_instance, mv_image, image_id=image_id,
                 vol_type=vol_type, iops=iops, legacy=legacy,
-                status_port=status_port)
+                save_encryptor_logs=save_encryptor_logs, status_port=status_port)
         ami_info = register_ami(aws_svc, encryptor_instance, mv_image, name,
                 description, legacy=legacy, guest_instance=guest_instance,
                 mv_root_id=mv_root_id,

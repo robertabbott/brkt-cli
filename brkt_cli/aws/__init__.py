@@ -477,7 +477,8 @@ def command_encrypt_ami(values, log):
         security_group_ids=values.security_group_ids,
         guest_instance_type=values.guest_instance_type,
         instance_config=instance_config_from_values(values),
-        status_port=values.status_port
+        status_port=values.status_port,
+        save_encryptor_logs=values.save_encryptor_logs
     )
     # Print the AMI ID to stdout, in case the caller wants to process
     # the output.  Log messages go to stderr.
@@ -658,6 +659,14 @@ def command_share_logs(values, log):
         'Retry timeout=%.02f, initial sleep seconds=%.02f',
         aws_svc.retry_timeout, aws_svc.retry_initial_sleep_seconds)
 
+    if values.snapshot_id and values.instance_id:
+        raise ValidationError("Only one of --instance-id or --snapshot-id "
+                              "may be specified")
+
+    if not values.snapshot_id and not values.instance_id:
+        raise ValidationError("--instance-id or --snapshot-id "
+                              "must be specified")
+
     if values.validate:
         # Validate the region before connecting.
         region_names = [r.name for r in aws_svc.get_regions()]
@@ -677,6 +686,7 @@ def command_share_logs(values, log):
     share_logs.share(
         aws_svc,
         instance_id=values.instance_id,
+        snapshot_id=values.snapshot_id,
         bracket_aws_account=values.bracket_aws_account
     )
     return 0
