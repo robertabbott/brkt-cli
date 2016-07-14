@@ -16,13 +16,15 @@ import argparse
 
 def setup_share_logs_args(parser):
     parser.add_argument(
-        '--snapshot-id',
-        metavar='snapshot_id',
+        '--snapshot',
+        metavar='SNAPSHOT-ID',
+        dest='snapshot_id',
         help='The snapshot with Bracket system logs to be shared'
     )
     parser.add_argument(
-        '--instance-id',
+        '--instance',
         metavar='INSTANCE-ID',
+        dest='instance_id',
         help='The instance with Bracket system logs to be shared'
     )
     parser.add_argument(
