@@ -17,13 +17,15 @@ import argparse
 
 def setup_diag_args(parser):
     parser.add_argument(
-        '--snapshot-id',
-        metavar='snapshot_id',
+        '--snapshot',
+        metavar='SNAPSHOT-ID',
+        dest='snapshot_id',
         help='The snapshot with Bracket system logs'
     )
     parser.add_argument(
-        '--instance-id',
-        metavar='instance_id',
+        '--instance',
+        metavar='INSTANCE-ID',
+        dest='instance_id',
         help='The instance with Bracket system logs'
     )
     parser.add_argument(
