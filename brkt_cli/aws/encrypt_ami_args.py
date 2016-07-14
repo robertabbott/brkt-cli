@@ -53,6 +53,13 @@ def setup_encrypt_ami_args(parser):
         help="Don't validate AMIs, subnet, and security groups"
     )
     parser.add_argument(
+        '--no-save-encryptor-logs',
+        dest='save_encryptor_logs',
+        action='store_false',
+        default=True,
+        help="Don't save a snapshot of logs from encryptor instance"
+    )
+    parser.add_argument(
         '--region',
         metavar='NAME',
         help='AWS region (e.g. us-west-2)',
