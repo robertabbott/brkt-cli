@@ -14,7 +14,7 @@ def setup_launch_gce_image_args(parser):
         metavar='NAME',
         dest='instance_name',
         help='Name of the instance',
-        required=True
+        required=False
     )
     parser.add_argument(
         '--instance-type',
