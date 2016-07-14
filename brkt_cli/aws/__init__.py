@@ -70,8 +70,10 @@ class DiagSubcommand(Subcommand):
     def register(self, subparsers):
         diag_parser = subparsers.add_parser(
             'diag',
-            description='Create instance to diagnose an existing encrypted ' \
-            'instance.'
+            description=(
+                'Create instance to diagnose an existing encrypted instance.'
+            ),
+            formatter_class=brkt_cli.SortingHelpFormatter
         )
         diag_args.setup_diag_args(diag_parser)
 
@@ -95,7 +97,8 @@ class ShareLogsSubcommand(Subcommand):
     def register(self, subparsers):
         share_logs_parser = subparsers.add_parser(
             'share-logs',
-            description='Share logs from an existing encrypted instance.'
+            description='Share logs from an existing encrypted instance.',
+            formatter_class=brkt_cli.SortingHelpFormatter
         )
         share_logs_args.setup_share_logs_args(share_logs_parser)
 
@@ -119,7 +122,8 @@ class EncryptAMISubcommand(Subcommand):
     def register(self, subparsers):
         encrypt_ami_parser = subparsers.add_parser(
             'encrypt-ami',
-            description='Create an encrypted AMI from an existing AMI.'
+            description='Create an encrypted AMI from an existing AMI.',
+            formatter_class=brkt_cli.SortingHelpFormatter
         )
         encrypt_ami_args.setup_encrypt_ami_args(encrypt_ami_parser)
         setup_instance_config_args(encrypt_ami_parser)
@@ -147,7 +151,8 @@ class UpdateAMISubcommand(Subcommand):
             description=(
                 'Update an encrypted AMI with the latest Metavisor '
                 'release.'
-            )
+            ),
+            formatter_class=brkt_cli.SortingHelpFormatter
         )
         update_encrypted_ami_args.setup_update_encrypted_ami(
             update_encrypted_ami_parser)

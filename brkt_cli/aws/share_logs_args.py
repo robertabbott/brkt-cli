@@ -22,7 +22,7 @@ def setup_share_logs_args(parser):
     )
     parser.add_argument(
         '--instance-id',
-        metavar='instance_id',
+        metavar='INSTANCE-ID',
         help='The instance with Bracket system logs to be shared'
     )
     parser.add_argument(
