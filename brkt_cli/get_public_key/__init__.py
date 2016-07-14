@@ -36,7 +36,8 @@ class GetPublicKeySubcommand(Subcommand):
             description=(
                 'Print the public part of a private key.  If the private key '
                 'is encrypted, prompt for a password and decrypt the key.'
-            )
+            ),
+            formatter_class=brkt_cli.SortingHelpFormatter
         )
         parser.add_argument(
             'private_key_path',

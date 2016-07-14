@@ -176,7 +176,8 @@ def setup_make_jwt_args(subparsers):
             'instance. A timestamp can be either a Unix timestamp in '
             'seconds or ISO 8601 (2016-05-10T19:15:36Z).  Timezone offset '
             'defaults to UTC if not specified.'
-        )
+        ),
+        formatter_class=brkt_cli.SortingHelpFormatter
     )
     parser.add_argument(
         '--claim',

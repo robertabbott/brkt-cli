@@ -21,6 +21,7 @@ import logging
 import re
 import sys
 from distutils.version import LooseVersion
+from operator import attrgetter
 
 import requests
 
@@ -280,6 +281,12 @@ def validate_jwt(jwt):
         )
 
     return jwt
+
+
+class SortingHelpFormatter(argparse.HelpFormatter):
+    def add_arguments(self, actions):
+        actions = sorted(actions, key=attrgetter('option_strings'))
+        super(SortingHelpFormatter, self).add_arguments(actions)
 
 
 def main():
