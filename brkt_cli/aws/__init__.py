@@ -521,7 +521,7 @@ def command_update_encrypted_ami(values, log):
         _validate_region(aws_svc, values)
 
     aws_svc.connect(values.region, key_name=values.key_name)
-    encrypted_image = aws_svc.get_image(values.ami)
+    encrypted_image = _validate_ami(aws_svc, values.ami)
     pv = _use_pv_metavisor(values, encrypted_image)
     encryptor_ami = (
         values.encryptor_ami or
