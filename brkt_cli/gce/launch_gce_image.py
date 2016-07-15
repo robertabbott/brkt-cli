@@ -1,10 +1,11 @@
 import logging
-
+import uuid
 
 log = logging.getLogger(__name__)
 
-
 def launch(log, gce_svc, image_id, instance_name, zone, delete_boot, instance_type, metadata={}):
+    if not instance_name:
+        instance_name = 'brkt' + '-' + str(uuid.uuid4().hex)
     guest = instance_name + '-guest'
     log.info("Creating guest root disk from snapshot")
     gce_svc.disk_from_snapshot(zone, image_id, guest)

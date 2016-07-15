@@ -13,22 +13,19 @@ def setup_launch_gce_image_args(parser):
         '--instance-name',
         metavar='NAME',
         dest='instance_name',
-        help='Name of the instance',
-        required=True
+        help='Name of the instance'
     )
     parser.add_argument(
         '--instance-type',
         help='Instance type',
         dest='instance_type',
-        default='n1-standard-1',
-        required=False
+        default='n1-standard-1'
     )
     parser.add_argument(
         '--zone',
         help='GCE zone to operate in',
         dest='zone',
-        default='us-central1-a',
-        required=False
+        default='us-central1-a'
     )
     parser.add_argument(
         '--delete-boot',
@@ -50,6 +47,5 @@ def setup_launch_gce_image_args(parser):
         '--startup-script',
         help=argparse.SUPPRESS,
         dest='startup_script',
-        metavar='SCRIPT',
-        required=False
+        metavar='SCRIPT'
     )
