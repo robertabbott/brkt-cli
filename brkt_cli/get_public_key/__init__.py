@@ -33,7 +33,7 @@ class GetPublicKeySubcommand(Subcommand):
     def exposed(self):
         return False
 
-    def register(self, subparsers):
+    def register(self, subparsers, parsed_config):
         parser = subparsers.add_parser(
             self.name(),
             description=(

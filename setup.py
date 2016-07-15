@@ -41,6 +41,7 @@ setup(
         'brkt_cli',
         'brkt_cli.aws',
         'brkt_cli.brkt_jwt',
+        'brkt_cli.config',
         'brkt_cli.crypto',
         'brkt_cli.gce',
         'brkt_cli.get_public_key',

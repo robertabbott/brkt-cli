@@ -24,10 +24,8 @@ import urllib2
 from distutils.version import LooseVersion
 from operator import attrgetter
 
-from brkt_cli import (
-    brkt_jwt,
-    util
-)
+from brkt_cli import brkt_jwt, util
+from brkt_cli.config import CLIConfig, CONFIG_PATH
 from brkt_cli.proxy import Proxy, generate_proxy_config, validate_proxy_config
 from brkt_cli.util import validate_dns_name_ip_address
 from brkt_cli.validation import ValidationError
@@ -39,6 +37,7 @@ VERSION = '1.0.3pre1'
 SUBCOMMAND_MODULE_PATHS = [
     'brkt_cli.aws',
     'brkt_cli.brkt_jwt',
+    'brkt_cli.config',
     'brkt_cli.gce',
     'brkt_cli.get_public_key',
     'brkt_cli.make_key',
@@ -388,7 +387,7 @@ def add_brkt_env_to_brkt_config(brkt_env, brkt_config):
         brkt_config['hsmproxy_host'] = hsmproxy_host_port
 
 
-class SortingHelpFormatter(argparse.HelpFormatter):
+class SortingHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
     def add_arguments(self, actions):
         actions = sorted(actions, key=attrgetter('option_strings'))
         super(SortingHelpFormatter, self).add_arguments(actions)
@@ -396,7 +395,8 @@ class SortingHelpFormatter(argparse.HelpFormatter):
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Command-line interface to the Bracket Computing service.'
+        description='Command-line interface to the Bracket Computing service.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     parser.add_argument(
         '-v',
@@ -422,6 +422,8 @@ def main():
     # whether to log them yet, since we haven't parsed arguments.  argparse
     # seems to get confused when you parse arguments twice.
     subcommand_load_messages = []
+
+    config = CLIConfig()
 
     # Dynamically load subcommands from modules.
     subcommands = []
@@ -454,11 +456,23 @@ def main():
         metavar=metavar
     )
 
+    # Setup expected config sections/options before we attempt to read from
+    # disk
+    for s in subcommands:
+        s.setup_config(config)
+
+    # Load defaults from disk. Subcommands are expected to register config
+    # sections at import time so that correct default values can be displayed
+    # to users if they request help.
+    subcommand_load_messages.append(
+        'Reading config from %s' % (CONFIG_PATH,))
+    config.read()
+
     # Add subcommands to the parser.
     for s in subcommands:
         subcommand_load_messages.append(
             'Registering subcommand %s' % s.name())
-        s.register(subparsers)
+        s.register(subparsers, config)
 
     argv = sys.argv[1:]
     values = parser.parse_args(argv)

@@ -1,7 +1,7 @@
 import argparse
 
 
-def setup_encrypt_gce_image_args(parser):
+def setup_encrypt_gce_image_args(parser, parsed_config):
     parser.add_argument(
         'image',
         metavar='ID',
@@ -18,7 +18,7 @@ def setup_encrypt_gce_image_args(parser):
         '--zone',
         help='GCE zone to operate in',
         dest='zone',
-        default='us-central1-a',
+        default=parsed_config.get_option('encrypt-gce-image.zone', 'us-central1-a'),
         required=True
     )
     parser.add_argument(
@@ -32,6 +32,7 @@ def setup_encrypt_gce_image_args(parser):
         '--project',
         help='GCE project name',
         dest='project',
+        default=parsed_config.get_option('encrypt-gce-image.project'),
         required=True
     )
     parser.add_argument(
@@ -49,7 +50,7 @@ def setup_encrypt_gce_image_args(parser):
     parser.add_argument(
         '--network',
         dest='network',
-        default='default',
+        default=parsed_config.get_option('encrypt-gce-image.network', 'default'),
         required=False
     )
     # Optional Image Name that's used to launch the encryptor instance. This

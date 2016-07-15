@@ -47,12 +47,24 @@ class Subcommand(object):
         """
         return False
 
+    def setup_config(self, config):
+        """ Subcommands may add options to the supplied ConfigParser.
+        Option values will be pulled from ~/.brkt/config.
+
+        @param config an instance of brkt_cli.cli_config.CliConfigParser
+        """
+        pass
+
     @abc.abstractmethod
-    def register(self, subparsers):
+    def register(self, subparsers, parsed_config):
         """ Add a subcommand to the top-level command parser.
 
         :param subparsers: the ArgumentParser object returned by
             add_subparsers()
+        :param parsed_config: an instance of
+            brkt_cli.cli_config.CliConfigParser containing values that
+            have been parsed from disk. Use it to initialize any default
+            values for arguments.
         """
         pass
 
