@@ -18,13 +18,13 @@ import argparse
 def setup_diag_args(parser):
     parser.add_argument(
         '--snapshot',
-        metavar='SNAPSHOT-ID',
+        metavar='ID',
         dest='snapshot_id',
         help='The snapshot with Bracket system logs'
     )
     parser.add_argument(
         '--instance',
-        metavar='INSTANCE-ID',
+        metavar='ID',
         dest='instance_id',
         help='The instance with Bracket system logs'
     )
