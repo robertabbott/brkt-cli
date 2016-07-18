@@ -30,6 +30,9 @@ class GetPublicKeySubcommand(Subcommand):
     def name(self):
         return 'get-public-key'
 
+    def exposed(self):
+        return False
+
     def register(self, subparsers):
         parser = subparsers.add_parser(
             self.name(),
