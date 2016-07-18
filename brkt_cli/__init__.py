@@ -41,8 +41,8 @@ BRKT_ENV_PROD = 'yetiapi.mgmt.brkt.com:443,hsmproxy.mgmt.brkt.com:443'
 SUBCOMMAND_MODULE_PATHS = [
     'brkt_cli.aws',
     'brkt_cli.brkt_jwt',
-    'brkt_cli.get_public_key',
     'brkt_cli.gce',
+    'brkt_cli.get_public_key',
     'brkt_cli.make_key_pair',
     'brkt_cli.make_user_data'
 ]

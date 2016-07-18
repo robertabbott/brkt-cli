@@ -40,9 +40,12 @@ setup(
     packages=[
         'brkt_cli',
         'brkt_cli.aws',
+        'brkt_cli.brkt_jwt',
         'brkt_cli.crypto',
         'brkt_cli.gce',
-        'brkt_cli.brkt_jwt'
+        'brkt_cli.get_public_key',
+        'brkt_cli.make_key_pair',
+        'brkt_cli.make_user_data'
     ],
     install_requires=[
         'boto>=2.38.0',
