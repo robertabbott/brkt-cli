@@ -174,13 +174,13 @@ def get_subcommands():
 def _run_subcommand(subcommand, values):
     try:
         if subcommand == 'diag':
-            return command_diag(values, log)
+            return command_diag(values)
         if subcommand == 'encrypt-ami':
-            return command_encrypt_ami(values, log)
+            return command_encrypt_ami(values)
         if subcommand == 'share-logs':
-            return command_share_logs(values, log)
+            return command_share_logs(values)
         if subcommand == 'update-encrypted-ami':
-            return command_update_encrypted_ami(values, log)
+            return command_update_encrypted_ami(values)
     except NoAuthHandlerFound:
         msg = (
             'Unable to connect to AWS.  Are your AWS_ACCESS_KEY_ID and '
@@ -430,7 +430,7 @@ def _get_encryptor_ami(region, pv=False):
     return ami
 
 
-def command_encrypt_ami(values, log):
+def command_encrypt_ami(values):
     session_id = util.make_nonce()
 
     aws_svc = aws_service.AWSService(
@@ -504,7 +504,7 @@ def _get_updated_image_name(image_name, session_id):
     return encrypted_ami_name
 
 
-def command_update_encrypted_ami(values, log):
+def command_update_encrypted_ami(values):
     nonce = util.make_nonce()
 
     aws_svc = aws_service.AWSService(
@@ -595,7 +595,7 @@ def _validate_log_snapshot(aws_svc, snapshot_id):
     pass
 
 
-def command_diag(values, log):
+def command_diag(values):
     nonce = util.make_nonce()
 
     aws_svc = aws_service.AWSService(
@@ -648,7 +648,7 @@ def command_diag(values, log):
     return 0
 
 
-def command_share_logs(values, log):
+def command_share_logs(values):
     nonce = util.make_nonce()
 
     aws_svc = aws_service.AWSService(
