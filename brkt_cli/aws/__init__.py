@@ -269,8 +269,8 @@ def _validate_subnet_and_security_groups(aws_svc,
 
 def _validate_ami(aws_svc, ami_id):
     """
-    @return the Image object
-    @raise ValidationError if the image doesn't exist
+    :return the Image object
+    :raise ValidationError if the image doesn't exist
     """
     try:
         image = aws_svc.get_image(ami_id)
@@ -344,7 +344,7 @@ def _validate_guest_encrypted_ami(aws_svc, ami_id, encryptor_ami_id):
 def _validate_encryptor_ami(aws_svc, ami_id):
     """ Validate that the image exists and is a Bracket encryptor image.
 
-    @raise ValidationError if validation fails
+    :raise ValidationError if validation fails
     """
     image = _validate_ami(aws_svc, ami_id)
     if 'brkt-avatar' not in image.name:
@@ -490,7 +490,7 @@ def _get_updated_image_name(image_name, session_id):
     """ Generate a new name, based on the existing name of the encrypted
     image and the session id.
 
-    @return the new name
+    :return the new name
     """
     # Replace session id in the image name.
     m = re.match('(.+) \(encrypted (\S+)\)', image_name)

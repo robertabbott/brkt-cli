@@ -151,7 +151,7 @@ def instance_config_args_to_values(cli_args, mode=INSTANCE_CREATOR_MODE):
     """ Convenience function for testing instance_config settings
 
     :param cli_args: string with args separated by spaces
-    @return the values object as returned from argparser.parse_args()
+    :return the values object as returned from argparser.parse_args()
     """
     parser = argparse.ArgumentParser()
     setup_instance_config_args(parser, mode)
