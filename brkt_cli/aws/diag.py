@@ -36,10 +36,12 @@ NAME_DIAG_INSTANCE = 'Bracket Diag for snapshot %(snapshot_id)s'
 DESCRIPTION_DIAG_INSTANCE = \
     'Diag instance with logs from %(snapshot_id)s'
 
+# NetBSD 6.1.5 images taken from https://wiki.netbsd.org/amazon_ec2/amis/
+# as of 7/18/2016
 DIAG_IMAGES_BY_REGION = {
-    "us-east-1": "ami-0705e36c",
-    "us-west-1": "ami-053cd641",
-    "us-west-2": "ami-03665533",
+    "us-east-1": "ami-bc2c94d4",
+    "us-west-1": "ami-415a4f04",
+    "us-west-2": "ami-6ffbb75f",
 }
 
 
@@ -96,8 +98,8 @@ def diag(aws_svc=None, region='us-west-2',
         snapshot_id=snapshot_id)
     bdm = BlockDeviceMapping()
 
-    # Choose sdf since it is the first free mountpoint
-    bdm['/dev/sdf'] = log_volume
+    # Choose /dev/sda3 since it is the first free mountpoint
+    bdm['/dev/sda3'] = log_volume
 
     diag_instance = aws_svc.run_instance(
         diag_image,
@@ -121,6 +123,6 @@ def diag(aws_svc=None, region='us-west-2',
         print "IP address: %s" % diag_instance.ip_address
     if diag_instance.private_ip_address:
         print "Private IP address: %s" % diag_instance.private_ip_address
-    print "User: ec2-user"
+    print "User: root"
     print "SSH Keypair: %s" % ssh_keypair
-    print "Log volume mountpoint: /dev/xbd5 for PV, /dev/xbd5s1 for HVM"
+    print "Log volume mountpoint: /dev/xbd2a for PV, /dev/xbd2e for HVM"
