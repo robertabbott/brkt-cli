@@ -3,6 +3,8 @@ service.  It produces an encrypted version of an Amazon Machine Image, which can
 launched in EC2. It can also update an already encrypted version of an Amazon Machine Image,
 which can then be launched in EC2.
 
+The latest release of **brkt-cli** is [1.0.2](https://github.com/brkt/brkt-cli/releases/tag/brkt-cli-1.0.2).
+
 ## Process
 
 The `encrypt-ami` subcommand performs the following steps to create an
@@ -69,7 +71,7 @@ the cryptography library documentation.
 
 ## Installation
 
-The latest release of **brkt-cli** is 1.0.1.  Use pip to install **brkt-cli** and its dependencies:
+Use pip to install **brkt-cli** and its dependencies:
 
 ```
 $ pip install brkt-cli
