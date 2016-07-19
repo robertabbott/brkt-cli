@@ -138,8 +138,8 @@ def get_proxy_config(values):
     """ Read proxy config specified by either the --proxy or
     --proxy-config-file option.
 
-    @return: the contents of the proxy.yaml file, or None if not specified
-    @raise ValidationError if the file cannot be read or is malformed
+    :return the contents of the proxy.yaml file, or None if not specified
+    :raise ValidationError if the file cannot be read or is malformed
     """
     proxy_config = None
     if values.proxy_config_file:
@@ -163,7 +163,7 @@ def get_proxy_config(values):
 def _base64_decode_json(base64_string):
     """ Decode the given base64 string, and return the parsed JSON as a
     dictionary.
-    @raise ValidationError if either the base64 or JSON is malformed
+    :raise ValidationError if either the base64 or JSON is malformed
     """
     try:
         json_string = util.urlsafe_b64decode(base64_string)
@@ -246,8 +246,8 @@ def _check_version():
 def validate_jwt(jwt):
     """ Perform some simple validation on the given JWT.
 
-    @return the JWT
-    @raise ValidationError if the JWT is malformed
+    :return the JWT
+    :raise ValidationError if the JWT is malformed
     """
     if not jwt:
         return None
