@@ -537,7 +537,7 @@ def command_update_encrypted_ami(values, log):
             aws_svc, encrypted_image.id, encryptor_ami)
         brkt_cli.validate_ntp_servers(values.ntp_servers)
         _validate(aws_svc, values, encryptor_ami)
-        guest_image = _validate_guest_encrypted_ami(
+        _validate_guest_encrypted_ami(
             aws_svc, encrypted_image.id, encryptor_ami)
     else:
         log.info('Skipping AMI validation.')
@@ -579,6 +579,7 @@ def command_update_encrypted_ami(values, log):
         subnet_id=values.subnet_id,
         security_group_ids=values.security_group_ids,
         guest_instance_type=values.guest_instance_type,
+        updater_instance_type=values.updater_instance_type,
         instance_config=instance_config_from_values(values),
         status_port=values.status_port,
     )

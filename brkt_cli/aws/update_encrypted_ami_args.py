@@ -35,8 +35,17 @@ def setup_update_encrypted_ami(parser):
         metavar='TYPE',
         dest='guest_instance_type',
         help=(
-            'The instance type to use when running the unencrypted guest '
-            'instance'),
+            'The instance type to use when running the encrypted guest '
+            'instance. Default: m3.medium'),
+        default='m3.medium'
+    )
+    parser.add_argument(
+        '--updater-instance-type',
+        metavar='TYPE',
+        dest='updater_instance_type',
+        help=(
+            'The instance type to use when running the updater '
+            'instance. Default: m3.medium'),
         default='m3.medium'
     )
     parser.add_argument(
