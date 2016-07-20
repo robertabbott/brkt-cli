@@ -18,15 +18,9 @@ import os
 import sys
 import tempfile
 import unittest
-import yaml
 
 from brkt_cli import (
-    generate_proxy_config,
-    proxy,
-    parse_brkt_env,
-    _parse_proxies,
-    user_data
-)
+    proxy)
 from brkt_cli.instance_config import (
     BRKT_CONFIG_CONTENT_TYPE,
     BRKT_FILES_CONTENT_TYPE,
@@ -39,7 +33,6 @@ from brkt_cli.instance_config_args import (
     instance_config_from_values
 )
 from brkt_cli.proxy import Proxy
-from brkt_cli.util import add_brkt_env_to_brkt_config
 from brkt_cli.user_data import get_mime_part_payload
 from brkt_cli.validation import ValidationError
 

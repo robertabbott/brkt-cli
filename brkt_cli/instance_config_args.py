@@ -20,13 +20,12 @@ from cryptography.hazmat.backends import default_backend
 from brkt_cli import (
     get_proxy_config,
     parse_brkt_env,
-)
+    add_brkt_env_to_brkt_config)
 from brkt_cli.instance_config import (
     InstanceConfig,
     INSTANCE_CREATOR_MODE
 )
 from brkt_cli.util import (
-    add_brkt_env_to_brkt_config,
     get_domain_from_brkt_env
 )
 from brkt_cli.validation import ValidationError

@@ -48,18 +48,6 @@ class TestUtil(unittest.TestCase):
             util.parse_name_value('abc')
 
 
-class TestBrktEnv(unittest.TestCase):
-
-    def test_add_brkt_env_to_user_data(self):
-        userdata = {}
-        api_host_port = 'api.example.com:777'
-        hsmproxy_host_port = 'hsmproxy.example.com:888'
-        expected_userdata = {'api_host': api_host_port, 'hsmproxy_host': hsmproxy_host_port}
-        brkt_env = parse_brkt_env(api_host_port + ',' + hsmproxy_host_port)
-        util.add_brkt_env_to_brkt_config(brkt_env, userdata)
-        self.assertEqual(userdata, expected_userdata)
-
-
 class TestBase64(unittest.TestCase):
     """ Test that our encoding code follows the spec used by JWT.  The
     encoded string must be URL-safe and not use padding. """

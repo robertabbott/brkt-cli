@@ -109,21 +109,6 @@ def retry(function, on=None, exception_checker=None, timeout=15.0,
     return _wrapped
 
 
-def add_brkt_env_to_brkt_config(brkt_env, brkt_config):
-    """ Add BracketEnvironment values to the config dictionary
-    that will be passed to the metavisor via userdata.
-
-    :param brkt_env a BracketEnvironment object
-    :param brkt_config a dictionary that contains configuration data
-    """
-    if brkt_env:
-        api_host_port = '%s:%d' % (brkt_env.api_host, brkt_env.api_port)
-        hsmproxy_host_port = '%s:%d' % (
-            brkt_env.hsmproxy_host, brkt_env.hsmproxy_port)
-        brkt_config['api_host'] = api_host_port
-        brkt_config['hsmproxy_host'] = hsmproxy_host_port
-
-
 def get_domain_from_brkt_env(brkt_env):
     """Return the domain string from the api_host in the brkt_env. """
 
