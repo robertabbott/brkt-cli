@@ -257,6 +257,7 @@ binaries.  To download the **brkt-cli** source and build the `brkt` container:
 
 ```
 $ wget https://github.com/brkt/brkt-cli/archive/brkt-cli-<RELEASE-NUMBER>.zip
+$ unzip brkt-cli-<RELEASE-NUMBER>.zip
 $ cd brkt-cli-brkt-cli-<RELEASE-NUMBER>
 $ docker build -t brkt .
 ```
