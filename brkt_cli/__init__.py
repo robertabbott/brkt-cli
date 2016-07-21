@@ -31,7 +31,6 @@ from brkt_cli import (
 from brkt_cli.proxy import Proxy, generate_proxy_config, validate_proxy_config
 from brkt_cli.util import validate_dns_name_ip_address
 from brkt_cli.validation import ValidationError
-from brkt_cli.encryptor_service import BracketEnvironment
 
 VERSION = '1.0.3pre1'
 BRKT_ENV_PROD = 'yetiapi.mgmt.brkt.com:443,hsmproxy.mgmt.brkt.com:443'
@@ -48,6 +47,22 @@ SUBCOMMAND_MODULE_PATHS = [
 ]
 
 log = logging.getLogger(__name__)
+
+
+class BracketEnvironment(object):
+    def __init__(self):
+        self.api_host = None
+        self.api_port = None
+        self.hsmproxy_host = None
+        self.hsmproxy_port = None
+
+    def __repr__(self):
+        return '<BracketEnvironment api=%s:%d, hsmproxy=%s:%d>' % (
+            self.api_host,
+            self.api_port,
+            self.hsmproxy_host,
+            self.hsmproxy_port
+        )
 
 
 def validate_ntp_servers(ntp_servers):
@@ -281,6 +296,21 @@ def validate_jwt(jwt):
         )
 
     return jwt
+
+
+def add_brkt_env_to_brkt_config(brkt_env, brkt_config):
+    """ Add BracketEnvironment values to the config dictionary
+    that will be passed to the metavisor via userdata.
+
+    :param brkt_env a BracketEnvironment object
+    :param brkt_config a dictionary that contains configuration data
+    """
+    if brkt_env:
+        api_host_port = '%s:%d' % (brkt_env.api_host, brkt_env.api_port)
+        hsmproxy_host_port = '%s:%d' % (
+            brkt_env.hsmproxy_host, brkt_env.hsmproxy_port)
+        brkt_config['api_host'] = api_host_port
+        brkt_config['hsmproxy_host'] = hsmproxy_host_port
 
 
 class SortingHelpFormatter(argparse.HelpFormatter):

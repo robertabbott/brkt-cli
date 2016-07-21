@@ -18,13 +18,12 @@ import logging
 import time
 import urllib2
 
-
+from brkt_cli import validation
 from brkt_cli.util import (
         BracketError,
         Deadline,
         sleep
 )
-from brkt_cli import validation
 
 ENCRYPT_INITIALIZING = 'initial'
 ENCRYPT_DOWNLOADING = 'downloading'
@@ -39,22 +38,6 @@ FAILURE_CODE_AWS_PERMISSIONS = 'insufficient_aws_permissions'
 FAILURE_CODE_INVALID_NTP_SERVERS = 'invalid_ntp_servers'
 
 log = logging.getLogger(__name__)
-
-
-class BracketEnvironment(object):
-    def __init__(self):
-        self.api_host = None
-        self.api_port = None
-        self.hsmproxy_host = None
-        self.hsmproxy_port = None
-
-    def __repr__(self):
-        return '<BracketEnvironment api=%s:%d, hsmproxy=%s:%d>' % (
-            self.api_host,
-            self.api_port,
-            self.hsmproxy_host,
-            self.hsmproxy_port
-        )
 
 
 class EncryptionError(BracketError):
