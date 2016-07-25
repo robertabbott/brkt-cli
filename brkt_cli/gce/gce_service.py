@@ -4,6 +4,7 @@ import abc
 import datetime
 import re
 import socket
+import tempfile
 import time
 
 import brkt_cli.util
@@ -306,6 +307,24 @@ class GCEService(BaseGCEService):
             except:
                 pass
         self.log.info("Couldn't find an IP address for this instance.")
+
+    def write_serial_console_file(self, zone, instance):
+        try:
+            serial_port_out = self.compute.instances().getSerialPortOutput(
+                    project=self.project,
+                    instance=instance,
+                    zone=zone).execute()
+            if 'contents' in serial_port_out:
+                with tempfile.NamedTemporaryFile(prefix='serial-console-',
+                                                 suffix='-%s.out' % self.session_id,
+                                                 delete=False) as t:
+                    t.write(serial_port_out['contents'])
+                return t.name
+        except:
+            self.log.exception('Unable to write serial console contents')
+
+        return None
+
 
     def detach_disk(self, zone, instance, diskName):
         detach_req = self.compute.instances().detachDisk(project=self.project,

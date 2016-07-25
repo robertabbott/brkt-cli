@@ -89,6 +89,9 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
         gce_svc.wait_image(encrypted_image_name)
         gce_svc.wait_snapshot(encrypted_image_name)
     except:
+        f = gce_svc.write_serial_console_file(zone, updater)
+        if f:
+            log.info('Update failed. Writing console to %s' % f)
         log.info("Update failed. Cleaning up")
         if snap_created:
             gce_svc.delete_snapshot(encrypted_image_name)

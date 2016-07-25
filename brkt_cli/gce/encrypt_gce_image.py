@@ -56,10 +56,15 @@ def do_encryption(gce_svc,
                                 gce_svc.get_disk(zone, encrypted_image_disk)],
                          metadata=metadata)
 
-    enc_svc = enc_svc_cls([gce_svc.get_instance_ip(encryptor, zone)])
-
-    wait_for_encryptor_up(enc_svc, Deadline(600))
-    wait_for_encryption(enc_svc)
+    try:
+        enc_svc = enc_svc_cls([gce_svc.get_instance_ip(encryptor, zone)])
+        wait_for_encryptor_up(enc_svc, Deadline(600))
+        wait_for_encryption(enc_svc)
+    except Exception as e:
+        f = gce_svc.write_serial_console_file(zone, encryptor)
+        if f:
+            log.info('Encryption failed. Writing console to %s' % f)
+        raise e
     retry(function=gce_svc.delete_instance,
             on=[httplib.BadStatusLine, socket.error, errors.HttpError])(zone, encryptor)
 
