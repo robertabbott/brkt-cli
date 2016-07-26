@@ -61,8 +61,6 @@ def _get_ca_cert_filename():
 def _verify_proxy_config_in_userdata(ut, userdata):
     brkt_config_json = get_mime_part_payload(userdata,
                                              BRKT_CONFIG_CONTENT_TYPE)
-    ut.assertEqual(brkt_config_json, '{"brkt": {}}')
-
     brkt_files = get_mime_part_payload(userdata, BRKT_FILES_CONTENT_TYPE)
     ut.assertTrue('/var/brkt/ami_config/proxy.yaml: ' +
                     '{contents: "version: 2.0' in brkt_files)
@@ -147,7 +145,7 @@ class TestInstanceConfig(unittest.TestCase):
         """
 
 
-def _get_brkt_config_for_cli_args(cli_args, mode=INSTANCE_CREATOR_MODE):
+def _get_brkt_config_for_cli_args(cli_args='', mode=INSTANCE_CREATOR_MODE):
     values = instance_config_args_to_values(cli_args)
     ic = instance_config_from_values(values, mode=mode)
     ud = ic.make_userdata()
@@ -163,6 +161,23 @@ class TestInstanceConfigFromCliArgs(unittest.TestCase):
         brkt_config = _get_brkt_config_for_cli_args(cli_args)
         self.assertEqual(brkt_config['api_host'], api_host_port)
         self.assertEqual(brkt_config['hsmproxy_host'], hsmproxy_host_port)
+
+    def test_service_domain(self):
+        brkt_config = _get_brkt_config_for_cli_args(
+            '--service-domain example.com'
+        )
+        self.assertEqual(brkt_config['api_host'], 'yetiapi.example.com:443')
+        self.assertEqual(
+            brkt_config['hsmproxy_host'], 'hsmproxy.example.com:443')
+
+    def test_default_env_prod(self):
+        """ Test that we default to the prod environment if the service
+        endpoints aren't specified on the command line.
+        """
+        brkt_config = _get_brkt_config_for_cli_args()
+        self.assertEqual(brkt_config['api_host'], 'yetiapi.mgmt.brkt.com:443')
+        self.assertEqual(
+            brkt_config['hsmproxy_host'], 'hsmproxy.mgmt.brkt.com:443')
 
     def test_ntp_servers(self):
         cli_args = '--ntp-server %s' % ntp_server1

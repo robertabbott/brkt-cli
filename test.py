@@ -168,11 +168,18 @@ class TestCommandLineOptions(unittest.TestCase):
         self.assertEqual(888, be.hsmproxy_port)
 
         with self.assertRaises(ValidationError):
-            brkt_cli.parse_brkt_env('a')
-        with self.assertRaises(ValidationError):
             brkt_cli.parse_brkt_env('a:7,b:8:9')
         with self.assertRaises(ValidationError):
             brkt_cli.parse_brkt_env('a:7,b?:8')
+
+    def test_brkt_env_from_domain(self):
+        be = brkt_cli.brkt_env_from_domain('example.com')
+        self.assertEqual('yetiapi.example.com', be.api_host)
+        self.assertEqual(443, be.api_port)
+        self.assertEqual('hsmproxy.example.com', be.hsmproxy_host)
+        self.assertEqual(443, be.hsmproxy_port)
+        self.assertEqual('api.example.com', be.public_api_host)
+        self.assertEqual(80, be.public_api_port)
 
     def test_get_proxy_config(self):
         """ Test reading proxy config from the --proxy and --proxy-config-file

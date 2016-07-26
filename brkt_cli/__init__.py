@@ -33,7 +33,6 @@ from brkt_cli.util import validate_dns_name_ip_address
 from brkt_cli.validation import ValidationError
 
 VERSION = '1.0.3pre1'
-BRKT_ENV_PROD = 'yetiapi.mgmt.brkt.com:443,hsmproxy.mgmt.brkt.com:443'
 
 # The list of modules that may be loaded.  Modules contain subcommands of
 # the brkt command and CSP-specific code.
@@ -50,19 +49,22 @@ log = logging.getLogger(__name__)
 
 
 class BracketEnvironment(object):
-    def __init__(self):
-        self.api_host = None
-        self.api_port = None
-        self.hsmproxy_host = None
-        self.hsmproxy_port = None
+    def __init__(self, api_host=None, api_port=443,
+                 hsmproxy_host=None, hsmproxy_port=443,
+                 public_api_host=None, public_api_port=80):
+        self.api_host = api_host
+        self.api_port = api_port
+        self.hsmproxy_host = hsmproxy_host
+        self.hsmproxy_port = hsmproxy_port
+        self.public_api_host = public_api_host
+        self.public_api_port = public_api_port
 
     def __repr__(self):
-        return '<BracketEnvironment api=%s:%d, hsmproxy=%s:%d>' % (
-            self.api_host,
-            self.api_port,
-            self.hsmproxy_host,
-            self.hsmproxy_port
-        )
+        return (
+            '<BracketEnvironment api={be.api_host}:{be.api_port} '
+            'hsmproxy={be.hsmproxy_host}:{be.hsmproxy_port} '
+            'public_api={be.public_api_host}:{be.public_api_port}>'
+        ).format(be=self)
 
 
 def validate_ntp_servers(ntp_servers):
@@ -125,6 +127,24 @@ def parse_brkt_env(brkt_env_string):
     (be.api_host, be.api_port) = _parse_endpoint(endpoints[0])
     (be.hsmproxy_host, be.hsmproxy_port) = _parse_endpoint(endpoints[1])
     return be
+
+
+def brkt_env_from_domain(domain):
+    """ Return a BracketEnvironment object based on the given domain
+    (e.g. stage.mgmt.brkt.com).
+    """
+    return BracketEnvironment(
+        api_host='yetiapi.' + domain,
+        hsmproxy_host='hsmproxy.' + domain,
+        public_api_host='api.' + domain
+    )
+
+
+def get_prod_brkt_env():
+    """ Return a BracketEnvironment object that represents the production
+    service endpoints.
+    """
+    return brkt_env_from_domain('mgmt.brkt.com')
 
 
 def _parse_proxies(*proxy_host_ports):
