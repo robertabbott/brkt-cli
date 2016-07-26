@@ -26,7 +26,7 @@ class ExpiredDeadline(object):
 
 class DummyEncryptorService(encryptor_service.BaseEncryptorService):
 
-    def __init__(self, hostnames=['test-host'], port=8000):
+    def __init__(self, hostnames=['test-host'], port=80):
         super(DummyEncryptorService, self).__init__(hostnames, port)
         self.is_up = False
         self.progress = 0
