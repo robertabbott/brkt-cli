@@ -42,7 +42,7 @@ SUBCOMMAND_MODULE_PATHS = [
     'brkt_cli.brkt_jwt',
     'brkt_cli.gce',
     'brkt_cli.get_public_key',
-    'brkt_cli.make_key_pair',
+    'brkt_cli.make_key',
     'brkt_cli.make_user_data'
 ]
 

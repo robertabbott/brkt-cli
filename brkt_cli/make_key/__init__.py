@@ -33,10 +33,10 @@ def _write_file(path, content):
         raise ValidationError('Unable to write to %s: %s' % (path, e))
 
 
-class MakeKeyPairSubcommand(Subcommand):
+class MakeKeySubcommand(Subcommand):
 
     def name(self):
-        return 'make-key-pair'
+        return 'make-key'
 
     def exposed(self):
         return False
@@ -45,9 +45,9 @@ class MakeKeyPairSubcommand(Subcommand):
         parser = subparsers.add_parser(
             self.name(),
             description=(
-                'Generate a 384-bit ECDSA public and private key pair '
-                '(NIST P-384) in OpenSSL PEM format.  The keys are written '
-                'to stdout by default.'
+                'Generate a 384-bit ECDSA private key (NIST P-384) in OpenSSL '
+                'PEM format and write the key to stdout.  Optionally write '
+                'the associated public key to a file.'
             ),
             formatter_class=brkt_cli.SortingHelpFormatter
         )
@@ -62,21 +62,9 @@ class MakeKeyPairSubcommand(Subcommand):
             )
         )
         parser.add_argument(
-            '--no-public',
-            dest='public',
-            action='store_false',
-            default=True,
-            help="Don't print the public key"
-        )
-        parser.add_argument(
-            '--private-out',
-            metavar='PATH',
-            help='Write the private key to a file instead of stdout'
-        )
-        parser.add_argument(
             '--public-out',
             metavar='PATH',
-            help='Write the public key to a file instead of stdout'
+            help='Write the associated public key to a file'
         )
         parser.add_argument(
             '-v',
@@ -98,21 +86,12 @@ class MakeKeyPairSubcommand(Subcommand):
                 raise ValidationError('Passphrases do not match')
 
         crypto = brkt_cli.crypto.new()
-        private_pem = crypto.get_private_key_pem(passphrase)
-
-        if values.private_out:
-            _write_file(values.private_out, private_pem)
-        else:
-            print private_pem
-
+        print crypto.get_private_key_pem(passphrase)
         if values.public_out:
             _write_file(values.public_out, crypto.public_key_pem)
-        else:
-            if values.public:
-                print crypto.public_key_pem
 
         return 0
 
 
 def get_subcommands():
-    return [MakeKeyPairSubcommand()]
+    return [MakeKeySubcommand()]
