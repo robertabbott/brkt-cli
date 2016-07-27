@@ -95,7 +95,7 @@ def create_image(gce_svc, zone, encrypted_image_disk, encrypted_image_name, encr
         gce_svc.wait_snapshot(encrypted_image_name)
         log.info("Image %s successfully created!", encrypted_image_name)
     except Exception as e:
-        log.info('Image creation failed: %s', e)
+        log.info('Image creation failed: ', e)
         raise
 
 
@@ -106,8 +106,13 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         # create metavisor image from file in GCS bucket
         log.info('Retrieving encryptor image from GCS bucket')
         if not encryptor_image:
-            encryptor_image = gce_svc.get_latest_encryptor_image(zone,
-                image_bucket, image_file=image_file)
+            try:
+                encryptor_image = gce_svc.get_latest_encryptor_image(zone,
+                    image_bucket, image_file=image_file)
+            except errors.HttpError as e:
+                encryptor_image = None
+                log.exception('GCE API call to create image from file failed: ', e)
+                return
         else:
             # Keep user provided encryptor image
             keep_encryptor = True
@@ -132,6 +137,8 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         create_image(gce_svc, zone, encrypted_image_disk, encrypted_image_name, encryptor)
 
         return encrypted_image_name
+    except errors.HttpError as e:
+        log.exception('GCE API request failed: ', e)
     finally:
         log.info("Cleaning up")
         gce_svc.cleanup(zone, encryptor_image, keep_encryptor)
