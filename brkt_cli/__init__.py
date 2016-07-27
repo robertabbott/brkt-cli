@@ -20,12 +20,14 @@ import json
 import logging
 import re
 import sys
+import urllib2
 from distutils.version import LooseVersion
 from operator import attrgetter
 
 import requests
 
 from brkt_cli import (
+    brkt_jwt,
     util
 )
 from brkt_cli.proxy import Proxy, generate_proxy_config, validate_proxy_config
@@ -51,7 +53,7 @@ log = logging.getLogger(__name__)
 class BracketEnvironment(object):
     def __init__(self, api_host=None, api_port=443,
                  hsmproxy_host=None, hsmproxy_port=443,
-                 public_api_host=None, public_api_port=80):
+                 public_api_host=None, public_api_port=443):
         self.api_host = api_host
         self.api_port = api_port
         self.hsmproxy_host = hsmproxy_host
@@ -145,6 +147,19 @@ def get_prod_brkt_env():
     service endpoints.
     """
     return brkt_env_from_domain('mgmt.brkt.com')
+
+
+def brkt_env_from_values(values):
+    """ Return a BracketEnvironment object based on options specified
+    on the command line.  If the environment was not specified with
+    --service-domain or --brkt-env, return the production environment.
+    """
+    if values.service_domain:
+        return brkt_env_from_domain(values.service_domain)
+    elif values.brkt_env:
+        return parse_brkt_env(values.brkt_env)
+    else:
+        return get_prod_brkt_env()
 
 
 def _parse_proxies(*proxy_host_ports):
@@ -316,6 +331,44 @@ def validate_jwt(jwt):
         )
 
     return jwt
+
+
+def check_jwt_auth(brkt_env, jwt):
+    """ Authenticate with Yeti using the given JWT and make sure that the
+    associated public key is registered with the account.
+
+    :param brkt_env a BracketEnvironment object
+    :param jwt a JWT string
+    :raise ValidationError if the token fails auth or the public key is not
+    registered with the given account
+    """
+    kid = brkt_jwt.get_key_id(jwt)
+    uri = 'https://%s:%d/api/v1/jwk/%s' % (
+        brkt_env.public_api_host,
+        brkt_env.public_api_port,
+        kid
+    )
+    log.debug('Validating token against %s', uri)
+    request = urllib2.Request(
+        uri,
+        headers={'Authorization': 'Bearer %s' % jwt}
+    )
+    try:
+        response = urllib2.urlopen(request)
+    except urllib2.HTTPError as e:
+        if e.code == 401:
+            raise ValidationError('Unauthorized token.')
+        else:
+            log.debug('Server response: %s', e.msg)
+            raise ValidationError(
+                'Unable to validate token.  Server returned error ' + e.code)
+    except IOError:
+        if log.isEnabledFor(logging.DEBUG):
+            log.exception('')
+        raise ValidationError(
+            'Unable to validate token.  Connection to %s failed.' % uri)
+
+    log.debug('Server returned %d', response.getcode())
 
 
 def add_brkt_env_to_brkt_config(brkt_env, brkt_config):

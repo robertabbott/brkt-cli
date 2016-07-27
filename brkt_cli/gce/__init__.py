@@ -181,3 +181,6 @@ def check_args(values, gce_svc):
             raise ValidationError("Please provided either an encryptor image or an image bucket")
     if not values.token:
         raise ValidationError('Must provide a token')
+
+    brkt_env = brkt_cli.brkt_env_from_values(values)
+    brkt_cli.check_jwt_auth(brkt_env, values.token)

@@ -179,7 +179,7 @@ class TestCommandLineOptions(unittest.TestCase):
         self.assertEqual('hsmproxy.example.com', be.hsmproxy_host)
         self.assertEqual(443, be.hsmproxy_port)
         self.assertEqual('api.example.com', be.public_api_host)
-        self.assertEqual(80, be.public_api_port)
+        self.assertEqual(443, be.public_api_port)
 
     def test_get_proxy_config(self):
         """ Test reading proxy config from the --proxy and --proxy-config-file
