@@ -13,13 +13,14 @@
 # limitations under the License.
 
 import argparse
+import logging
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 
+import brkt_cli
 from brkt_cli import (
     get_proxy_config,
-    parse_brkt_env,
     add_brkt_env_to_brkt_config)
 from brkt_cli.instance_config import (
     InstanceConfig,
@@ -29,6 +30,9 @@ from brkt_cli.util import (
     get_domain_from_brkt_env
 )
 from brkt_cli.validation import ValidationError
+
+
+log = logging.getLogger(__name__)
 
 
 def setup_instance_config_args(parser, mode=INSTANCE_CREATOR_MODE,
@@ -62,16 +66,32 @@ def setup_instance_config_args(parser, mode=INSTANCE_CREATOR_MODE,
         dest='proxy_config_file'
     )
 
+    # TODO: put brkt-env and service-domain into a mutually exclusive group.
+    # We can't do this while they're hidden because of a bug in argparse:
+    # http://stackoverflow.com/questions/30499648/python-mutually-exclusive-arguments-complains-about-action-index
+    #
+    # brkt_env_group = parser.add_mutually_exclusive_group()
+
     # Optional yeti endpoints. Hidden because it's only used for development.
-    # If you're using this option, it should be passed as a comma separated
-    # list of endpoints. ie blb.*.*.brkt.net:7002,blb.*.*.brkt.net:7001 the
-    # endpoints must also be in order: api_host,hsmproxy_host
+    # The value contains the hosts and ports of the RPC and HSM proxy,
+    # separated by commas:
+    #
+    # <rpc-host>:<rpc-port>,<hsmproxy-host>:<hsmproxy-port>
     parser.add_argument(
         '--brkt-env',
         dest='brkt_env',
         default=brkt_env_default,
         help=argparse.SUPPRESS
     )
+
+    # Optional domain that runs the Yeti service (e.g. stage.mgmt.brkt.com).
+    # Hidden because it's only used for development.
+    parser.add_argument(
+        '--service-domain',
+        metavar='DOMAIN',
+        help=argparse.SUPPRESS
+    )
+
     # Optional CA cert file for Brkt MCP. When an on-prem MCP is used
     # (and thus, the MCP endpoints are provided in the --brkt-env arg), the
     # CA cert for the MCP root CA must be 'baked into' the encrypted AMI.
@@ -82,6 +102,7 @@ def setup_instance_config_args(parser, mode=INSTANCE_CREATOR_MODE,
             dest='ca_cert',
             help=argparse.SUPPRESS
         )
+
     parser.add_argument(
         '--token',
         help=(
@@ -101,10 +122,15 @@ def instance_config_from_values(values=None, mode=INSTANCE_CREATOR_MODE):
         return InstanceConfig(brkt_config, mode)
 
     # First handle the args that affect brkt_config
-    brkt_env = None
-    if values.brkt_env:
-        brkt_env = parse_brkt_env(values.brkt_env)
-        add_brkt_env_to_brkt_config(brkt_env, brkt_config)
+    if values.service_domain:
+        brkt_env = brkt_cli.brkt_env_from_domain(values.service_domain)
+    elif values.brkt_env:
+        brkt_env = brkt_cli.parse_brkt_env(values.brkt_env)
+    else:
+        brkt_env = brkt_cli.get_prod_brkt_env()
+
+    add_brkt_env_to_brkt_config(brkt_env, brkt_config)
+    log.debug('Using %s', brkt_env)
 
     if values.token:
         brkt_config['identity_token'] = values.token
