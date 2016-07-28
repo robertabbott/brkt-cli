@@ -252,27 +252,13 @@ class TestValidation(unittest.TestCase):
     def test_validate_region(self):
         aws_svc = test_aws_service.DummyAWSService()
 
-        # Region contains a published metavisor.
-        values = DummyValues()
-        values.region = 'us-west-2'
-        for region_name in brkt_cli.aws.METAVISOR_AMI_REGION_NAMES:
-            values.region = region_name
-            brkt_cli.aws._validate_region(aws_svc, values)
-
-        # Region does not contain a published metavisor.
-        values.region = 'eu-west-1'
-        with self.assertRaises(ValidationError):
-            brkt_cli.aws._validate_region(aws_svc, values)
-
-        # Encryptor AMI is specified.
-        values.encryptor_ami = 'ami-123'
-        brkt_cli.aws._validate_region(aws_svc, values)
+        # Valid region.
+        for region in aws_svc.get_regions():
+            brkt_cli.aws._validate_region(aws_svc, region.name)
 
         # Bogus region.
-        values.region = 'foobar'
-        values.encryptor_ami = None
         with self.assertRaises(ValidationError):
-            brkt_cli.aws._validate_region(aws_svc, values)
+            brkt_cli.aws._validate_region(aws_svc, 'foobar')
 
 
 class TestVirtualizationType(unittest.TestCase):

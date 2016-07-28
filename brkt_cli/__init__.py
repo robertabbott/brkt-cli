@@ -24,8 +24,6 @@ import urllib2
 from distutils.version import LooseVersion
 from operator import attrgetter
 
-import requests
-
 from brkt_cli import (
     brkt_jwt,
     util
@@ -257,37 +255,38 @@ def _check_version():
 
     :return True if this version is still supported
     """
+    url = 'http://pypi.python.org/pypi/brkt-cli/json'
+    log.debug('Getting supported brkt-cli versions from %s', url)
+
     try:
-        url = 'http://pypi.python.org/pypi/brkt-cli/json'
-        r = requests.get(url, timeout=5.0)
-        if r.status_code / 100 != 2:
+        resp = urllib2.urlopen(url, timeout=5.0)
+        if resp.getcode() / 100 != 2:
             raise Exception(
                 'Error %d when opening %s' % (r.status_code, url))
-        supported_versions = r.json()['releases'].keys()
+        d = json.loads(resp.read())
+        supported_versions = d['releases'].keys()
     except Exception as e:
         # If we can't get the list of versions from PyPI, print the error
         # and return true.  We don't want the version check to block people
         # from getting their work done.
         if log.isEnabledFor(logging.DEBUG):
-            log.exception('Unable to load brkt-cli versions from PyPI')
-        print(e, file=sys.stderr)
+            log.exception('')
+        log.info('Unable to load brkt-cli versions from PyPI: %s', e)
         return True
 
     if not _is_version_supported(VERSION, supported_versions):
-        print(
-            'Version %s is no longer supported.\n'
+        log.error(
+            'Version %s is no longer supported. '
             'Run "pip install --upgrade brkt-cli" to upgrade to the '
-            'latest version.' %
-            VERSION,
-            file=sys.stderr
+            'latest version.',
+            VERSION
         )
         return False
     if _is_later_version_available(VERSION, supported_versions):
-        print(
-            'A new release of brkt-cli is available.\n'
+        log.info(
+            'A new release of brkt-cli is available. '
             'Run "pip install --upgrade brkt-cli" to upgrade to the '
-            'latest version.',
-            file=sys.stderr
+            'latest version.'
         )
 
     return True
@@ -469,9 +468,6 @@ def main():
             break
     if not subcommand:
         raise Exception('Could not find subcommand ' + values.subparser_name)
-
-    # Turn off logging for categories that we don't care about.
-    logging.getLogger('requests').setLevel(logging.ERROR)
 
     # Initialize logging.  Verbose logging can be specified for either
     # the top-level "brkt" command or one of the subcommands.  We support

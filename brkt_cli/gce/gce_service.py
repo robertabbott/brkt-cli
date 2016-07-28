@@ -2,8 +2,6 @@
 
 import abc
 import datetime
-import logging
-import json
 import re
 import socket
 import time
@@ -22,7 +20,6 @@ from brkt_cli.validation import ValidationError
 
 GCE_NAME_MAX_LENGTH = 63
 LATEST_IMAGE = 'latest.image.tar.gz'
-log = logging.getLogger(__name__)
 
 
 brkt_image_buckets = {
@@ -32,8 +29,8 @@ brkt_image_buckets = {
 }
 
 
-def retry(function):
-    return brkt_cli.util.retry(function, on=[socket.error, errors.HttpError])
+def retry(function, timeout=15.0):
+    return brkt_cli.util.retry(function, on=[socket.error, errors.HttpError], timeout=timeout)
 
 
 def execute_gce_api_call(gce_object):
@@ -206,18 +203,18 @@ class GCEService(BaseGCEService):
     def cleanup(self, zone, encryptor_image, keep_encryptor=False):
         try:
             for instance in self.instances[:]:
-                log.info('deleting instance %s' % instance)
+                self.log.info('deleting instance %s' % instance)
                 self.delete_instance(zone, instance)
             for disk in self.disks[:]:
-                log.info('deleting disk %s' % disk)
+                self.log.info('deleting disk %s' % disk)
                 if self.disk_exists(zone, disk):
                     self.wait_for_detach(zone, disk)
                     self.delete_disk(zone, disk)
-            if not keep_encryptor:
-                log.info('Deleting encryptor image %s' % encryptor_image)
+            if not keep_encryptor and encryptor_image:
+                self.log.info('Deleting encryptor image %s' % encryptor_image)
                 self.delete_image(encryptor_image)
         except:
-            log.exception('Cleanup failed')
+            self.log.exception('Cleanup failed')
 
     def list_zones(self):
         zones = []
@@ -435,7 +432,7 @@ class GCEService(BaseGCEService):
     def wait_image(self, image_name):
         image_req = self.compute.images().get(image=image_name, project=self.project)
         while True:
-            if retry(execute_gce_api_call)(image_req)['status'] == 'READY':
+            if retry(execute_gce_api_call, timeout=30.0)(image_req)['status'] == 'READY':
                 return
             time.sleep(10)
 
@@ -495,7 +492,6 @@ class GCEService(BaseGCEService):
                      block_project_ssh_keys=False,
                      instance_type='n1-standard-4',
                      image_project=None):
-        self.instances.append(name)
 
         if block_project_ssh_keys:
             if 'items' not in metadata:
@@ -551,13 +547,14 @@ class GCEService(BaseGCEService):
             'metadata': metadata
         }
 
-        instance = self.compute.instances().insert(
+        instance_req = self.compute.instances().insert(
             project=self.project,
             zone=zone,
-            body=config).execute()
+            body=config)
+        retry(execute_gce_api_call)(instance_req)
         self.wait_instance(name, zone)
         self.get_disk_size(zone, name)
-        return instance
+        self.instances.append(name)
 
     def get_disk(self, zone, disk_name):
         source_disk = "projects/%s/zones/%s/disks/%s" % (self.project,

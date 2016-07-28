@@ -105,6 +105,9 @@ def command_launch_gce_image(values, log):
     brkt_userdata = instance_config.make_userdata()
     metadata = gce_service.gce_metadata_from_userdata(brkt_userdata,
                                                       extra_items=extra_items)
+    if not values.verbose:
+        logging.getLogger('googleapiclient').setLevel(logging.ERROR)
+
     launch_gce_image.launch(log,
                             gce_svc,
                             values.image,
@@ -124,6 +127,8 @@ def command_update_encrypted_gce_image(values, log):
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
 
     gce_service.validate_image_name(encrypted_image_name)
+    if not values.verbose:
+        logging.getLogger('googleapiclient').setLevel(logging.ERROR)
 
     log.info('Starting updater session %s', gce_svc.get_session_id())
     updated_image_id = update_gce_image.update_gce_image(
@@ -151,6 +156,8 @@ def command_encrypt_gce_image(values, log):
 
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
     gce_service.validate_image_name(encrypted_image_name)
+    if not values.verbose:
+        logging.getLogger('googleapiclient').setLevel(logging.ERROR)
 
     log.info('Starting encryptor session %s', gce_svc.get_session_id())
     encrypted_image_id = encrypt_gce_image.encrypt(
