@@ -29,7 +29,7 @@ from brkt_cli.aws import (
     share_logs
 )
 from brkt_cli.instance_config_args import (
-    instance_config_from_values,
+    make_instance_config,
     setup_instance_config_args
 )
 from brkt_cli.subcommand import Subcommand
@@ -444,12 +444,16 @@ def command_encrypt_ami(values):
         'Retry timeout=%.02f, initial sleep seconds=%.02f',
         aws_svc.retry_timeout, aws_svc.retry_initial_sleep_seconds)
 
+    brkt_env = (
+        brkt_cli.brkt_env_from_values(values) or
+        brkt_cli.get_prod_brkt_env()
+    )
+
     if values.validate:
         # Validate the region before connecting.
         _validate_region(aws_svc, values.region)
 
         if values.token:
-            brkt_env = brkt_cli.brkt_env_from_values(values)
             brkt_cli.check_jwt_auth(brkt_env, values.token)
 
     aws_svc.connect(values.region, key_name=values.key_name)
@@ -482,7 +486,7 @@ def command_encrypt_ami(values):
         subnet_id=values.subnet_id,
         security_group_ids=values.security_group_ids,
         guest_instance_type=values.guest_instance_type,
-        instance_config=instance_config_from_values(values),
+        instance_config=make_instance_config(values, brkt_env),
         status_port=values.status_port,
         save_encryptor_logs=values.save_encryptor_logs
     )
@@ -522,12 +526,16 @@ def command_update_encrypted_ami(values):
         'Retry timeout=%.02f, initial sleep seconds=%.02f',
         aws_svc.retry_timeout, aws_svc.retry_initial_sleep_seconds)
 
+    brkt_env = (
+        brkt_cli.brkt_env_from_values(values) or
+        brkt_cli.get_prod_brkt_env()
+    )
+
     if values.validate:
         # Validate the region before connecting.
         _validate_region(aws_svc, values.region)
 
         if values.token:
-            brkt_env = brkt_cli.brkt_env_from_values(values)
             brkt_cli.check_jwt_auth(brkt_env, values.token)
 
     aws_svc.connect(values.region, key_name=values.key_name)
@@ -590,7 +598,7 @@ def command_update_encrypted_ami(values):
         security_group_ids=values.security_group_ids,
         guest_instance_type=values.guest_instance_type,
         updater_instance_type=values.updater_instance_type,
-        instance_config=instance_config_from_values(values),
+        instance_config=make_instance_config(values, brkt_env),
         status_port=values.status_port,
     )
     print(updated_ami_id)

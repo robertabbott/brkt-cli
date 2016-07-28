@@ -116,21 +116,16 @@ def setup_instance_config_args(parser, mode=INSTANCE_CREATOR_MODE,
     )
 
 
-def instance_config_from_values(values=None, mode=INSTANCE_CREATOR_MODE):
+def make_instance_config(values=None, brkt_env=None,
+                         mode=INSTANCE_CREATOR_MODE):
+    log.debug('Creating instance config with %s', brkt_env)
+
     brkt_config = {}
-    if values is None:
+    if not values:
         return InstanceConfig(brkt_config, mode)
 
-    # First handle the args that affect brkt_config
-    if values.service_domain:
-        brkt_env = brkt_cli.brkt_env_from_domain(values.service_domain)
-    elif values.brkt_env:
-        brkt_env = brkt_cli.parse_brkt_env(values.brkt_env)
-    else:
-        brkt_env = brkt_cli.get_prod_brkt_env()
-
-    add_brkt_env_to_brkt_config(brkt_env, brkt_config)
-    log.debug('Using %s', brkt_env)
+    if brkt_env:
+        add_brkt_env_to_brkt_config(brkt_env, brkt_config)
 
     if values.token:
         brkt_config['identity_token'] = values.token

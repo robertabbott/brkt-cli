@@ -161,7 +161,7 @@ def brkt_env_from_values(values):
     elif values.brkt_env:
         return parse_brkt_env(values.brkt_env)
     else:
-        return get_prod_brkt_env()
+        return None
 
 
 def _parse_proxies(*proxy_host_ports):

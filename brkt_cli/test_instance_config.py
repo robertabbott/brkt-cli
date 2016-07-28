@@ -19,6 +19,7 @@ import sys
 import tempfile
 import unittest
 
+import brkt_cli
 from brkt_cli import (
     proxy)
 from brkt_cli.instance_config import (
@@ -30,7 +31,7 @@ from brkt_cli.instance_config import (
 )
 from brkt_cli.instance_config_args import (
     instance_config_args_to_values,
-    instance_config_from_values
+    make_instance_config
 )
 from brkt_cli.proxy import Proxy
 from brkt_cli.user_data import get_mime_part_payload
@@ -147,7 +148,8 @@ class TestInstanceConfig(unittest.TestCase):
 
 def _get_brkt_config_for_cli_args(cli_args='', mode=INSTANCE_CREATOR_MODE):
     values = instance_config_args_to_values(cli_args)
-    ic = instance_config_from_values(values, mode=mode)
+    brkt_env = brkt_cli.brkt_env_from_values(values)
+    ic = make_instance_config(values, brkt_env, mode=mode)
     ud = ic.make_userdata()
     brkt_config_json = get_mime_part_payload(ud, BRKT_CONFIG_CONTENT_TYPE)
     brkt_config = json.loads(brkt_config_json)['brkt']
@@ -171,13 +173,12 @@ class TestInstanceConfigFromCliArgs(unittest.TestCase):
             brkt_config['hsmproxy_host'], 'hsmproxy.example.com:443')
 
     def test_default_env_prod(self):
-        """ Test that we default to the prod environment if the service
-        endpoints aren't specified on the command line.
+        """ Test that Yeti endpoints aren't set when they're not specified
+        on the command line.
         """
         brkt_config = _get_brkt_config_for_cli_args()
-        self.assertEqual(brkt_config['api_host'], 'yetiapi.mgmt.brkt.com:443')
-        self.assertEqual(
-            brkt_config['hsmproxy_host'], 'hsmproxy.mgmt.brkt.com:443')
+        self.assertIsNone(brkt_config.get('api_host'))
+        self.assertIsNone(brkt_config.get('hsmproxy_host'))
 
     def test_ntp_servers(self):
         cli_args = '--ntp-server %s' % ntp_server1
@@ -199,7 +200,7 @@ class TestInstanceConfigFromCliArgs(unittest.TestCase):
     def test_proxy_config(self):
         cli_args = '--proxy %s' % (proxy_host_port)
         values = instance_config_args_to_values(cli_args)
-        ic = instance_config_from_values(values)
+        ic = make_instance_config(values)
         _verify_proxy_config_in_userdata(self, ic.make_userdata())
 
     def test_ca_cert(self):
@@ -208,7 +209,7 @@ class TestInstanceConfigFromCliArgs(unittest.TestCase):
         cli_args = '--ca-cert dummy.crt'
         values = instance_config_args_to_values(cli_args)
         with self.assertRaises(ValidationError):
-            ic = instance_config_from_values(values)
+            ic = make_instance_config(values)
 
         # Now specify endpoint args but use a bogus cert
         endpoint_args = '--brkt-env api.%s:7777,hsmproxy.%s:8888' % (domain, domain)
@@ -219,12 +220,13 @@ class TestInstanceConfigFromCliArgs(unittest.TestCase):
             cli_args = endpoint_args + ' --ca-cert %s' % f.name
             values = instance_config_args_to_values(cli_args)
             with self.assertRaises(ValidationError):
-                ic = instance_config_from_values(values)
+                ic = make_instance_config(values)
 
         # Now use endpoint args and a valid cert
         cli_args = endpoint_args + ' --ca-cert %s' % _get_ca_cert_filename()
         values = instance_config_args_to_values(cli_args)
-        ic = instance_config_from_values(values)
+        brkt_env = brkt_cli.brkt_env_from_values(values)
+        ic = make_instance_config(values, brkt_env)
         ud = ic.make_userdata()
         brkt_files = get_mime_part_payload(ud, BRKT_FILES_CONTENT_TYPE)
         self.assertTrue(brkt_files.startswith(

@@ -113,6 +113,8 @@ class DummyValues(object):
         self.proxies = []
         self.proxy_config_file = None
         self.status_port = None
+        self.brkt_env = None
+        self.service_domain = None
 
 
 class TestCommandLineOptions(unittest.TestCase):
@@ -295,3 +297,28 @@ class TestBrktEnv(unittest.TestCase):
             api_host_port + ',' + hsmproxy_host_port)
         brkt_cli.add_brkt_env_to_brkt_config(brkt_env, userdata)
         self.assertEqual(userdata, expected_userdata)
+
+    def test_brkt_env_from_values(self):
+        """ Test parsing BracketEnvironment from the --service-domain and
+        --brkt-env command line options.
+        """
+        # No values are set.
+        self.assertIsNone(brkt_cli.brkt_env_from_values(DummyValues()))
+
+        # Test --service-domain
+        values = DummyValues()
+        values.service_domain = 'example.com'
+        brkt_env = brkt_cli.brkt_env_from_values(values)
+        self.assertEqual(
+            str(brkt_cli.brkt_env_from_domain('example.com')),
+            str(brkt_env)
+        )
+
+        # Test --brkt-env
+        values = DummyValues()
+        values.brkt_env = 'yetiapi.example.com:443,hsmproxy.example.com:443'
+        brkt_env = brkt_cli.brkt_env_from_values(values)
+        self.assertEqual(
+            str(brkt_cli.parse_brkt_env(values.brkt_env)),
+            str(brkt_env)
+        )
