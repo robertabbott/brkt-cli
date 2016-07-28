@@ -6,7 +6,7 @@ from brkt_cli.subcommand import Subcommand
 from brkt_cli import encryptor_service, util
 from brkt_cli.instance_config import INSTANCE_METAVISOR_MODE
 from brkt_cli.instance_config_args import (
-    instance_config_from_values,
+    make_instance_config,
     setup_instance_config_args
 )
 from brkt_cli.gce import (
@@ -97,7 +97,8 @@ def _run_subcommand(subcommand, values):
 
 def command_launch_gce_image(values, log):
     gce_svc = gce_service.GCEService(values.project, None, log)
-    instance_config = instance_config_from_values(values)
+    brkt_env = brkt_cli.brkt_env_from_values(values)
+    instance_config = make_instance_config(values, brkt_env)
     if values.startup_script:
         extra_items = [{'key': 'startup-script', 'value': values.startup_script}]
     else:
@@ -131,6 +132,12 @@ def command_update_encrypted_gce_image(values, log):
         logging.getLogger('googleapiclient').setLevel(logging.ERROR)
 
     log.info('Starting updater session %s', gce_svc.get_session_id())
+
+    brkt_env = (
+        brkt_cli.brkt_env_from_values(values) or
+        brkt_cli.get_prod_brkt_env()
+    )
+
     updated_image_id = update_gce_image.update_gce_image(
         gce_svc=gce_svc,
         enc_svc_cls=encryptor_service.EncryptorService,
@@ -138,7 +145,7 @@ def command_update_encrypted_gce_image(values, log):
         encryptor_image=values.encryptor_image,
         encrypted_image_name=encrypted_image_name,
         zone=values.zone,
-        instance_config=instance_config_from_values(values),
+        instance_config=make_instance_config(values, brkt_env),
         keep_encryptor=values.keep_encryptor,
         image_file=values.image_file,
         image_bucket=values.bucket,
@@ -160,6 +167,12 @@ def command_encrypt_gce_image(values, log):
         logging.getLogger('googleapiclient').setLevel(logging.ERROR)
 
     log.info('Starting encryptor session %s', gce_svc.get_session_id())
+
+    brkt_env = (
+        brkt_cli.brkt_env_from_values(values) or
+        brkt_cli.get_prod_brkt_env()
+    )
+
     encrypted_image_id = encrypt_gce_image.encrypt(
         gce_svc=gce_svc,
         enc_svc_cls=encryptor_service.EncryptorService,
@@ -167,7 +180,7 @@ def command_encrypt_gce_image(values, log):
         encryptor_image=values.encryptor_image,
         encrypted_image_name=encrypted_image_name,
         zone=values.zone,
-        instance_config=instance_config_from_values(values),
+        instance_config=make_instance_config(values, brkt_env),
         image_project=values.image_project,
         keep_encryptor=values.keep_encryptor,
         image_file=values.image_file,
