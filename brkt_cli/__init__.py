@@ -364,7 +364,8 @@ def check_jwt_auth(brkt_env, jwt):
         else:
             log.debug('Server response: %s', e.msg)
             raise ValidationError(
-                'Unable to validate token.  Server returned error ' + e.code)
+                'Unable to validate token.  Server returned error %d' % e.code
+            )
     except IOError:
         if log.isEnabledFor(logging.DEBUG):
             log.exception('')
