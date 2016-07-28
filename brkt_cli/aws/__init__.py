@@ -49,7 +49,6 @@ from brkt_cli.aws.update_ami import update_ami
 log = logging.getLogger(__name__)
 
 
-METAVISOR_AMI_REGION_NAMES = ['us-east-1', 'us-west-1', 'us-west-2']
 BRACKET_ENVIRONMENT = "prod"
 PV_ENCRYPTOR_AMIS_URL = "https://solo-brkt-%s-net.s3.amazonaws.com/amis.json"
 ENCRYPTOR_AMIS_URL = "https://solo-brkt-%s-net.s3.amazonaws.com/hvm_amis.json"
@@ -382,23 +381,17 @@ def _validate(aws_svc, values, encryptor_ami_id):
         raise ValidationError(e.message)
 
 
-def _validate_region(aws_svc, values):
-    """ Check that the specified region is one that contains published
-    metavisor AMIs.  If --encryptor-ami is specified, check against the
-    entire set of AWS regions, since this option may be used for testing
-    new regions.
+def _validate_region(aws_svc, region_name):
+    """ Check that the specified region is a valid AWS region.
 
     :raise ValidationError if the region is invalid
     """
-    if values.encryptor_ami:
-        region_names = [r.name for r in aws_svc.get_regions()]
-    else:
-        region_names = METAVISOR_AMI_REGION_NAMES
-
-    if values.region not in region_names:
+    region_names = [r.name for r in aws_svc.get_regions()]
+    if region_name not in region_names:
         raise ValidationError(
-            'Invalid region %s.  Supported regions: %s.' %
-            (values.region, ', '.join(region_names)))
+            '%s does not exist.  AWS regions are %s' %
+            (region_name, ', '.join(region_names))
+        )
 
 
 def _use_pv_metavisor(values, guest_image):
@@ -409,7 +402,13 @@ def _use_pv_metavisor(values, guest_image):
     return values.pv or guest_image.virtualization_type == 'paravirtual'
 
 
-def _get_encryptor_ami(region, pv=False):
+def _get_encryptor_ami(region_name, pv=False):
+    """ Read the list of AMIs from the AMI endpoint and return the AMI ID
+    for the given region.
+
+    :raise ValidationError if the region is not supported
+    :raise BracketError if the list of AMIs cannot be read
+    """
     bracket_env = os.getenv('BRACKET_ENVIRONMENT',
                             BRACKET_ENVIRONMENT)
     if not bracket_env:
@@ -424,9 +423,12 @@ def _get_encryptor_ami(region, pv=False):
         raise BracketError(
             'Getting %s gave response: %s' % (bucket_url, r.text))
     resp_json = json.loads(r.read())
-    ami = resp_json.get(region)
+    ami = resp_json.get(region_name)
+
     if not ami:
-        raise BracketError('No AMI for %s returned.' % region)
+        regions = resp_json.keys()
+        raise ValidationError(
+            'Encryptor AMI is only available in %s' % ', '.join(regions))
     return ami
 
 
@@ -444,7 +446,7 @@ def command_encrypt_ami(values):
 
     if values.validate:
         # Validate the region before connecting.
-        _validate_region(aws_svc, values)
+        _validate_region(aws_svc, values.region)
 
     aws_svc.connect(values.region, key_name=values.key_name)
 
@@ -518,7 +520,7 @@ def command_update_encrypted_ami(values):
 
     if values.validate:
         # Validate the region before connecting.
-        _validate_region(aws_svc, values)
+        _validate_region(aws_svc, values.region)
 
     aws_svc.connect(values.region, key_name=values.key_name)
     encrypted_image = _validate_ami(aws_svc, values.ami)
