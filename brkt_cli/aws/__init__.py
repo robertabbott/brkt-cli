@@ -21,7 +21,7 @@ import boto
 from boto.exception import EC2ResponseError, NoAuthHandlerFound
 
 import brkt_cli
-from brkt_cli import encryptor_service, util
+from brkt_cli import brkt_jwt, encryptor_service, util
 from brkt_cli.aws import (
     aws_service,
     diag,
@@ -448,6 +448,10 @@ def command_encrypt_ami(values):
         # Validate the region before connecting.
         _validate_region(aws_svc, values.region)
 
+        if values.token:
+            brkt_env = brkt_cli.brkt_env_from_values(values)
+            brkt_cli.check_jwt_auth(brkt_env, values.token)
+
     aws_svc.connect(values.region, key_name=values.key_name)
 
     if values.validate:
@@ -521,6 +525,10 @@ def command_update_encrypted_ami(values):
     if values.validate:
         # Validate the region before connecting.
         _validate_region(aws_svc, values.region)
+
+        if values.token:
+            brkt_env = brkt_cli.brkt_env_from_values(values)
+            brkt_cli.check_jwt_auth(brkt_env, values.token)
 
     aws_svc.connect(values.region, key_name=values.key_name)
     encrypted_image = _validate_ami(aws_svc, values.ami)

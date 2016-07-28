@@ -168,6 +168,16 @@ def make_jwt(crypto, exp=None, nbf=None, cnc=None, claims=None,
         payload, crypto.private_key, algorithm='ES384', headers={'kid': kid})
 
 
+def get_key_id(jwt_string):
+    """ Return the kid header value from the given JWT, or None if it is not
+    specified.
+
+    :return the kid header value as a string
+    """
+    header = jwt.get_unverified_header(jwt_string)
+    return header.get('kid')
+
+
 def setup_make_jwt_args(subparsers):
     parser = subparsers.add_parser(
         SUBCOMMAND_NAME,
