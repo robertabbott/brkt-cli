@@ -125,6 +125,10 @@ def parse_brkt_env(brkt_env_string):
 
     be = BracketEnvironment()
     (be.api_host, be.api_port) = _parse_endpoint(endpoints[0])
+    # set public api host based on the same prefix assumption
+    # service-domain makes. Hopefully we'll remove brkt-env
+    # soon and we can get rid of it
+    be.public_api_host = be.api_host.replace('yetiapi', 'api')
     (be.hsmproxy_host, be.hsmproxy_port) = _parse_endpoint(endpoints[1])
     return be
 
