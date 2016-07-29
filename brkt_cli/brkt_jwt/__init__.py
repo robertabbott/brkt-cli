@@ -67,16 +67,19 @@ class MakeJWTSubcommand(Subcommand):
                 name, value = util.parse_name_value(name_value)
                 claims[name] = value
 
-        print(
-            make_jwt(
-                crypto,
-                exp=exp,
-                nbf=nbf,
-                cnc=values.cnc,
-                customer=customer,
-                claims=claims
-            )
+        jwt_string = make_jwt(
+            crypto,
+            exp=exp,
+            nbf=nbf,
+            cnc=values.cnc,
+            customer=customer,
+            claims=claims
         )
+        log.debug(jwt_string)
+        log.debug('Header: %s', json.dumps(get_header(jwt_string)))
+        log.debug('Payload: %s', json.dumps(get_payload(jwt_string)))
+        print(jwt_string)
+
         return 0
 
 
@@ -162,20 +165,34 @@ def make_jwt(crypto, exp=None, nbf=None, cnc=None, claims=None,
     if customer:
         payload['customer'] = customer
 
-    log.debug('kid=%s', kid)
-    log.debug('payload: %s', json.dumps(payload))
     return jwt.encode(
         payload, crypto.private_key, algorithm='ES384', headers={'kid': kid})
 
 
-def get_key_id(jwt_string):
-    """ Return the kid header value from the given JWT, or None if it is not
-    specified.
+def get_header(jwt_string):
+    """ Return all of the headers in the given JWT.
 
-    :return the kid header value as a string
+    :return the headers as a dictionary
     """
-    header = jwt.get_unverified_header(jwt_string)
-    return header.get('kid')
+    try:
+        return jwt.get_unverified_header(jwt_string)
+    except jwt.InvalidTokenError as e:
+        if log.isEnabledFor(logging.DEBUG):
+            log.exception('')
+        raise ValidationError('Unable to decode token: %s' % e)
+
+
+def get_payload(jwt_string):
+    """ Return the payload of the given JWT.
+
+    :return the payload as a dictionary
+    """
+    try:
+        return jwt.decode(jwt_string, verify=False)
+    except jwt.InvalidTokenError as e:
+        if log.isEnabledFor(logging.DEBUG):
+            log.exception('')
+        raise ValidationError('Unable to decode token: %s' % e)
 
 
 def setup_make_jwt_args(subparsers):

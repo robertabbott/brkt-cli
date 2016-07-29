@@ -297,40 +297,36 @@ def _check_version():
 
 
 def validate_jwt(jwt):
-    """ Perform some simple validation on the given JWT.
+    """ Check the incoming JWT and verify that it has all of the fields that
+    we require.
 
-    :return the JWT
-    :raise ValidationError if the JWT is malformed
+    :param jwt a JSON Web Token as a string
+    :return the JWT string
+    :raise ValidationError if validation fails
     """
     if not jwt:
         return None
 
-    # Decode header, payload, and signature.
-    parts = jwt.split('.')
-    if len(parts) != 3:
-        raise ValidationError('Malformed JWT: ' + jwt)
-    header = _base64_decode_json(parts[0])
-    payload = _base64_decode_json(parts[1])
-
-    try:
-        util.urlsafe_b64decode(parts[2])
-    except TypeError:
-        raise ValidationError('Unable to decode signature ' + parts[2])
-
     # Validate header.
+    header = brkt_jwt.get_header(jwt)
     expected_fields = ['typ', 'alg', 'kid']
     missing_fields = [f for f in expected_fields if f not in header]
     if missing_fields:
         raise ValidationError(
-            'Missing fields in JWT header: %s' % ','.join(missing_fields)
+            'Missing fields in token header: %s.  Use the %s command '
+            'to generate a valid token.' % (
+                ','.join(missing_fields),
+                brkt_jwt.SUBCOMMAND_NAME
+            )
         )
 
     # Validate payload.
-    expected_fields = ['jti', 'iss', 'iat']
-    missing_fields = [f for f in expected_fields if f not in payload]
-    if missing_fields:
+    payload = brkt_jwt.get_payload(jwt)
+    if not payload.get('jti'):
         raise ValidationError(
-            'Missing fields in JWT payload: %s' % ','.join(missing_fields)
+            'Token payload does not contain the jti field.  Use the %s '
+            'command to generate a valid token.' %
+            brkt_jwt.SUBCOMMAND_NAME
         )
 
     return jwt
@@ -345,7 +341,9 @@ def check_jwt_auth(brkt_env, jwt):
     :raise ValidationError if the token fails auth or the public key is not
     registered with the given account
     """
-    kid = brkt_jwt.get_key_id(jwt)
+    validate_jwt(jwt)
+    kid = brkt_jwt.get_header(jwt)['kid']
+
     uri = 'https://%s:%d/api/v1/jwk/%s' % (
         brkt_env.public_api_host,
         brkt_env.public_api_port,
