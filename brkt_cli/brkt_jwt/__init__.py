@@ -35,13 +35,10 @@ log = logging.getLogger(__name__)
 SUBCOMMAND_NAME = 'make-token'
 
 
-class MakeJWTSubcommand(Subcommand):
+class MakeTokenSubcommand(Subcommand):
 
     def name(self):
         return SUBCOMMAND_NAME
-
-    def exposed(self):
-        return False
 
     def register(self, subparsers):
         setup_make_jwt_args(subparsers)
@@ -95,7 +92,7 @@ def _datetime_to_timestamp(dt):
 
 
 def get_subcommands():
-    return [MakeJWTSubcommand()]
+    return [MakeTokenSubcommand()]
 
 
 def parse_timestamp(ts_string):
@@ -199,10 +196,10 @@ def setup_make_jwt_args(subparsers):
     parser = subparsers.add_parser(
         SUBCOMMAND_NAME,
         description=(
-            'Generate a JSON Web Token for launching an encrypted '
-            'instance. A timestamp can be either a Unix timestamp in '
-            'seconds or ISO 8601 (2016-05-10T19:15:36Z).  Timezone offset '
-            'defaults to UTC if not specified.'
+            'Generate a JSON Web Token for encrypting an instance or '
+            'launching an encrypted instance. A timestamp can be either a '
+            'Unix timestamp in seconds or ISO 8601 (2016-05-10T19:15:36Z). '
+            'Timezone offset defaults to UTC if not specified.'
         ),
         formatter_class=brkt_cli.SortingHelpFormatter
     )
