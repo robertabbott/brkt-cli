@@ -27,9 +27,6 @@ class MakeUserDataSubcommand(Subcommand):
     def name(self):
         return 'make-user-data'
 
-    def exposed(self):
-        return False
-
     def register(self, subparsers):
         parser = subparsers.add_parser(
             self.name(),
