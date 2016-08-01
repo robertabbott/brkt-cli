@@ -141,6 +141,11 @@ def command_update_encrypted_gce_image(values, log):
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
 
     gce_service.validate_image_name(encrypted_image_name)
+    gce_service.validate_images(gce_svc,
+                                encrypted_image_name,
+                                values.encryptor_image,
+                                values.image,
+                                values.image_project)
     if not values.verbose:
         logging.getLogger('googleapiclient').setLevel(logging.ERROR)
 
@@ -176,6 +181,11 @@ def command_encrypt_gce_image(values, log):
 
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
     gce_service.validate_image_name(encrypted_image_name)
+    gce_service.validate_images(gce_svc,
+                                encrypted_image_name,
+                                values.encryptor_image,
+                                values.image,
+                                values.image_project)
     if not values.verbose:
         logging.getLogger('googleapiclient').setLevel(logging.ERROR)
 

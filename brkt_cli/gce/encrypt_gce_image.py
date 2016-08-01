@@ -8,25 +8,10 @@ from brkt_cli.encryptor_service import wait_for_encryption
 from brkt_cli.encryptor_service import wait_for_encryptor_up
 from brkt_cli.gce.gce_service import gce_metadata_from_userdata
 from brkt_cli.util import Deadline, retry
-from brkt_cli.validation import ValidationError
 from googleapiclient import errors
 
 
 log = logging.getLogger(__name__)
-
-
-def validate_images(gce_svc, encrypted_image_name, encryptor, guest_image, image_project=None):
-    # check that image to be updated exists
-    if not gce_svc.image_exists(guest_image, image_project):
-        raise ValidationError('Image %s does not exist. Cannot encrypt' % guest_image)
-
-    # check that encryptor exists
-    if not gce_svc.image_exists(encryptor):
-        raise ValidationError('Encryptor image %s does not exist. Encryption failed.' % encryptor)
-
-    # check that there is no existing image named encrypted_image_name
-    if gce_svc.image_exists(encrypted_image_name):
-        raise ValidationError('An image already exists with name %s. Encryption Failed.' % encrypted_image_name)
 
 
 def setup_encryption(gce_svc,
@@ -116,8 +101,6 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         else:
             # Keep user provided encryptor image
             keep_encryptor = True
-
-        validate_images(gce_svc, encrypted_image_name, encryptor_image, image_id, image_project)
 
         instance_name = 'brkt-guest-' + gce_svc.get_session_id()
         encryptor = instance_name + '-encryptor'

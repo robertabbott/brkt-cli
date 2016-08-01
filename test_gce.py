@@ -277,22 +277,10 @@ class TestImageValidation(unittest.TestCase):
     def setUp(self):
         util.SLEEP_ENABLED = False
 
-    def test_nonexistant_encryptor(self):
-        gce_svc = DummyGCEService()
-        with self.assertRaises(ValidationError):
-            encrypt_gce_image.validate_images(
-                gce_svc=gce_svc,
-                guest_image='test-ubuntu',
-                # encrypted_image_name shouldn't exist
-                encrypted_image_name=NONEXISTANT_IMAGE,
-                encryptor=NONEXISTANT_IMAGE,
-                image_project=None,
-            )
-
     def test_nonexistant_guest(self):
         gce_svc = DummyGCEService()
         with self.assertRaises(ValidationError):
-            encrypt_gce_image.validate_images(
+            gce_service.validate_images(
                 gce_svc=gce_svc,
                 guest_image=NONEXISTANT_IMAGE,
                 encryptor='americium',
@@ -303,7 +291,7 @@ class TestImageValidation(unittest.TestCase):
     def test_desired_output_image_exists(self):
         gce_svc = DummyGCEService()
         with self.assertRaises(ValidationError):
-            encrypt_gce_image.validate_images(
+            gce_service.validate_images(
                 gce_svc=gce_svc,
                 guest_image='test-ubuntu',
                 encryptor='americium',
@@ -314,7 +302,7 @@ class TestImageValidation(unittest.TestCase):
     def test_nonexistant_image_project(self):
         gce_svc = DummyGCEService()
         with self.assertRaises(ValidationError):
-            encrypt_gce_image.validate_images(
+            gce_service.validate_images(
                 gce_svc=gce_svc,
                 guest_image='test-ubuntu',
                 encryptor='americium',

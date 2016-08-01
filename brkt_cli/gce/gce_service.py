@@ -594,6 +594,20 @@ def get_image_name(encrypted_image_name, name):
     return encrypted_image_name
 
 
+def validate_images(gce_svc, encrypted_image_name, encryptor, guest_image, image_project=None):
+    # check that image to be updated exists
+    if not gce_svc.image_exists(guest_image, image_project):
+        raise ValidationError('Guest image or image project invalid')
+
+    # check that encryptor exists
+    if encryptor and not gce_svc.image_exists(encryptor):
+        raise ValidationError('Encryptor image %s does not exist. Encryption failed.' % encryptor)
+
+    # check that there is no existing image named encrypted_image_name
+    if gce_svc.image_exists(encrypted_image_name):
+        raise ValidationError('An image already exists with name %s. Encryption Failed.' % encrypted_image_name)
+
+
 def validate_image_name(name):
     """ Verify that the name is a valid GCE image name. Return the name
         if it is valid.
