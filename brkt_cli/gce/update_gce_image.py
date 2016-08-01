@@ -44,8 +44,6 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
             # Keep user provided encryptor image
             keep_encryptor = True
 
-        encrypt_gce_image.validate_images(gce_svc, encrypted_image_name,
-            encryptor_image, image_id)
         instance_name = 'brkt-updater-' + gce_svc.get_session_id()
         updater = instance_name + '-metavisor'
         encrypted_image_disk = instance_name + '-guest'
