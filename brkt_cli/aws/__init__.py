@@ -66,7 +66,7 @@ class DiagSubcommand(Subcommand):
     def verbose(self, values):
         return values.diag_verbose
 
-    def register(self, subparsers):
+    def register(self, subparsers, parsed_config):
         diag_parser = subparsers.add_parser(
             'diag',
             description=(
@@ -93,7 +93,7 @@ class ShareLogsSubcommand(Subcommand):
     def verbose(self, values):
         return values.share_logs_verbose
 
-    def register(self, subparsers):
+    def register(self, subparsers, parsed_config):
         share_logs_parser = subparsers.add_parser(
             'share-logs',
             description='Share logs from an existing encrypted instance.',
@@ -118,7 +118,7 @@ class EncryptAMISubcommand(Subcommand):
     def verbose(self, values):
         return values.encrypt_ami_verbose
 
-    def register(self, subparsers):
+    def register(self, subparsers, parsed_config):
         encrypt_ami_parser = subparsers.add_parser(
             'encrypt-ami',
             description='Create an encrypted AMI from an existing AMI.',
@@ -144,7 +144,7 @@ class UpdateAMISubcommand(Subcommand):
     def verbose(self, values):
         return values.update_encrypted_ami_verbose
 
-    def register(self, subparsers):
+    def register(self, subparsers, parsed_config):
         update_encrypted_ami_parser = subparsers.add_parser(
             'update-encrypted-ami',
             description=(

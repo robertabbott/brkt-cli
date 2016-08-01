@@ -217,3 +217,40 @@ def read_private_key(pem_path):
     if crypto.curve != brkt_cli.crypto.SECP384R1:
         raise ValidationError(key_format_err)
     return crypto
+
+
+def render_table_rows(rows, row_prefix=''):
+    """ Render the supplied rows as a table. This computes the maximum width
+    of each column and renders each row such that all columns are left
+    justified. Each value must be formattable as a string.
+
+    An example:
+
+    >>> from brkt_cli.util import render_table_rows
+    >>> rows = [["foo", "bar", "baz"], ["foofoo", "barbarbar", "baz"]]
+    >>> print render_table_rows(rows)
+    foo    bar       baz
+    foofoo barbarbar baz
+    >>>
+
+    :param rows a list of lists that represent the rows that are to be
+    rendered.
+    :param row_prefix an optional string that will be prepended to each
+    row after it has been rendered.
+    :return the rows rendered as a string.
+    """
+    if len(rows) == 0:
+        return ''
+    widths = [0 for _ in rows[0]]
+    for row in rows:
+        for ii, col in enumerate(row):
+            widths[ii] = max(widths[ii], len(col))
+    fmts = []
+    for width in widths:
+        fmts.append('{:' + str(width) + '}')
+    fmt = " ".join(fmts)
+    lines = []
+    for row in rows:
+        lines.append(row_prefix + fmt.format(*row))
+    table = "\n".join(lines)
+    return table

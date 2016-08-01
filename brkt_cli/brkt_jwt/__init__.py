@@ -40,7 +40,7 @@ class MakeTokenSubcommand(Subcommand):
     def name(self):
         return SUBCOMMAND_NAME
 
-    def register(self, subparsers):
+    def register(self, subparsers, parsed_config):
         setup_make_jwt_args(subparsers)
 
     def verbose(self, values):

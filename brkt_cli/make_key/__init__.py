@@ -38,7 +38,7 @@ class MakeKeySubcommand(Subcommand):
     def name(self):
         return 'make-key'
 
-    def register(self, subparsers):
+    def register(self, subparsers, parsed_config):
         parser = subparsers.add_parser(
             self.name(),
             description=(
