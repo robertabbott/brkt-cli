@@ -68,7 +68,6 @@ class MakeTokenSubcommand(Subcommand):
             crypto,
             exp=exp,
             nbf=nbf,
-            cnc=values.cnc,
             customer=customer,
             claims=claims
         )
@@ -130,14 +129,12 @@ def parse_timestamp(ts_string):
     return dt
 
 
-def make_jwt(crypto, exp=None, nbf=None, cnc=None, claims=None,
-             customer=None):
+def make_jwt(crypto, exp=None, nbf=None, claims=None, customer=None):
     """ Generate a JWT.
 
     :param crypto a brkt_cli.crypto.Crypto object
     :param exp expiration time as a datetime
     :param nbf not before as a datetime
-    :param cnc maximum number of concurrent instances as an integer
     :param claims a dictionary of claims
     :param customer customer UUID as a string
     :return the JWT as a string
@@ -157,8 +154,6 @@ def make_jwt(crypto, exp=None, nbf=None, cnc=None, claims=None,
         payload['exp'] = _datetime_to_timestamp(exp)
     if nbf:
         payload['nbf'] = _datetime_to_timestamp(nbf)
-    if cnc is not None:
-        payload['cnc'] = cnc
     if customer:
         payload['customer'] = customer
 
@@ -213,9 +208,6 @@ def setup_make_jwt_args(subparsers):
         action='append'
     )
 
-    def cnc(value):
-        return brkt_cli.validation.min_int_argument(value, 1)
-
     parser.add_argument(
         '--customer',
         metavar='UUID',
@@ -223,12 +215,6 @@ def setup_make_jwt_args(subparsers):
         help=(
             'Required for API access when using a third party JWK server'
         )
-    )
-    parser.add_argument(
-        '--cnc',
-        metavar='N',
-        type=cnc,
-        help='Maximum number of concurrent instances.  Must be at least 1.'
     )
     parser.add_argument(
         '--exp',
