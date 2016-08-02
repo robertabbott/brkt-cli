@@ -207,8 +207,8 @@ def wait_for_encryption(enc_svc,
             log.info('Encrypted root drive created.')
             return
         elif state == ENCRYPT_FAILED:
+            log.debug('Encryption failed with status %s', status)
             failure_code = status.get('failure_code')
-            log.debug('failure_code=%s', failure_code)
             if failure_code == \
                     FAILURE_CODE_UNSUPPORTED_GUEST:
                 raise UnsupportedGuestError(
@@ -220,7 +220,11 @@ def wait_for_encryption(enc_svc,
                     FAILURE_CODE_INVALID_NTP_SERVERS:
                 raise InvalidNtpServerError(
                     'Invalid NTP servers provided.')
-            raise EncryptionError('Encryption failed')
+
+            msg = 'Encryption failed'
+            if failure_code:
+                msg += ' with code %s' % failure_code
+            raise EncryptionError(msg)
 
         sleep(10)
     # We've failed to get encryption status for _max_errs_ consecutive tries.
