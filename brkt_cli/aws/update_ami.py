@@ -161,6 +161,9 @@ def update_ami(aws_svc, encrypted_ami, updater_ami, encrypted_ami_name,
         try:
             wait_for_encryption(enc_svc)
         except Exception as e:
+            # Stop the updater instance, to make the console log available.
+            encrypt_ami.stop_and_wait(aws_svc, updater.id)
+
             log_exception_console(aws_svc, e, updater.id)
             raise
 
