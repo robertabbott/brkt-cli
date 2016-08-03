@@ -341,12 +341,10 @@ def check_jwt_auth(brkt_env, jwt):
     registered with the given account
     """
     validate_jwt(jwt)
-    kid = brkt_jwt.get_header(jwt)['kid']
 
-    uri = 'https://%s:%d/api/v1/jwk/%s' % (
+    uri = 'https://%s:%d/api/v1/customer/self' % (
         brkt_env.public_api_host,
-        brkt_env.public_api_port,
-        kid
+        brkt_env.public_api_port
     )
     log.debug('Validating token against %s', uri)
     request = urllib2.Request(
@@ -354,22 +352,27 @@ def check_jwt_auth(brkt_env, jwt):
         headers={'Authorization': 'Bearer %s' % jwt}
     )
     try:
-        response = urllib2.urlopen(request)
+        response = urllib2.urlopen(request, timeout=10.0)
+        log.debug('Server returned %d', response.getcode())
     except urllib2.HTTPError as e:
         if e.code == 401:
             raise ValidationError('Unauthorized token.')
         else:
+            # Unexpected server response.  Log a warning and continue, so
+            # that we don't unnecessarily interrupt the encryption process.
             log.debug('Server response: %s', e.msg)
-            raise ValidationError(
-                'Unable to validate token.  Server returned error %d' % e.code
+            log.warn(
+                'Unable to validate token.  Server returned error %d.  '
+                'Use --no-validate to disable validation.' % e.code
             )
     except IOError:
         if log.isEnabledFor(logging.DEBUG):
             log.exception('')
-        raise ValidationError(
-            'Unable to validate token.  Connection to %s failed.' % uri)
-
-    log.debug('Server returned %d', response.getcode())
+        log.warn(
+            'Unable to validate token against %s.  Use --no-validate to '
+            'disable validation.',
+            uri
+        )
 
 
 def add_brkt_env_to_brkt_config(brkt_env, brkt_config):
