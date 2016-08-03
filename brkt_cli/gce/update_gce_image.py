@@ -19,8 +19,11 @@ from brkt_cli.gce.gce_service import gce_metadata_from_userdata
 from brkt_cli.util import Deadline
 from brkt_cli import add_brkt_env_to_brkt_config
 
-from brkt_cli.encryptor_service import wait_for_encryption
-from brkt_cli.encryptor_service import wait_for_encryptor_up
+from brkt_cli.encryptor_service import (
+    ENCRYPTOR_STATUS_PORT,
+    wait_for_encryption,
+    wait_for_encryptor_up
+)
 
 """
 Create an encrypted GCE image (with new metavisor) based
@@ -31,8 +34,10 @@ log = logging.getLogger(__name__)
 
 
 def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
-            encrypted_image_name, zone, instance_config, keep_encryptor=False,
-            image_file=None, image_bucket=None, network=None):
+                     encrypted_image_name, zone, instance_config,
+                     keep_encryptor=False, image_file=None,
+                     image_bucket=None, network=None,
+                     status_port=ENCRYPTOR_STATUS_PORT):
     snap_created = None
     try:
         # create image from file in GCS bucket
@@ -66,7 +71,8 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
                              network=network,
                              disks=[],
                              metadata=user_data)
-        enc_svc = enc_svc_cls([gce_svc.get_instance_ip(updater, zone)])
+        enc_svc = enc_svc_cls([gce_svc.get_instance_ip(updater, zone)],
+                              port=status_port)
 
         # wait for updater to finish and guest root disk
         wait_for_encryptor_up(enc_svc, Deadline(600))

@@ -28,6 +28,10 @@ from brkt_cli.aws import (
     encrypt_ami,
     share_logs
 )
+from brkt_cli.instance_config import (
+    INSTANCE_CREATOR_MODE,
+    INSTANCE_UPDATER_MODE
+)
 from brkt_cli.instance_config_args import (
     make_instance_config,
     setup_instance_config_args
@@ -124,7 +128,8 @@ class EncryptAMISubcommand(Subcommand):
             formatter_class=brkt_cli.SortingHelpFormatter
         )
         encrypt_ami_args.setup_encrypt_ami_args(encrypt_ami_parser)
-        setup_instance_config_args(encrypt_ami_parser)
+        setup_instance_config_args(encrypt_ami_parser,
+                                   mode=INSTANCE_CREATOR_MODE)
 
     def run(self, values):
         return _run_subcommand(self.name(), values)
@@ -154,8 +159,8 @@ class UpdateAMISubcommand(Subcommand):
         )
         update_encrypted_ami_args.setup_update_encrypted_ami(
             update_encrypted_ami_parser)
-        setup_instance_config_args(
-            update_encrypted_ami_parser)
+        setup_instance_config_args(update_encrypted_ami_parser,
+                                   mode=INSTANCE_UPDATER_MODE)
 
     def run(self, values):
         return _run_subcommand(self.name(), values)
