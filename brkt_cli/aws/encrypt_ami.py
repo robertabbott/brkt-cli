@@ -194,6 +194,18 @@ def wait_for_instance(
     )
 
 
+def stop_and_wait(aws_svc, instance_id):
+    """ Stop the given instance and wait for it to be in the stopped state.
+    If an exception is thrown, log the error and return.
+    """
+    try:
+        aws_svc.stop_instance(instance_id)
+        wait_for_instance(aws_svc, instance_id, state='stopped')
+    except:
+        log.exception(
+            'Error while waiting for instance %s to stop', instance_id)
+
+
 def get_encrypted_suffix():
     """ Return a suffix that will be appended to the encrypted image name.
     The suffix is in the format "(encrypted 787ace7a)".  The nonce portion of
@@ -674,6 +686,9 @@ def snapshot_encrypted_instance(aws_svc, enc_svc_cls, encryptor_instance,
         log.info('Creating encrypted root drive.')
         encryptor_service.wait_for_encryption(enc_svc)
     except (BracketError, encryptor_service.EncryptionError) as e:
+        # Stop the encryptor instance, to make the console log available.
+        stop_and_wait(aws_svc, encryptor_instance.id)
+
         log_exception_console(aws_svc, e, encryptor_instance.id)
         if save_encryptor_logs:
             log.info('Saving logs from encryptor instance in snapshot')

@@ -112,6 +112,25 @@ class TestRunEncryption(unittest.TestCase):
         console log to a temp file.
         """
         aws_svc, encryptor_image, guest_image = build_aws_service()
+
+        # Create callbacks that make sure that we stop the encryptor
+        # instance before collecting logs.
+        self.encryptor_instance = None
+
+        def run_instance_callback(args):
+            if args.image_id == encryptor_image.id:
+                self.encryptor_instance = args.instance
+
+        self.encryptor_stopped = False
+
+        def stop_instance_callback(instance):
+            if (self.encryptor_instance and
+                    instance.id == self.encryptor_instance.id):
+                self.encryptor_stopped = True
+
+        aws_svc.run_instance_callback = run_instance_callback
+        aws_svc.stop_instance_callback = stop_instance_callback
+
         try:
             encrypt_ami.encrypt(
                 aws_svc=aws_svc,
@@ -125,6 +144,8 @@ class TestRunEncryption(unittest.TestCase):
                 content = f.read()
                 self.assertEquals(test_aws_service.CONSOLE_OUTPUT_TEXT, content)
             os.remove(e.console_output_file.name)
+
+        self.assertTrue(self.encryptor_stopped)
 
     def test_encryption_error_console_output_not_available(self):
         """ Test that we handle the case when encryption fails and console

@@ -11,9 +11,12 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
+import os
 import unittest
 
 from boto.exception import EC2ResponseError
+from brkt_cli import encryptor_service
+
 from brkt_cli import util
 
 from brkt_cli.aws import (
@@ -21,7 +24,8 @@ from brkt_cli.aws import (
 )
 from brkt_cli.aws.test_aws_service import build_aws_service
 from brkt_cli.test_encryptor_service import (
-    DummyEncryptorService
+    DummyEncryptorService,
+    FailedEncryptionService
 )
 
 
@@ -120,3 +124,50 @@ class TestRunUpdate(unittest.TestCase):
             enc_svc_class=DummyEncryptorService
         )
         self.assertEqual(3, self.call_count)
+
+    def test_update_error_console_output(self):
+        """ Test that when an update failure occurs, we write the
+        console log to a temp file.
+        """
+        aws_svc, encryptor_image, guest_image = build_aws_service()
+
+        encrypted_ami_id = encrypt_ami.encrypt(
+            aws_svc=aws_svc,
+            enc_svc_cls=DummyEncryptorService,
+            image_id=guest_image.id,
+            encryptor_ami=encryptor_image.id
+        )
+
+        # Create callbacks that make sure that we stop the updater
+        # instance before collecting logs.
+        self.updater_instance = None
+
+        def run_instance_callback(args):
+            if args.image_id == encryptor_image.id:
+                self.updater_instance = args.instance
+
+        self.updater_stopped = False
+
+        def stop_instance_callback(instance):
+            if (self.updater_instance and
+                    instance.id == self.updater_instance.id):
+                self.updater_stopped = True
+
+        aws_svc.run_instance_callback = run_instance_callback
+        aws_svc.stop_instance_callback = stop_instance_callback
+
+        try:
+            update_ami(
+                aws_svc, encrypted_ami_id, encryptor_image.id,
+                'Test updated AMI',
+                enc_svc_class=FailedEncryptionService
+            )
+            self.fail('Update should have failed')
+        except encryptor_service.EncryptionError as e:
+            with open(e.console_output_file.name) as f:
+                content = f.read()
+                self.assertEquals(
+                    test_aws_service.CONSOLE_OUTPUT_TEXT, content)
+            os.remove(e.console_output_file.name)
+
+        self.assertTrue(self.updater_stopped)

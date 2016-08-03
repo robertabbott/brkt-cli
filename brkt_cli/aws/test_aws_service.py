@@ -51,6 +51,7 @@ class RunInstanceArgs(object):
         self.security_group_ids = None
         self.subnet_id = None
         self.user_data = None
+        self.instance = None
 
 
 class DummyAWSService(aws_service.BaseAWSService):
@@ -88,6 +89,7 @@ class DummyAWSService(aws_service.BaseAWSService):
         self.create_snapshot_callback = None
         self.get_snapshot_callback = None
         self.delete_snapshot_callback = None
+        self.stop_instance_callback = None
 
     def get_regions(self):
         return self.regions
@@ -136,6 +138,7 @@ class DummyAWSService(aws_service.BaseAWSService):
             args.security_group_ids = security_group_ids
             args.subnet_id = subnet_id
             args.user_data = user_data
+            args.instance = instance
             self.run_instance_callback(args)
 
         return instance
@@ -162,6 +165,9 @@ class DummyAWSService(aws_service.BaseAWSService):
 
     def stop_instance(self, instance_id):
         instance = self.instances[instance_id]
+        if self.stop_instance_callback:
+            self.stop_instance_callback(instance)
+
         instance._state.code = 80
         instance._state.name = 'stopped'
         return instance
