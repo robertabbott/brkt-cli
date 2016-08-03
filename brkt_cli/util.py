@@ -237,6 +237,7 @@ def render_table_rows(rows, row_prefix=''):
     rendered.
     :param row_prefix an optional string that will be prepended to each
     row after it has been rendered.
+
     :return the rows rendered as a string.
     """
     if len(rows) == 0:
@@ -254,3 +255,30 @@ def render_table_rows(rows, row_prefix=''):
         lines.append(row_prefix + fmt.format(*row))
     table = "\n".join(lines)
     return table
+
+
+def parse_endpoint(endpoint):
+    """Parse a <host>[:<port>] string into its constituent parts.
+
+    :param endpoint a string of the form <host>[:<port>]
+
+    :return a dictionary of the form {"hostname": <hostname>, "port": <port>}
+        The "port" key will only exist if it is parsed from endpoint.
+
+    :raises ValueError if an invalid string is supplied.
+
+    """
+
+    host_port_pattern = r'([^:]+)(:\d+)?$'
+    m = re.match(host_port_pattern, endpoint)
+    if not m:
+        raise ValueError('Invalid endpoint: ' + endpoint)
+    elif not validate_dns_name_ip_address(m.group(1)):
+        raise ValidationError('Invalid hostname: ' + m.group(1))
+    groups = m.groups()
+    ret = {
+        'host': groups[0],
+    }
+    if groups[1] is not None:
+        ret['port'] = int(groups[1][1:])
+    return ret

@@ -261,6 +261,7 @@ class EncryptAMISubcommand(Subcommand):
         return values.encrypt_ami_verbose
 
     def register(self, subparsers, parsed_config):
+        self.config = parsed_config
         encrypt_ami_parser = subparsers.add_parser(
             'encrypt-ami',
             description='Create an encrypted AMI from an existing AMI.',
@@ -330,7 +331,7 @@ class EncryptAMISubcommand(Subcommand):
             security_group_ids=values.security_group_ids,
             guest_instance_type=values.guest_instance_type,
             instance_config=instance_config_from_values(
-                values, mode=INSTANCE_CREATOR_MODE),
+                values, mode=INSTANCE_CREATOR_MODE, cli_config=self.config),
             status_port=values.status_port,
             save_encryptor_logs=values.save_encryptor_logs
         )
@@ -354,6 +355,7 @@ class UpdateAMISubcommand(Subcommand):
         return values.update_encrypted_ami_verbose
 
     def register(self, subparsers, parsed_config):
+        self.config = parsed_config
         update_encrypted_ami_parser = subparsers.add_parser(
             'update-encrypted-ami',
             description=(
@@ -456,7 +458,7 @@ class UpdateAMISubcommand(Subcommand):
             guest_instance_type=values.guest_instance_type,
             updater_instance_type=values.updater_instance_type,
             instance_config=instance_config_from_values(
-                values, mode=INSTANCE_UPDATER_MODE),
+                values, mode=INSTANCE_UPDATER_MODE, cli_config=self.config),
             status_port=values.status_port,
         )
         print(updated_ami_id)

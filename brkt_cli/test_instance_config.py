@@ -22,6 +22,7 @@ import unittest
 import brkt_cli
 from brkt_cli import (
     proxy)
+from brkt_cli.config import CLIConfig
 from brkt_cli.instance_config import (
     BRKT_CONFIG_CONTENT_TYPE,
     BRKT_FILES_CONTENT_TYPE,
@@ -150,9 +151,10 @@ class TestInstanceConfig(unittest.TestCase):
         """
 
 
-def _get_brkt_config_for_cli_args(cli_args='', mode=INSTANCE_CREATOR_MODE):
+def _get_brkt_config_for_cli_args(cli_args='', mode=INSTANCE_CREATOR_MODE,
+                                  cli_config=None):
     values = instance_config_args_to_values(cli_args)
-    ic = instance_config_from_values(values, mode=mode)
+    ic = instance_config_from_values(values, mode=mode, cli_config=cli_config)
     ud = ic.make_userdata()
     brkt_config_json = get_mime_part_payload(ud, BRKT_CONFIG_CONTENT_TYPE)
     brkt_config = json.loads(brkt_config_json)['brkt']
@@ -203,6 +205,23 @@ class TestInstanceConfigFromCliArgs(unittest.TestCase):
         self.assertIsNone(brkt_config.get('api_host'))
         self.assertIsNone(brkt_config.get('hsmproxy_host'))
         self.assertIsNone(brkt_config.get('network_host'))
+
+    def test_env_from_config(self):
+        """ Test that we can use a custom environment that is stored
+        in the config
+        """
+        config = CLIConfig()
+        env = brkt_cli.brkt_env_from_domain('foo.com')
+        config.set_env('test', env)
+        config.set_current_env('test')
+        for mode in (INSTANCE_CREATOR_MODE, INSTANCE_UPDATER_MODE):
+            brkt_config = _get_brkt_config_for_cli_args(
+                mode=mode, cli_config=config)
+            for attr in ('api', 'hsmproxy', 'network'):
+                endpoint = '%s:%d' % (
+                    getattr(env, attr + '_host'),
+                    getattr(env, attr + '_port'))
+                self.assertEqual(endpoint, brkt_config.get(attr + '_host'))
 
     def test_ntp_servers(self):
         cli_args = '--ntp-server %s' % ntp_server1
