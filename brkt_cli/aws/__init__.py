@@ -49,9 +49,8 @@ from brkt_cli.aws.update_ami import update_ami
 log = logging.getLogger(__name__)
 
 
-BRACKET_ENVIRONMENT = "prod"
-PV_ENCRYPTOR_AMIS_URL = "https://solo-brkt-%s-net.s3.amazonaws.com/amis.json"
-ENCRYPTOR_AMIS_URL = "https://solo-brkt-%s-net.s3.amazonaws.com/hvm_amis.json"
+PV_ENCRYPTOR_AMIS_URL = "https://solo-brkt-prod-net.s3.amazonaws.com/amis.json"
+ENCRYPTOR_AMIS_URL = "https://solo-brkt-prod-net.s3.amazonaws.com/hvm_amis.json"
 
 
 class DiagSubcommand(Subcommand):
@@ -409,14 +408,11 @@ def _get_encryptor_ami(region_name, pv=False):
     :raise ValidationError if the region is not supported
     :raise BracketError if the list of AMIs cannot be read
     """
-    bracket_env = os.getenv('BRACKET_ENVIRONMENT',
-                            BRACKET_ENVIRONMENT)
-    if not bracket_env:
-        raise BracketError('No bracket environment found')
     if pv:
-        bucket_url = PV_ENCRYPTOR_AMIS_URL % bracket_env
+        bucket_url = PV_ENCRYPTOR_AMIS_URL
     else:
-        bucket_url = ENCRYPTOR_AMIS_URL % bracket_env
+        bucket_url = ENCRYPTOR_AMIS_URL
+
     log.debug('Getting encryptor AMI list from %s', bucket_url)
     r = urllib2.urlopen(bucket_url)
     if r.getcode() not in (200, 201):
