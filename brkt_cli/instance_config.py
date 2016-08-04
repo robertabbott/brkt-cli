@@ -38,6 +38,7 @@ GUEST_FILES_CONTENT_TYPE = 'text/brkt-guest-files'
 # is running in 'creator' mode.
 INSTANCE_METAVISOR_MODE = 1
 INSTANCE_CREATOR_MODE   = 2
+INSTANCE_UPDATER_MODE   = 3
 
 log = logging.getLogger(__name__)
 

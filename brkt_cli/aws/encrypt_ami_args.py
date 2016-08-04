@@ -14,8 +14,6 @@
 
 import argparse
 
-from brkt_cli import encryptor_service
-
 
 def setup_encrypt_ami_args(parser):
     parser.add_argument(
@@ -68,16 +66,6 @@ def setup_encrypt_ami_args(parser):
             'Use this security group when running the encryptor instance. '
             'May be specified multiple times.'
         )
-    )
-    parser.add_argument(
-        '--status-port',
-        metavar='PORT',
-        dest='status_port',
-        type=encryptor_service.status_port,
-        default=encryptor_service.ENCRYPTOR_STATUS_PORT,
-        help='Specify the port to receive http status of encryptor. Any port '
-        'in range 1-65535 can be used except for port 81.',
-        required=False
     )
     parser.add_argument(
         '--subnet',

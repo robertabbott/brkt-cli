@@ -4,8 +4,11 @@ import httplib
 import logging
 import socket
 
-from brkt_cli.encryptor_service import wait_for_encryption
-from brkt_cli.encryptor_service import wait_for_encryptor_up
+from brkt_cli.encryptor_service import (
+    ENCRYPTOR_STATUS_PORT,
+    wait_for_encryption,
+    wait_for_encryptor_up
+)
 from brkt_cli.gce.gce_service import gce_metadata_from_userdata
 from brkt_cli.util import Deadline, retry
 from googleapiclient import errors
@@ -38,14 +41,15 @@ def setup_encryption(gce_svc,
 
 
 def do_encryption(gce_svc,
-                   enc_svc_cls,
-                   zone,
-                   encryptor,
-                   encryptor_image,
-                   instance_name,
-                   instance_config,
-                   encrypted_image_disk,
-                   network):
+                  enc_svc_cls,
+                  zone,
+                  encryptor,
+                  encryptor_image,
+                  instance_name,
+                  instance_config,
+                  encrypted_image_disk,
+                  network,
+                  status_port=ENCRYPTOR_STATUS_PORT):
     metadata = gce_metadata_from_userdata(instance_config.make_userdata())
     log.info('Launching encryptor instance')
     gce_svc.run_instance(zone=zone,
@@ -57,7 +61,8 @@ def do_encryption(gce_svc,
                          metadata=metadata)
 
     try:
-        enc_svc = enc_svc_cls([gce_svc.get_instance_ip(encryptor, zone)])
+        enc_svc = enc_svc_cls([gce_svc.get_instance_ip(encryptor, zone)],
+                              port=status_port)
         wait_for_encryptor_up(enc_svc, Deadline(600))
         wait_for_encryption(enc_svc)
     except Exception as e:
@@ -91,7 +96,8 @@ def create_image(gce_svc, zone, encrypted_image_disk, encrypted_image_name, encr
 
 def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
             encrypted_image_name, zone, instance_config, image_project=None,
-            keep_encryptor=False, image_file=None, image_bucket=None, network=None):
+            keep_encryptor=False, image_file=None, image_bucket=None,
+            network=None, status_port=ENCRYPTOR_STATUS_PORT):
     try:
         # create metavisor image from file in GCS bucket
         log.info('Retrieving encryptor image from GCS bucket')
@@ -119,7 +125,7 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         # customer image and blank disk
         do_encryption(gce_svc, enc_svc_cls, zone, encryptor, encryptor_image,
                       instance_name, instance_config, encrypted_image_disk,
-                      network)
+                      network, status_port=status_port)
 
         # create image
         create_image(gce_svc, zone, encrypted_image_disk, encrypted_image_name, encryptor)
