@@ -119,3 +119,24 @@ class TestEncryptionService(unittest.TestCase):
                 NoProgressService(),
                 progress_timeout=0.100
             )
+
+    def test_handle_failure_code(self):
+        with self.assertRaises(encryptor_service.UnsupportedGuestError):
+            encryptor_service._handle_failure_code(
+                encryptor_service.FAILURE_CODE_UNSUPPORTED_GUEST)
+
+        failure_codes = [
+            encryptor_service.FAILURE_CODE_AWS_PERMISSIONS,
+            encryptor_service.FAILURE_CODE_GET_YETI_CONFIG,
+            encryptor_service.FAILURE_CODE_INVALID_NTP_SERVERS,
+            encryptor_service.FAILURE_CODE_INVALID_SSH_KEY,
+            encryptor_service.FAILURE_CODE_INVALID_USERDATA_INPUT,
+            encryptor_service.FAILURE_CODE_NET_ROUTE_TIMEOUT,
+            encryptor_service.FAILURE_CODE_NOT_AUTHORIZED_YETI,
+            encryptor_service.FAILURE_CODE_TERMINAL_YETI_ERROR,
+            'Some random unexpected thing',
+            None
+        ]
+        for failure_code in failure_codes:
+            with self.assertRaises(encryptor_service.EncryptionError):
+                encryptor_service._handle_failure_code(failure_code)

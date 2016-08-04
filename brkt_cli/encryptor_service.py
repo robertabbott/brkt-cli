@@ -33,9 +33,16 @@ ENCRYPT_SUCCESSFUL = 'finished'
 ENCRYPT_FAILED = 'failed'
 ENCRYPT_ENCRYPTING = 'encrypting'
 ENCRYPTOR_STATUS_PORT = 80
-FAILURE_CODE_UNSUPPORTED_GUEST = 'unsupported_guest'
+
 FAILURE_CODE_AWS_PERMISSIONS = 'insufficient_aws_permissions'
+FAILURE_CODE_GET_YETI_CONFIG = 'failed_get_yeti_config'
 FAILURE_CODE_INVALID_NTP_SERVERS = 'invalid_ntp_servers'
+FAILURE_CODE_INVALID_SSH_KEY = 'invalid-ssh-public-key'
+FAILURE_CODE_INVALID_USERDATA_INPUT = 'invalid_userdata_input'
+FAILURE_CODE_NET_ROUTE_TIMEOUT = 'failed_network_route'
+FAILURE_CODE_NOT_AUTHORIZED_YETI = 'not_authorized_yeti'
+FAILURE_CODE_TERMINAL_YETI_ERROR = 'terminal_yeti_error_'
+FAILURE_CODE_UNSUPPORTED_GUEST = 'unsupported_guest'
 
 log = logging.getLogger(__name__)
 
@@ -47,14 +54,6 @@ class EncryptionError(BracketError):
 
 
 class UnsupportedGuestError(BracketError):
-    pass
-
-
-class AWSPermissionsError(BracketError):
-    pass
-
-
-class InvalidNtpServerError(BracketError):
     pass
 
 
@@ -154,6 +153,47 @@ def wait_for_encryptor_up(enc_svc, deadline):
     )
 
 
+def _handle_failure_code(failure_code):
+    """ Raise EncryptionError with a user-friendly message that's based
+    on the failure code returned by the Metavisor.
+    """
+    if failure_code == FAILURE_CODE_AWS_PERMISSIONS:
+        raise EncryptionError(
+            'The specified IAM profile has insufficient permissions')
+    if failure_code == FAILURE_CODE_GET_YETI_CONFIG:
+        raise EncryptionError(
+            'Unable to determine the location of the Bracket service')
+    if failure_code == FAILURE_CODE_INVALID_NTP_SERVERS:
+        raise EncryptionError(
+            'Invalid NTP servers')
+    if failure_code == FAILURE_CODE_INVALID_SSH_KEY:
+        raise EncryptionError(
+            'Unable to load SSH key')
+    if failure_code == FAILURE_CODE_INVALID_USERDATA_INPUT:
+        raise EncryptionError(
+            'User data passed to Metavisor is invalid')
+    if failure_code == FAILURE_CODE_NET_ROUTE_TIMEOUT:
+        raise EncryptionError(
+            'Unable to connect to the Bracket service')
+    if failure_code == FAILURE_CODE_NOT_AUTHORIZED_YETI:
+        raise EncryptionError(
+            'Authentication with the Bracket service failed')
+    if (failure_code and
+            failure_code.startswith(FAILURE_CODE_TERMINAL_YETI_ERROR)):
+        # During auth
+        raise EncryptionError(
+            'Authentication with the Bracket service failed: %s' %
+            failure_code)
+    if failure_code == FAILURE_CODE_UNSUPPORTED_GUEST:
+        raise UnsupportedGuestError(
+            'Guest AMI uses an unsupported operating system')
+
+    msg = 'Encryption failed'
+    if failure_code:
+        msg += ' with code %s' % failure_code
+    raise EncryptionError(msg)
+
+
 def wait_for_encryption(enc_svc,
                         progress_timeout=ENCRYPTION_PROGRESS_TIMEOUT):
     err_count = 0
@@ -208,23 +248,7 @@ def wait_for_encryption(enc_svc,
             return
         elif state == ENCRYPT_FAILED:
             log.debug('Encryption failed with status %s', status)
-            failure_code = status.get('failure_code')
-            if failure_code == \
-                    FAILURE_CODE_UNSUPPORTED_GUEST:
-                raise UnsupportedGuestError(
-                    'The specified AMI uses an unsupported operating system')
-            if failure_code == FAILURE_CODE_AWS_PERMISSIONS:
-                raise AWSPermissionsError(
-                    'The specified IAM profile has insufficient permissions')
-            if failure_code == \
-                    FAILURE_CODE_INVALID_NTP_SERVERS:
-                raise InvalidNtpServerError(
-                    'Invalid NTP servers provided.')
-
-            msg = 'Encryption failed'
-            if failure_code:
-                msg += ' with code %s' % failure_code
-            raise EncryptionError(msg)
+            _handle_failure_code(status.get('failure_code'))
 
         sleep(10)
     # We've failed to get encryption status for _max_errs_ consecutive tries.
