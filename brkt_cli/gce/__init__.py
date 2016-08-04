@@ -149,8 +149,7 @@ def command_update_encrypted_gce_image(values, log):
     gce_service.validate_images(gce_svc,
                                 encrypted_image_name,
                                 values.encryptor_image,
-                                values.image,
-                                values.image_project)
+                                values.image)
     if not values.verbose:
         logging.getLogger('googleapiclient').setLevel(logging.ERROR)
 
