@@ -18,13 +18,16 @@ import logging
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 
-import brkt_cli
 from brkt_cli import (
-    get_proxy_config,
-    add_brkt_env_to_brkt_config)
+    add_brkt_env_to_brkt_config,
+    encryptor_service,
+    get_proxy_config
+)
+
 from brkt_cli.instance_config import (
     InstanceConfig,
-    INSTANCE_CREATOR_MODE
+    INSTANCE_CREATOR_MODE,
+    INSTANCE_UPDATER_MODE
 )
 from brkt_cli.util import (
     get_domain_from_brkt_env
@@ -92,6 +95,18 @@ def setup_instance_config_args(parser, mode=INSTANCE_CREATOR_MODE,
         help=argparse.SUPPRESS
     )
 
+    if mode in (INSTANCE_CREATOR_MODE, INSTANCE_UPDATER_MODE):
+        parser.add_argument(
+            '--status-port',
+            metavar='PORT',
+            dest='status_port',
+            type=encryptor_service.status_port,
+            default=encryptor_service.ENCRYPTOR_STATUS_PORT,
+            help='Specify the port to receive http status of encryptor. Any port '
+            'in range 1-65535 can be used except for port 81.',
+            required=False
+        )
+
     # Optional CA cert file for Brkt MCP. When an on-prem MCP is used
     # (and thus, the MCP endpoints are provided in the --brkt-env arg), the
     # CA cert for the MCP root CA must be 'baked into' the encrypted AMI.
@@ -132,6 +147,10 @@ def make_instance_config(values=None, brkt_env=None,
 
     if values.ntp_servers:
         brkt_config['ntp_servers'] = values.ntp_servers
+
+    if mode in (INSTANCE_CREATOR_MODE, INSTANCE_UPDATER_MODE):
+        brkt_config['status_port'] = (values.status_port or
+                                    encryptor_service.ENCRYPTOR_STATUS_PORT)
 
     ic = InstanceConfig(brkt_config, mode)
 

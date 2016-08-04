@@ -89,7 +89,7 @@ The master branch has the latest features and bug fixes, but is not as thoroughl
 
 The following network connections are established during image encryption:
 
-* **brkt-cli** talks to the Encryptor instance on port 8000 by default. This can
+* **brkt-cli** talks to the Encryptor instance on port 80 by default. This can
 be overridden using the --status-port flag which support any port other than port 81.
 * The Encryptor talks to the Bracket service at `yetiapi.mgmt.brkt.com`.  In
 order to do this, port 443 must be accessible on the following hosts:
@@ -99,7 +99,7 @@ order to do this, port 443 must be accessible on the following hosts:
 * Both **brkt-cli** and the Encryptor also need to access Amazon S3.
 
 When launching the Encryptor instance, **brkt-cli** creates a temporary
-security group that allows inbound access on port 8000.  Alternately, you can
+security group that allows inbound access on port 80.  Alternately, you can
 use the `--security-group` option to specify one or more existing security
 groups.
 
@@ -135,7 +135,7 @@ optional arguments:
   --region NAME         AWS region (e.g. us-west-2)
   --security-group ID   Use this security group when running the encryptor
                         instance. May be specified multiple times.
-  --status-port         By default, port 8000 is used to talk to receive
+  --status-port         By default, port 80 is used to talk to receive
                         encryptor status. Any port in range 1-65535 except for
 			port 81 can be used.
   --subnet ID           Launch instances in this subnet
@@ -178,7 +178,7 @@ optional arguments:
   --region REGION       AWS region (e.g. us-west-2)
   --security-group ID   Use this security group when running the encryptor
                         instance. May be specified multiple times.
-  --status-port         By default, port 8000 is used to talk to receive
+  --status-port         By default, port 80 is used to talk to receive
                         updater status. Any port in range 1-65535 except for
 			port 81 can be used.
   --subnet ID           Launch instances in this subnet

@@ -336,8 +336,6 @@ def _run_encryptor_instance(
     if instance_config is None:
         instance_config = InstanceConfig()
 
-    instance_config.brkt_config['status_port'] = status_port
-
     image = aws_svc.get_image(encryptor_image_id)
     virtualization_type = image.virtualization_type
 

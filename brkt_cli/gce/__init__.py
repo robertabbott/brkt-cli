@@ -5,7 +5,11 @@ import logging
 from brkt_cli.subcommand import Subcommand
 
 from brkt_cli import encryptor_service, util
-from brkt_cli.instance_config import INSTANCE_METAVISOR_MODE
+from brkt_cli.instance_config import (
+    INSTANCE_CREATOR_MODE,
+    INSTANCE_METAVISOR_MODE,
+    INSTANCE_UPDATER_MODE
+)
 from brkt_cli.instance_config_args import (
     make_instance_config,
     setup_instance_config_args
@@ -111,7 +115,8 @@ def _run_subcommand(subcommand, values):
 def command_launch_gce_image(values, log):
     gce_svc = gce_service.GCEService(values.project, None, log)
     brkt_env = brkt_cli.brkt_env_from_values(values)
-    instance_config = make_instance_config(values, brkt_env)
+    instance_config = make_instance_config(values, brkt_env,
+                                           mode=INSTANCE_METAVISOR_MODE)
     if values.startup_script:
         extra_items = [{'key': 'startup-script', 'value': values.startup_script}]
     else:
@@ -163,11 +168,13 @@ def command_update_encrypted_gce_image(values, log):
         encryptor_image=values.encryptor_image,
         encrypted_image_name=encrypted_image_name,
         zone=values.zone,
-        instance_config=make_instance_config(values, brkt_env),
+        instance_config=make_instance_config(
+            values, brkt_env,mode=INSTANCE_UPDATER_MODE),
         keep_encryptor=values.keep_encryptor,
         image_file=values.image_file,
         image_bucket=values.bucket,
-        network=values.network
+        network=values.network,
+        status_port=values.status_port
     )
 
     print(updated_image_id)
@@ -203,12 +210,14 @@ def command_encrypt_gce_image(values, log):
         encryptor_image=values.encryptor_image,
         encrypted_image_name=encrypted_image_name,
         zone=values.zone,
-        instance_config=make_instance_config(values, brkt_env),
+        instance_config=make_instance_config(
+            values, brkt_env,mode=INSTANCE_CREATOR_MODE),
         image_project=values.image_project,
         keep_encryptor=values.keep_encryptor,
         image_file=values.image_file,
         image_bucket=values.bucket,
-        network=values.network
+        network=values.network,
+        status_port=values.status_port
     )
     # Print the image name to stdout, in case the caller wants to process
     # the output.  Log messages go to stderr.
