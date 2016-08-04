@@ -14,12 +14,17 @@ def setup_encrypt_gce_image_args(parser, parsed_config):
         help='Specify the name of the generated encrypted Image',
         required=False
     )
+    zone_kwargs = {
+        'help': 'GCE zone to operate in',
+        'dest': 'zone',
+        'default': parsed_config.get_option('encrypt-gce-image.zone'),
+        'required': False,
+    }
+    if zone_kwargs['default'] is None:
+        zone_kwargs['required'] = True
     parser.add_argument(
         '--zone',
-        help='GCE zone to operate in',
-        dest='zone',
-        default=parsed_config.get_option('encrypt-gce-image.zone', 'us-central1-a'),
-        required=True
+        **zone_kwargs
     )
     parser.add_argument(
         '--encryptor-image-bucket',
@@ -28,13 +33,17 @@ def setup_encrypt_gce_image_args(parser, parsed_config):
         default='prod',
         required=False
     )
+    proj_kwargs = {
+        'help': 'GCE project name',
+        'dest': 'project',
+        'default': parsed_config.get_option('encrypt-gce-image.project'),
+        'required': False,
+    }
+    if proj_kwargs['default'] is None:
+        proj_kwargs['required'] = True
     parser.add_argument(
         '--project',
-        help='GCE project name',
-        dest='project',
-        default=parsed_config.get_option('encrypt-gce-image.project'),
-        required=True
-    )
+        **proj_kwargs)
     parser.add_argument(
         '--image-project',
         metavar='NAME',
