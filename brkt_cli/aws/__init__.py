@@ -13,7 +13,6 @@
 # limitations under the License.
 import json
 import logging
-import os
 import re
 import urllib2
 
@@ -21,34 +20,33 @@ import boto
 from boto.exception import EC2ResponseError, NoAuthHandlerFound
 
 import brkt_cli
-from brkt_cli import brkt_jwt, encryptor_service, util
+import brkt_cli.aws.diag_args
+import brkt_cli.aws.encrypt_ami_args
+import brkt_cli.aws.share_logs_args
+import brkt_cli.aws.update_encrypted_ami_args
+from brkt_cli import encryptor_service, util
 from brkt_cli.aws import (
     aws_service,
     diag,
     encrypt_ami,
     share_logs
 )
+from brkt_cli.aws.encrypt_ami import (
+    TAG_ENCRYPTOR,
+    TAG_ENCRYPTOR_AMI,
+    TAG_ENCRYPTOR_SESSION_ID)
+from brkt_cli.aws.update_ami import update_ami
 from brkt_cli.instance_config import (
     INSTANCE_CREATOR_MODE,
     INSTANCE_UPDATER_MODE
 )
 from brkt_cli.instance_config_args import (
-    make_instance_config,
+    instance_config_from_values,
     setup_instance_config_args
 )
 from brkt_cli.subcommand import Subcommand
 from brkt_cli.util import BracketError
 from brkt_cli.validation import ValidationError
-from brkt_cli.aws.encrypt_ami import (
-    TAG_ENCRYPTOR,
-    TAG_ENCRYPTOR_AMI,
-    TAG_ENCRYPTOR_SESSION_ID)
-
-import brkt_cli.aws.diag_args
-import brkt_cli.aws.encrypt_ami_args
-import brkt_cli.aws.share_logs_args
-import brkt_cli.aws.update_encrypted_ami_args
-from brkt_cli.aws.update_ami import update_ami
 
 log = logging.getLogger(__name__)
 
@@ -487,7 +485,8 @@ def command_encrypt_ami(values):
         subnet_id=values.subnet_id,
         security_group_ids=values.security_group_ids,
         guest_instance_type=values.guest_instance_type,
-        instance_config=make_instance_config(values, brkt_env),
+        instance_config=instance_config_from_values(
+            values, mode=INSTANCE_CREATOR_MODE),
         status_port=values.status_port,
         save_encryptor_logs=values.save_encryptor_logs
     )
@@ -599,7 +598,8 @@ def command_update_encrypted_ami(values):
         security_group_ids=values.security_group_ids,
         guest_instance_type=values.guest_instance_type,
         updater_instance_type=values.updater_instance_type,
-        instance_config=make_instance_config(values, brkt_env),
+        instance_config=instance_config_from_values(
+            values, mode=INSTANCE_UPDATER_MODE),
         status_port=values.status_port,
     )
     print(updated_ami_id)
