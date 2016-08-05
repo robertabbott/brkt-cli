@@ -39,6 +39,12 @@ def setup_launch_gce_image_args(parser):
         dest='project',
         required=True
     )
+    parser.add_argument(
+        '--network',
+        dest='network',
+        default='default',
+        required=False
+    )
 
     # Optional startup script. Hidden because it is only used for development
     # and testing. It should be passed as a string containing a multi-line
