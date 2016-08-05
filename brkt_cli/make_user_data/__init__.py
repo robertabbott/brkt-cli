@@ -16,7 +16,7 @@ import logging
 import brkt_cli
 from brkt_cli.subcommand import Subcommand
 from brkt_cli.instance_config_args import (
-    make_instance_config,
+    instance_config_from_values,
     setup_instance_config_args
 )
 log = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ class MakeUserDataSubcommand(Subcommand):
         return values.make_user_data_verbose
 
     def run(self, values):
-        instance_cfg = make_instance_config(values)
+        instance_cfg = instance_config_from_values(values)
         print instance_cfg.make_userdata()
         return 0
 

@@ -18,6 +18,7 @@ import logging
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 
+import brkt_cli
 from brkt_cli import (
     add_brkt_env_to_brkt_config,
     encryptor_service,
@@ -69,41 +70,45 @@ def setup_instance_config_args(parser, mode=INSTANCE_CREATOR_MODE,
         dest='proxy_config_file'
     )
 
-    # TODO: put brkt-env and service-domain into a mutually exclusive group.
-    # We can't do this while they're hidden because of a bug in argparse:
-    # http://stackoverflow.com/questions/30499648/python-mutually-exclusive-arguments-complains-about-action-index
-    #
-    # brkt_env_group = parser.add_mutually_exclusive_group()
-
-    # Optional yeti endpoints. Hidden because it's only used for development.
-    # The value contains the hosts and ports of the RPC and HSM proxy,
-    # separated by commas:
-    #
-    # <rpc-host>:<rpc-port>,<hsmproxy-host>:<hsmproxy-port>
-    parser.add_argument(
-        '--brkt-env',
-        dest='brkt_env',
-        default=brkt_env_default,
-        help=argparse.SUPPRESS
-    )
-
-    # Optional domain that runs the Yeti service (e.g. stage.mgmt.brkt.com).
-    # Hidden because it's only used for development.
-    parser.add_argument(
-        '--service-domain',
-        metavar='DOMAIN',
-        help=argparse.SUPPRESS
-    )
-
     if mode in (INSTANCE_CREATOR_MODE, INSTANCE_UPDATER_MODE):
+        # TODO: put brkt-env and service-domain into a mutually exclusive
+        # group. We can't do this while they're hidden because of a bug in
+        # argparse:
+        #
+        # http://stackoverflow.com/questions/30499648/python-mutually-exclusive-arguments-complains-about-action-index
+        #
+        # brkt_env_group = parser.add_mutually_exclusive_group()
+
+        # Optional yeti endpoints. Hidden because it's only used for
+        # development. The value contains the hosts and ports of the RPC and
+        # HSM proxy, separated by commas:
+        #
+        # <rpc-host>:<rpc-port>,<hsmproxy-host>:<hsmproxy-port>
+        parser.add_argument(
+            '--brkt-env',
+            dest='brkt_env',
+            default=brkt_env_default,
+            help=argparse.SUPPRESS
+        )
+
+        # Optional domain that runs the Yeti service
+        # (e.g. stage.mgmt.brkt.com). Hidden because it's only used for
+        # development.
+        parser.add_argument(
+            '--service-domain',
+            metavar='DOMAIN',
+            help=argparse.SUPPRESS
+        )
+
         parser.add_argument(
             '--status-port',
             metavar='PORT',
             dest='status_port',
             type=encryptor_service.status_port,
             default=encryptor_service.ENCRYPTOR_STATUS_PORT,
-            help='Specify the port to receive http status of encryptor. Any port '
-            'in range 1-65535 can be used except for port 81.',
+            help=(
+                'Specify the port to receive http status of encryptor. Any '
+                'port in range 1-65535 can be used except for port 81.'),
             required=False
         )
 
@@ -131,16 +136,35 @@ def setup_instance_config_args(parser, mode=INSTANCE_CREATOR_MODE,
     )
 
 
-def make_instance_config(values=None, brkt_env=None,
-                         mode=INSTANCE_CREATOR_MODE):
-    log.debug('Creating instance config with %s', brkt_env)
+def instance_config_from_values(values=None, mode=INSTANCE_CREATOR_MODE):
+    """ Return an InstanceConfig object, based on options specified on
+    the command line and Metavisor mode.
 
+    :param values an argparse.Namespace object
+    :param mode the mode in which Metavisor is running
+    """
     brkt_config = {}
     if not values:
         return InstanceConfig(brkt_config, mode)
 
-    if brkt_env:
-        add_brkt_env_to_brkt_config(brkt_env, brkt_config)
+    # Handle BracketEnvironment, depending on the mode.
+    brkt_env = None
+    if mode in (INSTANCE_CREATOR_MODE, INSTANCE_UPDATER_MODE):
+        # Yeti environment should only be set in CREATOR or UPDATER mode.
+        # When launching, we want to preserve the original environment that
+        # was specified during encryption.
+        #
+        # If the Yeti environment was not specified, use the production
+        # environment.
+        brkt_env = brkt_cli.brkt_env_from_values(values)
+        config_brkt_env = brkt_env or brkt_cli.get_prod_brkt_env()
+        add_brkt_env_to_brkt_config(config_brkt_env, brkt_config)
+
+        # We only monitor status when encrypting or updating.
+        brkt_config['status_port'] = (
+            values.status_port or
+            encryptor_service.ENCRYPTOR_STATUS_PORT
+        )
 
     if values.token:
         brkt_config['identity_token'] = values.token
@@ -148,9 +172,7 @@ def make_instance_config(values=None, brkt_env=None,
     if values.ntp_servers:
         brkt_config['ntp_servers'] = values.ntp_servers
 
-    if mode in (INSTANCE_CREATOR_MODE, INSTANCE_UPDATER_MODE):
-        brkt_config['status_port'] = (values.status_port or
-                                    encryptor_service.ENCRYPTOR_STATUS_PORT)
+    log.debug('Parsed brkt_config %s', brkt_config)
 
     ic = InstanceConfig(brkt_config, mode)
 
@@ -164,9 +186,10 @@ def make_instance_config(values=None, brkt_env=None,
             raise ValidationError(
                 'Can only specify ca-cert for instance in Creator mode'
             )
-        if not values.brkt_env:
+        if not brkt_env:
             raise ValidationError(
-                'Must specify brkt-env when specifying ca-cert.'
+                'Must specify --service-domain or --brkt-env when specifying '
+                '--ca-cert.'
             )
         try:
             with open(values.ca_cert, 'r') as f:
