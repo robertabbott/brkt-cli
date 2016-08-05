@@ -11,15 +11,11 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
-import getpass
 import logging
 
-from brkt_cli import util
-
-from brkt_cli.validation import ValidationError
-
-from brkt_cli.subcommand import Subcommand
 import brkt_cli.crypto
+from brkt_cli import util
+from brkt_cli.subcommand import Subcommand
 
 
 log = logging.getLogger(__name__)

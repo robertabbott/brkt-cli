@@ -3,19 +3,17 @@ import time
 import unittest
 import uuid
 
-import brkt_cli
 import test
-
-from brkt_cli.validation import ValidationError
 from brkt_cli import util
 from brkt_cli.gce import encrypt_gce_image
-from brkt_cli.gce import update_gce_image
 from brkt_cli.gce import gce_service
+from brkt_cli.gce import update_gce_image
 from brkt_cli.instance_config import InstanceConfig
 from brkt_cli.test_encryptor_service import (
     DummyEncryptorService,
     FailedEncryptionService
 )
+from brkt_cli.validation import ValidationError
 
 NONEXISTANT_IMAGE = 'image'
 NONEXISTANT_PROJECT = 'project'

@@ -20,16 +20,16 @@ import boto
 from boto.exception import EC2ResponseError, NoAuthHandlerFound
 
 import brkt_cli
-import brkt_cli.aws.diag_args
-import brkt_cli.aws.encrypt_ami_args
-import brkt_cli.aws.share_logs_args
-import brkt_cli.aws.update_encrypted_ami_args
 from brkt_cli import encryptor_service, util
 from brkt_cli.aws import (
     aws_service,
     diag,
+    diag_args,
     encrypt_ami,
-    share_logs
+    encrypt_ami_args,
+    share_logs,
+    share_logs_args,
+    update_encrypted_ami_args
 )
 from brkt_cli.aws.encrypt_ami import (
     TAG_ENCRYPTOR,

@@ -12,10 +12,10 @@
 # License for the specific language governing permissions and
 # limitations under the License.
 import tempfile
-import unittest
 import time
+import unittest
 
-from brkt_cli import parse_brkt_env, util
+from brkt_cli import util
 from brkt_cli.crypto import test_crypto
 from brkt_cli.validation import ValidationError
 

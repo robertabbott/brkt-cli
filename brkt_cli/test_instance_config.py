@@ -61,8 +61,6 @@ def _get_ca_cert_filename():
 
 
 def _verify_proxy_config_in_userdata(ut, userdata):
-    brkt_config_json = get_mime_part_payload(userdata,
-                                             BRKT_CONFIG_CONTENT_TYPE)
     brkt_files = get_mime_part_payload(userdata, BRKT_FILES_CONTENT_TYPE)
     ut.assertTrue('/var/brkt/ami_config/proxy.yaml: ' +
                     '{contents: "version: 2.0' in brkt_files)
