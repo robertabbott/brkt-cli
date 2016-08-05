@@ -238,7 +238,7 @@ def wait_for_encryption(enc_svc,
             else:
                 state_display = 'Encryption'
                 if state == ENCRYPT_DOWNLOADING:
-                    state_display = 'Download from S3'
+                    state_display = 'Download from cloud storage'
                 log.info(
                     '%s is %d%% complete', state_display, percent_complete)
             last_log_time = now

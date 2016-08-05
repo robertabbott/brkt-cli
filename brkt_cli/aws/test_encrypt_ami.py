@@ -32,7 +32,7 @@ from brkt_cli.aws.test_aws_service import build_aws_service
 from brkt_cli.instance_config import BRKT_CONFIG_CONTENT_TYPE
 from brkt_cli.instance_config_args import (
     instance_config_args_to_values,
-    make_instance_config
+    instance_config_from_values
 )
 from brkt_cli.test_encryptor_service import (
     DummyEncryptorService,
@@ -430,8 +430,7 @@ class TestBrktEnv(unittest.TestCase):
 
         cli_args = '--brkt-env %s,%s' % (api_host_port, hsmproxy_host_port)
         values = instance_config_args_to_values(cli_args)
-        brkt_env = brkt_cli.brkt_env_from_values(values)
-        ic = make_instance_config(values, brkt_env)
+        ic = instance_config_from_values(values)
         aws_svc.run_instance_callback = run_instance_callback
         encrypt_ami.encrypt(
             aws_svc=aws_svc,
@@ -457,8 +456,7 @@ class TestBrktEnv(unittest.TestCase):
         hsmproxy_host_port = 'hsmproxy.example.com:888'
         cli_args = '--brkt-env %s,%s' % (api_host_port, hsmproxy_host_port)
         values = instance_config_args_to_values(cli_args)
-        brkt_env = brkt_cli.brkt_env_from_values(values)
-        ic = make_instance_config(values, brkt_env)
+        ic = instance_config_from_values(values)
 
         def run_instance_callback(args):
             if args.image_id == encryptor_image.id:
