@@ -247,7 +247,7 @@ def wait_for_encryption(enc_svc,
             log.info('Encrypted root drive created.')
             return
         elif state == ENCRYPT_FAILED:
-            log.debug('Encryption failed with status %s', status)
+            log.error('Encryption status: %s', json.dumps(status))
             _handle_failure_code(status.get('failure_code'))
 
         sleep(10)
