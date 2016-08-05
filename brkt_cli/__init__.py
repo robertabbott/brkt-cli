@@ -357,6 +357,11 @@ def check_jwt_auth(brkt_env, jwt):
     except urllib2.HTTPError as e:
         if e.code == 401:
             raise ValidationError('Unauthorized token.')
+        elif e.code == 400:
+            payload = e.read()
+            if payload:
+                log.error(payload)
+            raise ValidationError('Invalid token.')
         else:
             # Unexpected server response.  Log a warning and continue, so
             # that we don't unnecessarily interrupt the encryption process.
