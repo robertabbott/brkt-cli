@@ -47,6 +47,7 @@ test_jwt = (
 # Some test constants
 api_host_port = 'api.example.com:777'
 hsmproxy_host_port = 'hsmproxy.example.com:888'
+network_host_port = 'network.example.com:999'
 ntp_server1 = '10.4.5.6'
 ntp_server2 = '199.55.32.1'
 proxy_host = '10.22.33.44'
@@ -75,12 +76,14 @@ class TestInstanceConfig(unittest.TestCase):
     def test_brkt_env(self):
         brkt_config_in = {
             'api_host': api_host_port,
-            'hsmproxy_host': hsmproxy_host_port
+            'hsmproxy_host': hsmproxy_host_port,
+            'network_host': network_host_port
         }
         ic = InstanceConfig(brkt_config_in)
         config_json = ic.make_brkt_config_json()
-        expected_json = '{"brkt": {"api_host": "%s", "hsmproxy_host": "%s"}}' % \
-                        (api_host_port, hsmproxy_host_port)
+        expected_json = ('{"brkt": {"api_host": "%s", ' +
+            '"hsmproxy_host": "%s", "network_host": "%s"}}') % \
+            (api_host_port, hsmproxy_host_port, network_host_port)
         self.assertEqual(config_json, expected_json)
 
     def test_ntp_servers(self):
@@ -118,6 +121,7 @@ class TestInstanceConfig(unittest.TestCase):
         brkt_config_in = {
             'api_host': api_host_port,
             'hsmproxy_host': hsmproxy_host_port,
+            'network_host': network_host_port,
             'ntp_servers': [ntp_server1],
             'identity_token': test_jwt
         }
@@ -131,6 +135,7 @@ class TestInstanceConfig(unittest.TestCase):
         self.assertEqual(brkt_config['ntp_servers'], [ntp_server1])
         self.assertEqual(brkt_config['api_host'], api_host_port)
         self.assertEqual(brkt_config['hsmproxy_host'], hsmproxy_host_port)
+        self.assertEqual(brkt_config['network_host'], network_host_port)
 
         brkt_files = get_mime_part_payload(ud, BRKT_FILES_CONTENT_TYPE)
         self.assertEqual(brkt_files,
@@ -159,10 +164,12 @@ def _get_brkt_config_for_cli_args(cli_args='', mode=INSTANCE_CREATOR_MODE):
 class TestInstanceConfigFromCliArgs(unittest.TestCase):
 
     def test_brkt_env(self):
-        cli_args = '--brkt-env %s,%s' % (api_host_port, hsmproxy_host_port)
+        cli_args = '--brkt-env %s,%s,%s' % (
+            api_host_port, hsmproxy_host_port, network_host_port)
         brkt_config = _get_brkt_config_for_cli_args(cli_args)
         self.assertEqual(brkt_config['api_host'], api_host_port)
         self.assertEqual(brkt_config['hsmproxy_host'], hsmproxy_host_port)
+        self.assertEqual(brkt_config['network_host'], network_host_port)
 
     def test_service_domain(self):
         brkt_config = _get_brkt_config_for_cli_args(
@@ -171,6 +178,8 @@ class TestInstanceConfigFromCliArgs(unittest.TestCase):
         self.assertEqual(brkt_config['api_host'], 'yetiapi.example.com:443')
         self.assertEqual(
             brkt_config['hsmproxy_host'], 'hsmproxy.example.com:443')
+        self.assertEqual(
+            brkt_config['network_host'], 'network.example.com:443')
 
     def test_default_brkt_env(self):
         """ Test that Yeti endpoints aren't set when they're not specified
@@ -195,6 +204,7 @@ class TestInstanceConfigFromCliArgs(unittest.TestCase):
             mode=INSTANCE_METAVISOR_MODE)
         self.assertIsNone(brkt_config.get('api_host'))
         self.assertIsNone(brkt_config.get('hsmproxy_host'))
+        self.assertIsNone(brkt_config.get('network_host'))
 
     def test_ntp_servers(self):
         cli_args = '--ntp-server %s' % ntp_server1
@@ -228,7 +238,8 @@ class TestInstanceConfigFromCliArgs(unittest.TestCase):
             ic = instance_config_from_values(values)
 
         # Now specify endpoint args but use a bogus cert
-        endpoint_args = '--brkt-env api.%s:7777,hsmproxy.%s:8888' % (domain, domain)
+        endpoint_args = ('--brkt-env api.%s:7777,hsmproxy.%s:8888,' +
+            'network.%s:9999') % (domain, domain, domain)
         dummy_ca_cert = 'THIS IS NOT A CERTIFICATE'
         with tempfile.NamedTemporaryFile() as f:
             f.write(dummy_ca_cert)
