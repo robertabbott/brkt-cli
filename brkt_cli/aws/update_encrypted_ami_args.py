@@ -14,8 +14,6 @@
 
 import argparse
 
-from brkt_cli import encryptor_service
-
 
 def setup_update_encrypted_ami(parser):
     parser.add_argument(

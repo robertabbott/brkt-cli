@@ -11,7 +11,6 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and
 # limitations under the License.
-import email
 import inspect
 import unittest
 
@@ -25,8 +24,8 @@ import brkt_cli.util
 from brkt_cli.aws import (
     encrypt_ami, test_aws_service
 )
-from brkt_cli.validation import ValidationError
 from brkt_cli.aws.test_aws_service import build_aws_service, new_id
+from brkt_cli.validation import ValidationError
 
 
 class DummyValues(object):

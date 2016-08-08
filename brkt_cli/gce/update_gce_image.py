@@ -14,16 +14,13 @@
 
 import logging
 
-from brkt_cli.gce import encrypt_gce_image
-from brkt_cli.gce.gce_service import gce_metadata_from_userdata
-from brkt_cli.util import Deadline
-from brkt_cli import add_brkt_env_to_brkt_config
-
 from brkt_cli.encryptor_service import (
     ENCRYPTOR_STATUS_PORT,
     wait_for_encryption,
     wait_for_encryptor_up
 )
+from brkt_cli.gce.gce_service import gce_metadata_from_userdata
+from brkt_cli.util import Deadline
 
 """
 Create an encrypted GCE image (with new metavisor) based
