@@ -96,6 +96,7 @@ order to do this, port 443 must be accessible on the following hosts:
   * 52.32.38.106
   * 52.35.101.76
   * 52.88.55.6
+* **brkt-cli** talks to `api.mgmt.brkt.com` on port 443.
 * Both **brkt-cli** and the Encryptor also need to access Amazon S3.
 
 When launching the Encryptor instance, **brkt-cli** creates a temporary
