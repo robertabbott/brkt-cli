@@ -3,7 +3,7 @@ import uuid
 
 log = logging.getLogger(__name__)
 
-def launch(log, gce_svc, image_id, instance_name, zone, delete_boot, instance_type, metadata={}):
+def launch(log, gce_svc, image_id, instance_name, zone, delete_boot, instance_type, network, metadata={}):
     if not instance_name:
         instance_name = 'brkt' + '-' + str(uuid.uuid4().hex)
     guest = instance_name + '-guest'
@@ -19,6 +19,7 @@ def launch(log, gce_svc, image_id, instance_name, zone, delete_boot, instance_ty
                          disks=[guest_disk],
                          metadata=metadata,
                          delete_boot=delete_boot,
+                         network=network,
                          instance_type=instance_type)
     gce_svc.wait_instance(instance_name, zone)
     log.info("Instance %s (%s) launched successfully" % (instance_name,
