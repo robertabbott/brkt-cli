@@ -36,6 +36,9 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
                      image_bucket=None, network=None,
                      status_port=ENCRYPTOR_STATUS_PORT):
     snap_created = None
+    instance_name = 'brkt-updater-' + gce_svc.get_session_id()
+    updater = instance_name + '-metavisor'
+    updater_launched = False
     try:
         # create image from file in GCS bucket
         log.info('Retrieving encryptor image from GCS bucket')
@@ -46,8 +49,6 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
             # Keep user provided encryptor image
             keep_encryptor = True
 
-        instance_name = 'brkt-updater-' + gce_svc.get_session_id()
-        updater = instance_name + '-metavisor'
         encrypted_image_disk = instance_name + '-guest'
 
         # Create disk from encrypted guest snapshot. This disk
@@ -69,6 +70,7 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
                              disks=[],
                              metadata=user_data)
         ip = gce_svc.get_instance_ip(updater, zone)
+        updater_launched = True
         enc_svc = enc_svc_cls([ip], port=status_port)
 
         # wait for updater to finish and guest root disk
@@ -96,9 +98,10 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
         gce_svc.wait_image(encrypted_image_name)
         gce_svc.wait_snapshot(encrypted_image_name)
     except:
-        f = gce_svc.write_serial_console_file(zone, updater)
-        if f:
-            log.info('Update failed. Writing console to %s' % f)
+        if updater_launched:
+            f = gce_svc.write_serial_console_file(zone, updater)
+            if f:
+                log.info('Update failed. Writing console to %s' % f)
         log.info("Update failed. Cleaning up")
         if snap_created:
             gce_svc.delete_snapshot(encrypted_image_name)
