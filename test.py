@@ -163,16 +163,20 @@ class TestCommandLineOptions(unittest.TestCase):
         """ Test parsing of the command-line --brkt-env value.
         """
         be = brkt_cli.parse_brkt_env(
-            'api.example.com:777,hsmproxy.example.com:888')
+            'api.example.com:777,hsmproxy.example.com:888,' +
+            'network.example.com:999'
+        )
         self.assertEqual('api.example.com', be.api_host)
         self.assertEqual(777, be.api_port)
         self.assertEqual('hsmproxy.example.com', be.hsmproxy_host)
         self.assertEqual(888, be.hsmproxy_port)
+        self.assertEqual('network.example.com', be.network_host)
+        self.assertEqual(999, be.network_port)
 
         with self.assertRaises(ValidationError):
-            brkt_cli.parse_brkt_env('a:7,b:8:9')
+            brkt_cli.parse_brkt_env('a:7,b:8:9,d:10')
         with self.assertRaises(ValidationError):
-            brkt_cli.parse_brkt_env('a:7,b?:8')
+            brkt_cli.parse_brkt_env('a:7,b?:8,d:7')
 
     def test_brkt_env_from_domain(self):
         be = brkt_cli.brkt_env_from_domain('example.com')
@@ -180,6 +184,8 @@ class TestCommandLineOptions(unittest.TestCase):
         self.assertEqual(443, be.api_port)
         self.assertEqual('hsmproxy.example.com', be.hsmproxy_host)
         self.assertEqual(443, be.hsmproxy_port)
+        self.assertEqual('network.example.com', be.network_host)
+        self.assertEqual(443, be.network_port)
         self.assertEqual('api.example.com', be.public_api_host)
         self.assertEqual(443, be.public_api_port)
 
@@ -289,12 +295,14 @@ class TestBrktEnv(unittest.TestCase):
         userdata = {}
         api_host_port = 'api.example.com:777'
         hsmproxy_host_port = 'hsmproxy.example.com:888'
+        network_host_port = 'network.example.com:999'
         expected_userdata = {
             'api_host': api_host_port,
-            'hsmproxy_host': hsmproxy_host_port
+            'hsmproxy_host': hsmproxy_host_port,
+            'network_host': network_host_port
         }
         brkt_env = brkt_cli.parse_brkt_env(
-            api_host_port + ',' + hsmproxy_host_port)
+            api_host_port + ',' + hsmproxy_host_port + ',' + network_host_port)
         brkt_cli.add_brkt_env_to_brkt_config(brkt_env, userdata)
         self.assertEqual(userdata, expected_userdata)
 
@@ -316,7 +324,8 @@ class TestBrktEnv(unittest.TestCase):
 
         # Test --brkt-env
         values = DummyValues()
-        values.brkt_env = 'yetiapi.example.com:443,hsmproxy.example.com:443'
+        values.brkt_env = 'yetiapi.example.com:443,' + \
+            'hsmproxy.example.com:443,network.example.com:443'
         brkt_env = brkt_cli.brkt_env_from_values(values)
         self.assertEqual(
             str(brkt_cli.parse_brkt_env(values.brkt_env)),
