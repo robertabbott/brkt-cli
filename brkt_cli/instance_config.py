@@ -17,7 +17,6 @@ import logging
 import os
 
 from brkt_cli.user_data import UserDataContainer
-from brkt_cli.validation import ValidationError
 
 # The directories for files saved on the Metavisor. We require that the dest
 # path for all --brkt-files be within this directory.

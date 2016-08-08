@@ -1,0 +1,10 @@
+#!/bin/bash -e
+
+# Set the current working directory to the one that contains this script.
+cd "$(dirname "$0")"
+
+echo Running Pyflakes.
+python -m pyflakes .
+
+echo Running unit tests.
+python -m unittest discover

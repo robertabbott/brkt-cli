@@ -35,7 +35,7 @@ def setup_encryption(gce_svc,
         # of the unencrypted guest root
         log.info('Creating disk for encrypted image')
         gce_svc.create_disk(zone, encrypted_image_disk, guest_size * 2 + 1)
-    except Exception as e:
+    except:
         log.info('Encryption setup failed')
         raise
 

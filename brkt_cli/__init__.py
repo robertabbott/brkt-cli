@@ -270,9 +270,10 @@ def _check_version():
 
     try:
         resp = urllib2.urlopen(url, timeout=5.0)
-        if resp.getcode() / 100 != 2:
+        code = resp.getcode()
+        if code / 100 != 2:
             raise Exception(
-                'Error %d when opening %s' % (r.status_code, url))
+                'Error %d when opening %s' % (code, url))
         d = json.loads(resp.read())
         supported_versions = d['releases'].keys()
     except Exception as e:
