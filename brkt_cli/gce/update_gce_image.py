@@ -68,11 +68,15 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
                              network=network,
                              disks=[],
                              metadata=user_data)
-        enc_svc = enc_svc_cls([gce_svc.get_instance_ip(updater, zone)],
-                              port=status_port)
+        ip = gce_svc.get_instance_ip(updater, zone)
+        enc_svc = enc_svc_cls([ip], port=status_port)
 
         # wait for updater to finish and guest root disk
         wait_for_encryptor_up(enc_svc, Deadline(600))
+        log.info(
+            'Waiting for updater service on %s (%s:%s)',
+            updater, ip, enc_svc.port
+        )
         try:
             wait_for_encryption(enc_svc)
         except:

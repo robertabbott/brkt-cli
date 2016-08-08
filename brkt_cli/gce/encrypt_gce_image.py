@@ -61,9 +61,13 @@ def do_encryption(gce_svc,
                          metadata=metadata)
 
     try:
-        enc_svc = enc_svc_cls([gce_svc.get_instance_ip(encryptor, zone)],
-                              port=status_port)
+        ip = gce_svc.get_instance_ip(encryptor, zone)
+        enc_svc = enc_svc_cls([ip], port=status_port)
         wait_for_encryptor_up(enc_svc, Deadline(600))
+        log.info(
+            'Waiting for encryption service on %s (%s:%s)',
+            encryptor, ip, enc_svc.port
+        )
         wait_for_encryption(enc_svc)
     except Exception as e:
         f = gce_svc.write_serial_console_file(zone, encryptor)

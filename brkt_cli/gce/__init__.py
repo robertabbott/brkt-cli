@@ -132,6 +132,7 @@ def command_launch_gce_image(values, log):
                             values.zone,
                             values.delete_boot,
                             values.instance_type,
+                            values.network,
                             metadata)
     return 0
 
