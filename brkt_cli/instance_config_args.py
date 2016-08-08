@@ -80,10 +80,10 @@ def setup_instance_config_args(parser, mode=INSTANCE_CREATOR_MODE,
         # brkt_env_group = parser.add_mutually_exclusive_group()
 
         # Optional yeti endpoints. Hidden because it's only used for
-        # development. The value contains the hosts and ports of the RPC and
-        # HSM proxy, separated by commas:
+        # development. The value contains the hosts and ports of the RPC,
+        # HSM proxy, Network RPC separated by commas:
         #
-        # <rpc-host>:<rpc-port>,<hsmproxy-host>:<hsmproxy-port>
+        # <rpc-host>:<rpc-port>,<hsmproxy-host>:<hsmproxy-port>,<network-host>:<network-port>
         parser.add_argument(
             '--brkt-env',
             dest='brkt_env',

@@ -50,11 +50,14 @@ log = logging.getLogger(__name__)
 class BracketEnvironment(object):
     def __init__(self, api_host=None, api_port=443,
                  hsmproxy_host=None, hsmproxy_port=443,
+                 network_host=None, network_port=443,
                  public_api_host=None, public_api_port=443):
         self.api_host = api_host
         self.api_port = api_port
         self.hsmproxy_host = hsmproxy_host
         self.hsmproxy_port = hsmproxy_port
+        self.network_host = network_host
+        self.network_port = network_port
         self.public_api_host = public_api_host
         self.public_api_port = public_api_port
 
@@ -62,6 +65,7 @@ class BracketEnvironment(object):
         return (
             '<BracketEnvironment api={be.api_host}:{be.api_port} '
             'hsmproxy={be.hsmproxy_host}:{be.hsmproxy_port} '
+            'network={be.network_host}:{be.network_port} '
             'public_api={be.public_api_host}:{be.public_api_port}>'
         ).format(be=self)
 
@@ -97,17 +101,18 @@ def parse_tags(tag_strings):
 def parse_brkt_env(brkt_env_string):
     """ Parse the --brkt-env value.  The value is in the following format:
 
-    api_host:port,hsmproxy_host:port
+    api_host:port,hsmproxy_host:port,network_host:port
 
     :return: a BracketEnvironment object
     :raise: ValidationError if brkt_env is malformed
     """
     error_msg = (
         '--brkt-env value must be in the following format: '
-        '<api-host>:<api-port>,<hsm-proxy-host>:<hsm-proxy-port>'
+        '<api-host>:<api-port>,<hsm-proxy-host>:<hsm-proxy-port>,'
+        '<network-host>:<network-port>'
     )
     endpoints = brkt_env_string.split(',')
-    if len(endpoints) != 2:
+    if len(endpoints) != 3:
         raise ValidationError(error_msg)
 
     def _parse_endpoint(endpoint):
@@ -129,6 +134,7 @@ def parse_brkt_env(brkt_env_string):
     # soon and we can get rid of it
     be.public_api_host = be.api_host.replace('yetiapi', 'api')
     (be.hsmproxy_host, be.hsmproxy_port) = _parse_endpoint(endpoints[1])
+    (be.network_host, be.network_port) = _parse_endpoint(endpoints[2])
     return be
 
 
@@ -139,6 +145,7 @@ def brkt_env_from_domain(domain):
     return BracketEnvironment(
         api_host='yetiapi.' + domain,
         hsmproxy_host='hsmproxy.' + domain,
+        network_host='network.' + domain,
         public_api_host='api.' + domain
     )
 
@@ -391,8 +398,11 @@ def add_brkt_env_to_brkt_config(brkt_env, brkt_config):
         api_host_port = '%s:%d' % (brkt_env.api_host, brkt_env.api_port)
         hsmproxy_host_port = '%s:%d' % (
             brkt_env.hsmproxy_host, brkt_env.hsmproxy_port)
+        network_host_port = '%s:%d' % (
+            brkt_env.network_host, brkt_env.network_port)
         brkt_config['api_host'] = api_host_port
         brkt_config['hsmproxy_host'] = hsmproxy_host_port
+        brkt_config['network_host'] = network_host_port
 
 
 class SortingHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
