@@ -52,6 +52,7 @@ def do_encryption(gce_svc,
                   status_port=ENCRYPTOR_STATUS_PORT):
     metadata = gce_metadata_from_userdata(instance_config.make_userdata())
     log.info('Launching encryptor instance')
+    encryptor_launched = False
     gce_svc.run_instance(zone=zone,
                          name=encryptor,
                          image=encryptor_image,
@@ -59,6 +60,7 @@ def do_encryption(gce_svc,
                          disks=[gce_svc.get_disk(zone, instance_name),
                                 gce_svc.get_disk(zone, encrypted_image_disk)],
                          metadata=metadata)
+    encryptor_launched = True
 
     try:
         ip = gce_svc.get_instance_ip(encryptor, zone)
@@ -70,9 +72,10 @@ def do_encryption(gce_svc,
         )
         wait_for_encryption(enc_svc)
     except Exception as e:
-        f = gce_svc.write_serial_console_file(zone, encryptor)
-        if f:
-            log.info('Encryption failed. Writing console to %s' % f)
+        if encryptor_launched:
+            f = gce_svc.write_serial_console_file(zone, encryptor)
+            if f:
+                log.info('Encryption failed. Writing console to %s' % f)
         raise e
     retry(function=gce_svc.delete_instance,
             on=[httplib.BadStatusLine, socket.error, errors.HttpError])(zone, encryptor)
