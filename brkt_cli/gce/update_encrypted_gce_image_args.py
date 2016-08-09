@@ -11,7 +11,7 @@ def setup_update_gce_image_args(parser):
         '--encrypted-image-name',
         metavar='NAME',
         dest='encrypted_image_name',
-        help='Specify the name of the generated encrypted Image',
+        help='Specify the name of the generated encrypted image',
         required=False
     )
     parser.add_argument(
@@ -33,6 +33,13 @@ def setup_update_gce_image_args(parser):
         help='GCE project name',
         dest='project',
         required=True
+    )
+    parser.add_argument(
+        '--no-validate',
+        dest='validate',
+        action='store_false',
+        default=True,
+        help="Don't validate images or token"
     )
     parser.add_argument(
         '--encryptor-image',
