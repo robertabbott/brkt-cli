@@ -73,6 +73,7 @@ class DiagSubcommand(Subcommand):
             description=(
                 'Create instance to diagnose an existing encrypted instance.'
             ),
+            help='Diagnose an encrypted instance',
             formatter_class=brkt_cli.SortingHelpFormatter
         )
         diag_args.setup_diag_args(diag_parser)
@@ -98,6 +99,7 @@ class ShareLogsSubcommand(Subcommand):
         share_logs_parser = subparsers.add_parser(
             'share-logs',
             description='Share logs from an existing encrypted instance.',
+            help='Share logs',
             formatter_class=brkt_cli.SortingHelpFormatter
         )
         share_logs_args.setup_share_logs_args(share_logs_parser)
@@ -123,6 +125,7 @@ class EncryptAMISubcommand(Subcommand):
         encrypt_ami_parser = subparsers.add_parser(
             'encrypt-ami',
             description='Create an encrypted AMI from an existing AMI.',
+            help='Encrypt an AWS image',
             formatter_class=brkt_cli.SortingHelpFormatter
         )
         encrypt_ami_args.setup_encrypt_ami_args(encrypt_ami_parser)
@@ -153,6 +156,7 @@ class UpdateAMISubcommand(Subcommand):
                 'Update an encrypted AMI with the latest Metavisor '
                 'release.'
             ),
+            help='Update an encrypted AWS image',
             formatter_class=brkt_cli.SortingHelpFormatter
         )
         update_encrypted_ami_args.setup_update_encrypted_ami(

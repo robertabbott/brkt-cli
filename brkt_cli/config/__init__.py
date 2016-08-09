@@ -151,7 +151,8 @@ class ConfigSubcommand(Subcommand):
             self.name(),
             description=(
                 'Display or update brkt-cli options stored in'
-                ' ~/.brkt/config')
+                ' ~/.brkt/config'),
+            help='Display or update brkt-cli options'
         )
 
         config_subparsers = config_parser.add_subparsers(
@@ -161,7 +162,7 @@ class ConfigSubcommand(Subcommand):
         # List all options
         config_subparsers.add_parser(
             'list',
-            help='display the values of all options set in the config file',
+            help='Display the values of all options set in the config file',
             description='Display the values of all options set in the config file')
 
         # All the options available for retrieval/mutation
@@ -180,38 +181,38 @@ class ConfigSubcommand(Subcommand):
         # Set an option
         set_parser = config_subparsers.add_parser(
             'set',
-            help='set the value for an option',
+            help='Set the value for an option',
             description='Set the value for an option',
             epilog=epilog,
             formatter_class=argparse.RawDescriptionHelpFormatter)
         set_parser.add_argument(
             'option',
-            help='the option name (e.g. encrypt-gce-image.project)')
+            help='The option name (e.g. encrypt-gce-image.project)')
         set_parser.add_argument(
             'value',
-            help='the option value')
+            help='The option value')
 
         # Get the value for an option
         get_parser = config_subparsers.add_parser(
             'get',
-            help='get the value for an option',
+            help='Get the value for an option',
             description='Get the value for an option',
             epilog=epilog,
             formatter_class=argparse.RawDescriptionHelpFormatter)
         get_parser.add_argument(
             'option',
-            help='the option name (e.g. encrypt-gce-image.project)')
+            help='The option name (e.g. encrypt-gce-image.project)')
 
         # Unset the value for an option
         unset_parser = config_subparsers.add_parser(
             'unset',
-            help='unset the value for an option',
+            help='Unset the value for an option',
             description='Unset the value for an option',
             epilog=epilog,
             formatter_class=argparse.RawDescriptionHelpFormatter)
         unset_parser.add_argument(
             'option',
-            help='the option name (e.g. encrypt-gce-image.project)')
+            help='The option name (e.g. encrypt-gce-image.project)')
 
     def _unlink_noraise(self, path):
         try:
