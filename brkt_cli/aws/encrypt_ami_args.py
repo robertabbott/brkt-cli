@@ -79,7 +79,7 @@ def setup_encrypt_ami_args(parser):
         dest='tags',
         action='append',
         help=(
-            'Custom tag for resources created during encryption. '
+            'Set an AWS tag on resources created during encryption. '
             'May be specified multiple times.'
         )
     )

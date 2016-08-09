@@ -98,7 +98,7 @@ def setup_update_encrypted_ami(parser):
         dest='tags',
         action='append',
         help=(
-            'Custom tag for resources created during encryption. '
+            'Set an AWS tag on resources created during update. '
             'May be specified multiple times.'
         )
     )
