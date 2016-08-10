@@ -160,10 +160,11 @@ def _get_snapshot_progress_text(snapshots):
 
 
 def wait_for_instance(
-        aws_svc, instance_id, timeout=300, state='running'):
+        aws_svc, instance_id, timeout=600, state='running'):
     """ Wait for up to timeout seconds for an instance to be in the
-        'running' state.  Sleep for 2 seconds between checks.
-    :return: The Instance object, or None if a timeout occurred
+    given state.  Sleep for 2 seconds between checks.
+
+    :return: The Instance object
     :raises InstanceError if a timeout occurs or the instance unexpectedly
         goes into an error or terminated state
     """

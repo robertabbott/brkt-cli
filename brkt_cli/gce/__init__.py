@@ -153,10 +153,11 @@ def command_update_encrypted_gce_image(values, log):
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
 
     gce_service.validate_image_name(encrypted_image_name)
-    gce_service.validate_images(gce_svc,
-                                encrypted_image_name,
-                                values.encryptor_image,
-                                values.image)
+    if values.validate:
+        gce_service.validate_images(gce_svc,
+                                    encrypted_image_name,
+                                    values.encryptor_image,
+                                    values.image)
     if not values.verbose:
         logging.getLogger('googleapiclient').setLevel(logging.ERROR)
 
@@ -189,11 +190,12 @@ def command_encrypt_gce_image(values, log):
 
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
     gce_service.validate_image_name(encrypted_image_name)
-    gce_service.validate_images(gce_svc,
-                                encrypted_image_name,
-                                values.encryptor_image,
-                                values.image,
-                                values.image_project)
+    if values.validate:
+        gce_service.validate_images(gce_svc,
+                                    encrypted_image_name,
+                                    values.encryptor_image,
+                                    values.image,
+                                    values.image_project)
     if not values.verbose:
         logging.getLogger('googleapiclient').setLevel(logging.ERROR)
 
@@ -222,13 +224,14 @@ def command_encrypt_gce_image(values, log):
 
 
 def check_args(values, gce_svc):
-    if not gce_svc.network_exists(values.network):
-        raise ValidationError("Network provided does not exist")
     if values.encryptor_image:
         if values.bucket != 'prod':
             raise ValidationError("Please provided either an encryptor image or an image bucket")
     if not values.token:
         raise ValidationError('Must provide a token')
 
-    brkt_env = brkt_cli.brkt_env_from_values(values)
-    brkt_cli.check_jwt_auth(brkt_env, values.token)
+    if values.validate:
+        if not gce_svc.network_exists(values.network):
+            raise ValidationError("Network provided does not exist")
+        brkt_env = brkt_cli.brkt_env_from_values(values)
+        brkt_cli.check_jwt_auth(brkt_env, values.token)
