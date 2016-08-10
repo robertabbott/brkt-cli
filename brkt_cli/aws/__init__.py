@@ -132,6 +132,9 @@ class EncryptAMISubcommand(Subcommand):
         setup_instance_config_args(encrypt_ami_parser,
                                    mode=INSTANCE_CREATOR_MODE)
 
+    def debug_log_to_temp_file(self):
+        return True
+
     def run(self, values):
         return _run_subcommand(self.name(), values)
 
@@ -163,6 +166,9 @@ class UpdateAMISubcommand(Subcommand):
             update_encrypted_ami_parser)
         setup_instance_config_args(update_encrypted_ami_parser,
                                    mode=INSTANCE_UPDATER_MODE)
+
+    def debug_log_to_temp_file(self):
+        return True
 
     def run(self, values):
         return _run_subcommand(self.name(), values)
