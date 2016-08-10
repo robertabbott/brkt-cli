@@ -415,7 +415,7 @@ class SortingHelpFormatter(argparse.ArgumentDefaultsHelpFormatter):
 def main():
     parser = argparse.ArgumentParser(
         description='Command-line interface to the Bracket Computing service.',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        formatter_class=SortingHelpFormatter
     )
     parser.add_argument(
         '-v',

@@ -38,6 +38,8 @@ class EncryptGCEImageSubcommand(Subcommand):
     def register(self, subparsers, parsed_config):
         encrypt_gce_image_parser = subparsers.add_parser(
             'encrypt-gce-image',
+            description='Create an encrypted GCE image from an existing image',
+            help='Encrypt a GCE image',
             formatter_class=brkt_cli.SortingHelpFormatter
         )
         encrypt_gce_image_args.setup_encrypt_gce_image_args(
@@ -68,6 +70,10 @@ class UpdateGCEImageSubcommand(Subcommand):
     def register(self, subparsers, parsed_config):
         update_gce_image_parser = subparsers.add_parser(
             'update-gce-image',
+            description=(
+                'Update an encrypted GCE image with the latest Metavisor '
+                'release'),
+            help='Update an encrypted GCE image',
             formatter_class=brkt_cli.SortingHelpFormatter
         )
         update_encrypted_gce_image_args.setup_update_gce_image_args(update_gce_image_parser)
@@ -86,7 +92,9 @@ class LaunchGCEImageSubcommand(Subcommand):
     def register(self, subparsers, parsed_config):
         launch_gce_image_parser = subparsers.add_parser(
             'launch-gce-image',
-            formatter_class=brkt_cli.SortingHelpFormatter
+            formatter_class=brkt_cli.SortingHelpFormatter,
+            description='Launch a GCE image',
+            help='Launch a GCE image'
         )
         launch_gce_image_args.setup_launch_gce_image_args(launch_gce_image_parser)
         setup_instance_config_args(launch_gce_image_parser,
