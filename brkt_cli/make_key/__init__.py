@@ -46,6 +46,7 @@ class MakeKeySubcommand(Subcommand):
                 'PEM format and write the key to stdout.  Optionally write '
                 'the associated public key to a file.'
             ),
+            help='Make a PEM key',
             formatter_class=brkt_cli.SortingHelpFormatter
         )
         parser.add_argument(

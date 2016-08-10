@@ -38,6 +38,8 @@ class EncryptGCEImageSubcommand(Subcommand):
     def register(self, subparsers, parsed_config):
         encrypt_gce_image_parser = subparsers.add_parser(
             'encrypt-gce-image',
+            description='Create an encrypted GCE image from an existing image',
+            help='Encrypt a GCE image',
             formatter_class=brkt_cli.SortingHelpFormatter
         )
         encrypt_gce_image_args.setup_encrypt_gce_image_args(
@@ -68,6 +70,10 @@ class UpdateGCEImageSubcommand(Subcommand):
     def register(self, subparsers, parsed_config):
         update_gce_image_parser = subparsers.add_parser(
             'update-gce-image',
+            description=(
+                'Update an encrypted GCE image with the latest Metavisor '
+                'release'),
+            help='Update an encrypted GCE image',
             formatter_class=brkt_cli.SortingHelpFormatter
         )
         update_encrypted_gce_image_args.setup_update_gce_image_args(update_gce_image_parser)
@@ -86,7 +92,9 @@ class LaunchGCEImageSubcommand(Subcommand):
     def register(self, subparsers, parsed_config):
         launch_gce_image_parser = subparsers.add_parser(
             'launch-gce-image',
-            formatter_class=brkt_cli.SortingHelpFormatter
+            formatter_class=brkt_cli.SortingHelpFormatter,
+            description='Launch a GCE image',
+            help='Launch a GCE image'
         )
         launch_gce_image_args.setup_launch_gce_image_args(launch_gce_image_parser)
         setup_instance_config_args(launch_gce_image_parser,
@@ -145,10 +153,11 @@ def command_update_encrypted_gce_image(values, log):
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
 
     gce_service.validate_image_name(encrypted_image_name)
-    gce_service.validate_images(gce_svc,
-                                encrypted_image_name,
-                                values.encryptor_image,
-                                values.image)
+    if values.validate:
+        gce_service.validate_images(gce_svc,
+                                    encrypted_image_name,
+                                    values.encryptor_image,
+                                    values.image)
     if not values.verbose:
         logging.getLogger('googleapiclient').setLevel(logging.ERROR)
 
@@ -181,11 +190,12 @@ def command_encrypt_gce_image(values, log):
 
     encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
     gce_service.validate_image_name(encrypted_image_name)
-    gce_service.validate_images(gce_svc,
-                                encrypted_image_name,
-                                values.encryptor_image,
-                                values.image,
-                                values.image_project)
+    if values.validate:
+        gce_service.validate_images(gce_svc,
+                                    encrypted_image_name,
+                                    values.encryptor_image,
+                                    values.image,
+                                    values.image_project)
     if not values.verbose:
         logging.getLogger('googleapiclient').setLevel(logging.ERROR)
 
@@ -214,13 +224,14 @@ def command_encrypt_gce_image(values, log):
 
 
 def check_args(values, gce_svc):
-    if not gce_svc.network_exists(values.network):
-        raise ValidationError("Network provided does not exist")
     if values.encryptor_image:
         if values.bucket != 'prod':
             raise ValidationError("Please provided either an encryptor image or an image bucket")
     if not values.token:
         raise ValidationError('Must provide a token')
 
-    brkt_env = brkt_cli.brkt_env_from_values(values)
-    brkt_cli.check_jwt_auth(brkt_env, values.token)
+    if values.validate:
+        if not gce_svc.network_exists(values.network):
+            raise ValidationError("Network provided does not exist")
+        brkt_env = brkt_cli.brkt_env_from_values(values)
+        brkt_cli.check_jwt_auth(brkt_env, values.token)
