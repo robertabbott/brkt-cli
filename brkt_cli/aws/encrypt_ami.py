@@ -368,75 +368,100 @@ def _run_encryptor_instance(
     # If security groups were not specified, create a temporary security
     # group that allows us to poll the metavisor for encryption progress.
     temp_sg_id = None
-    run_instance = aws_svc.run_instance
+    instance = None
 
-    if not security_group_ids:
-        vpc_id = None
-        if subnet_id:
-            subnet = aws_svc.get_subnet(subnet_id)
-            vpc_id = subnet.vpc_id
-        temp_sg_id = create_encryptor_security_group(
-            aws_svc, vpc_id=vpc_id, status_port=status_port).id
-        security_group_ids = [temp_sg_id]
+    try:
+        run_instance = aws_svc.run_instance
 
-        # Wrap with a retry, to handle eventual consistency issues with
-        # the newly-created group.
-        run_instance = aws_svc.retry(
-            aws_svc.run_instance,
-            error_code_regexp='InvalidGroup\.NotFound'
+        if not security_group_ids:
+            vpc_id = None
+            if subnet_id:
+                subnet = aws_svc.get_subnet(subnet_id)
+                vpc_id = subnet.vpc_id
+            temp_sg_id = create_encryptor_security_group(
+                aws_svc, vpc_id=vpc_id, status_port=status_port).id
+            security_group_ids = [temp_sg_id]
+
+            # Wrap with a retry, to handle eventual consistency issues with
+            # the newly-created group.
+            run_instance = aws_svc.retry(
+                aws_svc.run_instance,
+                error_code_regexp='InvalidGroup\.NotFound'
+            )
+
+        user_data = instance_config.make_userdata()
+        compressed_user_data = gzip_user_data(user_data)
+
+        instance = run_instance(
+            encryptor_image_id,
+            security_group_ids=security_group_ids,
+            user_data=compressed_user_data,
+            placement=zone,
+            block_device_map=bdm,
+            subnet_id=subnet_id
         )
+        aws_svc.create_tags(
+            instance.id,
+            name=NAME_ENCRYPTOR,
+            description=DESCRIPTION_ENCRYPTOR % {'image_id': guest_image_id}
+        )
+        log.info('Lanuching encryptor instance %s', instance.id)
+        instance = wait_for_instance(aws_svc, instance.id)
 
-    user_data = instance_config.make_userdata()
-    compressed_user_data = gzip_user_data(user_data)
-    instance = run_instance(
-        encryptor_image_id,
-        security_group_ids=security_group_ids,
-        user_data=compressed_user_data,
-        placement=zone,
-        block_device_map=bdm,
-        subnet_id=subnet_id
-    )
-    aws_svc.create_tags(
-        instance.id,
-        name=NAME_ENCRYPTOR,
-        description=DESCRIPTION_ENCRYPTOR % {'image_id': guest_image_id}
-    )
-    instance = wait_for_instance(aws_svc, instance.id)
-    log.info('Launched encryptor instance %s', instance.id)
-
-    # Tag volumes.
-    bdm = instance.block_device_mapping
-    if virtualization_type == 'paravirtual':
-        aws_svc.create_tags(
-            bdm['/dev/sda5'].volume_id, name=NAME_ENCRYPTED_ROOT_VOLUME)
-        aws_svc.create_tags(
-            bdm['/dev/sda2'].volume_id, name=NAME_METAVISOR_ROOT_VOLUME)
-        aws_svc.create_tags(
-            bdm['/dev/sda1'].volume_id, name=NAME_METAVISOR_GRUB_VOLUME)
-        aws_svc.create_tags(
-            bdm['/dev/sda3'].volume_id, name=NAME_METAVISOR_LOG_VOLUME)
-    else:
-        aws_svc.create_tags(
-            bdm['/dev/sda1'].volume_id, name=NAME_METAVISOR_ROOT_VOLUME)
-        aws_svc.create_tags(
-            bdm['/dev/sdg'].volume_id, name=NAME_ENCRYPTED_ROOT_VOLUME)
+        # Tag volumes.
+        bdm = instance.block_device_mapping
+        if virtualization_type == 'paravirtual':
+            aws_svc.create_tags(
+                bdm['/dev/sda5'].volume_id, name=NAME_ENCRYPTED_ROOT_VOLUME)
+            aws_svc.create_tags(
+                bdm['/dev/sda2'].volume_id, name=NAME_METAVISOR_ROOT_VOLUME)
+            aws_svc.create_tags(
+                bdm['/dev/sda1'].volume_id, name=NAME_METAVISOR_GRUB_VOLUME)
+            aws_svc.create_tags(
+                bdm['/dev/sda3'].volume_id, name=NAME_METAVISOR_LOG_VOLUME)
+        else:
+            aws_svc.create_tags(
+                bdm['/dev/sda1'].volume_id, name=NAME_METAVISOR_ROOT_VOLUME)
+            aws_svc.create_tags(
+                bdm['/dev/sdg'].volume_id, name=NAME_ENCRYPTED_ROOT_VOLUME)
+    except:
+        cleanup_instance_ids = []
+        cleanup_sg_ids = []
+        if instance:
+            cleanup_instance_ids = [instance.id]
+        if temp_sg_id:
+            cleanup_sg_ids = [temp_sg_id]
+        clean_up(
+            aws_svc,
+            instance_ids=cleanup_instance_ids,
+            security_group_ids=cleanup_sg_ids
+        )
+        raise
 
     return instance, temp_sg_id
 
 
 def run_guest_instance(aws_svc, image_id, subnet_id=None,
                        instance_type='m3.medium'):
-    instance = aws_svc.run_instance(
-        image_id, subnet_id=subnet_id,
-        instance_type=instance_type, ebs_optimized=False)
-    log.info(
-        'Launching instance %s to snapshot root disk for %s',
-        instance.id, image_id)
-    aws_svc.create_tags(
-        instance.id,
-        name=NAME_GUEST_CREATOR,
-        description=DESCRIPTION_GUEST_CREATOR % {'image_id': image_id}
-    )
+    instance = None
+
+    try:
+        instance = aws_svc.run_instance(
+            image_id, subnet_id=subnet_id,
+            instance_type=instance_type, ebs_optimized=False)
+        log.info(
+            'Launching instance %s to snapshot root disk for %s',
+            instance.id, image_id)
+        aws_svc.create_tags(
+            instance.id,
+            name=NAME_GUEST_CREATOR,
+            description=DESCRIPTION_GUEST_CREATOR % {'image_id': image_id}
+        )
+    except:
+        if instance:
+            clean_up(aws_svc, instance_ids=[instance.id])
+        raise
+
     return instance
 
 
