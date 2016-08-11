@@ -14,7 +14,7 @@
 
 import json
 import logging
-import os
+import posixpath
 
 from brkt_cli.user_data import UserDataContainer
 
@@ -68,7 +68,7 @@ class InstanceConfig(object):
 
     def add_brkt_file(self, dest_filename, file_contents):
         # dest_filename will be relative to self._brkt_files_dest_dir
-        dest_path = os.path.join(self._brkt_files_dest_dir, dest_filename)
+        dest_path = posixpath.join(self._brkt_files_dest_dir, dest_filename)
         brkt_file = BrktFile(dest_path, file_contents)
         self._brkt_files.append(brkt_file)
 
