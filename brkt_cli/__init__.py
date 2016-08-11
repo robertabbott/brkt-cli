@@ -18,8 +18,10 @@ import argparse
 import importlib
 import json
 import logging
+import os
 import re
 import sys
+import tempfile
 import urllib2
 from distutils.version import LooseVersion
 from operator import attrgetter
@@ -516,13 +518,35 @@ def main():
     if verbose:
         log_level = logging.DEBUG
 
-    # Log messages are written to stderr and are prefixed with a compact
-    # timestamp, so that the user knows how long each operation took.
-    logging.basicConfig(
-        level=log_level,
-        format='%(asctime)s %(message)s',
-        datefmt='%H:%M:%S'
-    )
+    # Prefix log messages with a compact timestamp, so that the user
+    # knows how long each operation took.
+    fmt = '%(asctime)s %(message)s'
+    datefmt = '%H:%M:%S'
+
+    # Set the root log level to DEBUG.  This passes all log messages to all
+    # handlers.  We then filter by log level in each handler.
+    logging.root.setLevel(logging.DEBUG)
+
+    # Log to stderr at the level specified by the user.
+    stderr_handler = logging.StreamHandler()
+    formatter = logging.Formatter(fmt=fmt, datefmt=datefmt)
+    stderr_handler.setFormatter(formatter)
+    stderr_handler.setLevel(log_level)
+    logging.root.addHandler(stderr_handler)
+
+    # Optionally log to a temp file at debug level.  If the command succeeds,
+    # we delete this file.  If the command fails, we keep it around so that
+    # the user can get more details.
+    debug_handler = None
+    debug_log_file = None
+    if subcommand.debug_log_to_temp_file() and log_level != logging.DEBUG:
+        debug_log_file = tempfile.NamedTemporaryFile(
+            delete=False, prefix='brkt_cli')
+        debug_handler = logging.FileHandler(debug_log_file.name)
+        formatter = logging.Formatter(fmt=fmt, datefmt=datefmt)
+        debug_handler.setFormatter(formatter)
+        debug_handler.setLevel(logging.DEBUG)
+        logging.root.addHandler(debug_handler)
 
     # Write messages that were logged before logging was initialized.
     for msg in subcommand_load_messages:
@@ -532,6 +556,8 @@ def main():
         if not _check_version():
             return 1
 
+    result = 1
+
     # Run the subcommand.
     try:
         result = subcommand.run(values)
@@ -539,8 +565,6 @@ def main():
             raise Exception(
                 '%s did not return an integer result' % subcommand.name())
         log.debug('%s returned %d', subcommand.name(), result)
-        return result
-
     except ValidationError as e:
         print(e, file=sys.stderr)
     except util.BracketError as e:
@@ -553,7 +577,15 @@ def main():
             log.exception('Interrupted by user')
         else:
             log.error('Interrupted by user')
-    return 1
+    finally:
+        if debug_handler:
+            if result == 0:
+                os.remove(debug_log_file.name)
+            else:
+                debug_handler.close()
+                logging.root.removeHandler(debug_handler)
+                log.info('Debug log is available at %s', debug_log_file.name)
+    return result
 
 
 if __name__ == '__main__':

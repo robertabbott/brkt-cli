@@ -58,6 +58,9 @@ class EncryptGCEImageSubcommand(Subcommand):
             '%s.zone' % (self.name(),),
             'The GCE zone metavisors will be launched into')
 
+    def debug_log_to_temp_file(self):
+        return True
+
     def run(self, values):
         return _run_subcommand(self.name(), values)
 
@@ -79,6 +82,9 @@ class UpdateGCEImageSubcommand(Subcommand):
         update_encrypted_gce_image_args.setup_update_gce_image_args(update_gce_image_parser)
         setup_instance_config_args(update_gce_image_parser,
                                    brkt_env_default=BRKT_ENV_PROD)
+
+    def debug_log_to_temp_file(self):
+        return True
 
     def run(self, values):
         return _run_subcommand(self.name(), values)

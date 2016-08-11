@@ -68,6 +68,11 @@ class Subcommand(object):
         """
         pass
 
+    def debug_log_to_temp_file(self):
+        """ Return True if debug logging should be written to a temporary
+        file.  The file is deleted if the command succeeds. """
+        return False
+
     @abc.abstractmethod
     def run(self, values):
         """ Run the subcommand.
