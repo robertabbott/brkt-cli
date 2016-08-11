@@ -139,6 +139,9 @@ def command_launch_gce_image(values, log):
     if not values.verbose:
         logging.getLogger('googleapiclient').setLevel(logging.ERROR)
 
+    if values.instance_name:
+        gce_service.validate_image_name(values.instance_name)
+
     launch_gce_image.launch(log,
                             gce_svc,
                             values.image,
