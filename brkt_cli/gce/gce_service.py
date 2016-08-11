@@ -633,9 +633,9 @@ def validate_image_name(name):
 
     : raises ValidationError if name is invalid
     """
-    if not (name and len(name) <= 63):
+    if not (name and len(name) <= 64):
         raise ValidationError(
-            'Image name may be at most 63 characters')
+            'Image name may be at most 64 characters')
 
     m = re.match(r'[a-z0-9\-]*[a-z0-9]$', name)
     if not m:

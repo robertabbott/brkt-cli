@@ -189,11 +189,11 @@ class TestEncryptedImageName(unittest.TestCase):
         self.assertNotEqual(n1, n2)
 
     def test_long_image_name(self):
-        image_name = 'test-image-with-long-name-encrypted-so-we-hit-63-char-limit'
+        image_name = 'test-image-with-long-name-encrypted-so-we-hit-63-char-limit-a'
         n1 = gce_service.get_image_name(None, image_name)
         n2 = gce_service.get_image_name(None, image_name)
         self.assertNotEqual(n1, n2)
-        self.assertTrue('63-char-limit' not in n1 and '63-char-limit' not in n2)
+        self.assertTrue('64-char-limit' not in n1 and '64-char-limit' not in n2)
 
     def test_user_supplied_name(self):
         encrypted_image_name = 'something'
@@ -214,7 +214,7 @@ class TestEncryptedImageName(unittest.TestCase):
         with self.assertRaises(ValidationError):
             gce_service.validate_image_name('validname-')
         with self.assertRaises(ValidationError):
-            gce_service.validate_image_name('a' * 64)
+            gce_service.validate_image_name('a' * 65)
         for c in '?!#$%^&*~`{}\|"<>()[]./\'@_':
             with self.assertRaises(ValidationError):
                 gce_service.validate_image_name('valid' + c)
