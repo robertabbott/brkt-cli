@@ -240,6 +240,8 @@ def check_args(values, gce_svc):
         raise ValidationError('Must provide a token')
 
     if values.validate:
+        if not gce_svc.project_exists(values.project):
+            raise ValidationError("Project provided does not exist")
         if not gce_svc.network_exists(values.network):
             raise ValidationError("Network provided does not exist")
         brkt_env = brkt_cli.brkt_env_from_values(values)

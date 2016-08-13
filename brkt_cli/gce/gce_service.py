@@ -86,6 +86,10 @@ class BaseGCEService(object):
         pass
 
     @abc.abstractmethod
+    def project_exists(self, project):
+        pass
+
+    @abc.abstractmethod
     def delete_instance(self, zone, instance):
         pass
 
@@ -261,6 +265,16 @@ class GCEService(BaseGCEService):
     def image_exists(self, image, image_project=None):
         try:
             self.get_image(image, image_project)
+        except:
+            return False
+        return True
+
+    def get_project(self, project):
+        return self.compute.projects().get(project=project).execute()
+
+    def project_exists(self, project=None):
+        try:
+            self.get_project(project)
         except:
             return False
         return True
@@ -625,6 +639,7 @@ def validate_images(gce_svc, encrypted_image_name, encryptor, guest_image, image
     # check that there is no existing image named encrypted_image_name
     if gce_svc.image_exists(encrypted_image_name):
         raise ValidationError('An image already exists with name %s. Encryption Failed.' % encrypted_image_name)
+
 
 
 def validate_image_name(name):
