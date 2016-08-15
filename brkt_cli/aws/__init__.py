@@ -55,6 +55,53 @@ PV_ENCRYPTOR_AMIS_URL = "https://solo-brkt-prod-net.s3.amazonaws.com/amis.json"
 ENCRYPTOR_AMIS_URL = "https://solo-brkt-prod-net.s3.amazonaws.com/hvm_amis.json"
 
 
+def _handle_aws_errors(func):
+    """Provides common error handling to subcommands that interact with AWS
+    APIs.
+    """
+    def _do_handle_aws_errors(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except NoAuthHandlerFound:
+            msg = (
+                'Unable to connect to AWS.  Are your AWS_ACCESS_KEY_ID and '
+                'AWS_SECRET_ACCESS_KEY environment variables set?'
+            )
+            if log.isEnabledFor(logging.DEBUG):
+                log.exception(msg)
+            else:
+                log.error(msg)
+        except EC2ResponseError as e:
+            if e.error_code == 'AuthFailure':
+                msg = 'Check your AWS login credentials and permissions'
+                if log.isEnabledFor(logging.DEBUG):
+                    log.exception(msg)
+                else:
+                    log.error(msg + ': ' + e.error_message)
+            elif e.error_code in (
+                    'InvalidKeyPair.NotFound',
+                    'InvalidSubnetID.NotFound',
+                    'InvalidGroup.NotFound'
+            ):
+                if log.isEnabledFor(logging.DEBUG):
+                    log.exception(e.error_message)
+                else:
+                    log.error(e.error_message)
+            elif e.error_code == 'UnauthorizedOperation':
+                if log.isEnabledFor(logging.DEBUG):
+                    log.exception(e.error_message)
+                else:
+                    log.error(e.error_message)
+                    log.error(
+                        'Unauthorized operation.  Check the IAM policy for your '
+                        'AWS account.'
+                    )
+            else:
+                raise
+        return 1
+    return _do_handle_aws_errors
+
+
 class DiagSubcommand(Subcommand):
     def name(self):
         return 'diag'
@@ -78,8 +125,58 @@ class DiagSubcommand(Subcommand):
         )
         diag_args.setup_diag_args(diag_parser)
 
+    @_handle_aws_errors
     def run(self, values):
-        return _run_subcommand(self.name(), values)
+        nonce = util.make_nonce()
+
+        aws_svc = aws_service.AWSService(
+            nonce,
+            retry_timeout=values.retry_timeout,
+            retry_initial_sleep_seconds=values.retry_initial_sleep_seconds
+        )
+        log.debug(
+            'Retry timeout=%.02f, initial sleep seconds=%.02f',
+            aws_svc.retry_timeout, aws_svc.retry_initial_sleep_seconds)
+
+        if values.snapshot_id and values.instance_id:
+            raise ValidationError("Only one of --instance-id or --snapshot-id "
+                                  "may be specified")
+
+        if not values.snapshot_id and not values.instance_id:
+            raise ValidationError("--instance-id or --snapshot-id "
+                                  "must be specified")
+
+        if values.validate:
+            # Validate the region before connecting.
+            region_names = [r.name for r in aws_svc.get_regions()]
+            if values.region not in region_names:
+                raise ValidationError(
+                    'Invalid region %s.  Supported regions: %s.' %
+                    (values.region, ', '.join(region_names)))
+
+        aws_svc.connect(values.region, key_name=values.key_name)
+        default_tags = {}
+        default_tags.update(brkt_cli.parse_tags(values.tags))
+        aws_svc.default_tags = default_tags
+
+        if values.validate:
+            if values.key_name:
+                aws_svc.get_key_pair(values.key_name)
+            if values.instance_id:
+                _validate_log_instance(
+                    aws_svc, values.instance_id)
+            _validate_subnet_and_security_groups(
+                aws_svc, values.subnet_id, values.security_group_ids)
+        else:
+            log.info('Skipping validation.')
+
+        diag.diag(
+            aws_svc,
+            instance_id=values.instance_id,
+            snapshot_id=values.snapshot_id,
+            ssh_keypair=values.key_name
+        )
+        return 0
 
 
 class ShareLogsSubcommand(Subcommand):
@@ -104,8 +201,50 @@ class ShareLogsSubcommand(Subcommand):
         )
         share_logs_args.setup_share_logs_args(share_logs_parser)
 
+    @_handle_aws_errors
     def run(self, values):
-        return _run_subcommand(self.name(), values)
+        nonce = util.make_nonce()
+
+        aws_svc = aws_service.AWSService(
+            nonce,
+            retry_timeout=values.retry_timeout,
+            retry_initial_sleep_seconds=values.retry_initial_sleep_seconds
+        )
+        log.debug(
+            'Retry timeout=%.02f, initial sleep seconds=%.02f',
+            aws_svc.retry_timeout, aws_svc.retry_initial_sleep_seconds)
+
+        if values.snapshot_id and values.instance_id:
+            raise ValidationError("Only one of --instance-id or --snapshot-id "
+                                  "may be specified")
+
+        if not values.snapshot_id and not values.instance_id:
+            raise ValidationError("--instance-id or --snapshot-id "
+                                  "must be specified")
+
+        if values.validate:
+            # Validate the region before connecting.
+            region_names = [r.name for r in aws_svc.get_regions()]
+            if values.region not in region_names:
+                raise ValidationError(
+                    'Invalid region %s.  Supported regions: %s.' %
+                    (values.region, ', '.join(region_names)))
+
+        aws_svc.connect(values.region)
+
+        if values.validate:
+            _validate_log_instance(
+                aws_svc, values.instance_id)
+        else:
+            log.info('Skipping instance validation.')
+
+        share_logs.share(
+            aws_svc,
+            instance_id=values.instance_id,
+            snapshot_id=values.snapshot_id,
+            bracket_aws_account=values.bracket_aws_account
+        )
+        return 0
 
 
 class EncryptAMISubcommand(Subcommand):
@@ -135,8 +274,70 @@ class EncryptAMISubcommand(Subcommand):
     def debug_log_to_temp_file(self):
         return True
 
+    @_handle_aws_errors
     def run(self, values):
-        return _run_subcommand(self.name(), values)
+        session_id = util.make_nonce()
+
+        aws_svc = aws_service.AWSService(
+            session_id,
+            retry_timeout=values.retry_timeout,
+            retry_initial_sleep_seconds=values.retry_initial_sleep_seconds
+        )
+        log.debug(
+            'Retry timeout=%.02f, initial sleep seconds=%.02f',
+            aws_svc.retry_timeout, aws_svc.retry_initial_sleep_seconds)
+
+        brkt_env = (
+            brkt_cli.brkt_env_from_values(values) or
+            brkt_cli.get_prod_brkt_env()
+        )
+
+        if values.validate:
+            # Validate the region before connecting.
+            _validate_region(aws_svc, values.region)
+
+            if values.token:
+                brkt_cli.check_jwt_auth(brkt_env, values.token)
+
+        aws_svc.connect(values.region, key_name=values.key_name)
+
+        if values.validate:
+            guest_image = _validate_guest_ami(aws_svc, values.ami)
+        else:
+            guest_image = aws_svc.get_image(values.ami)
+
+        pv = _use_pv_metavisor(values, guest_image)
+        encryptor_ami = (
+            values.encryptor_ami or
+            _get_encryptor_ami(values.region, pv=pv)
+        )
+
+        default_tags = encrypt_ami.get_default_tags(session_id, encryptor_ami)
+        default_tags.update(brkt_cli.parse_tags(values.tags))
+        aws_svc.default_tags = default_tags
+
+        if values.validate:
+            _validate(aws_svc, values, encryptor_ami)
+            brkt_cli.validate_ntp_servers(values.ntp_servers)
+
+        encrypted_image_id = encrypt_ami.encrypt(
+            aws_svc=aws_svc,
+            enc_svc_cls=encryptor_service.EncryptorService,
+            image_id=guest_image.id,
+            encryptor_ami=encryptor_ami,
+            encrypted_ami_name=values.encrypted_ami_name,
+            subnet_id=values.subnet_id,
+            security_group_ids=values.security_group_ids,
+            guest_instance_type=values.guest_instance_type,
+            instance_config=instance_config_from_values(
+                values, mode=INSTANCE_CREATOR_MODE),
+            status_port=values.status_port,
+            save_encryptor_logs=values.save_encryptor_logs
+        )
+        # Print the AMI ID to stdout, in case the caller wants to process
+        # the output.  Log messages go to stderr.
+        print(encrypted_image_id)
+        return 0
 
 
 class UpdateAMISubcommand(Subcommand):
@@ -170,8 +371,96 @@ class UpdateAMISubcommand(Subcommand):
     def debug_log_to_temp_file(self):
         return True
 
+    @_handle_aws_errors
     def run(self, values):
-        return _run_subcommand(self.name(), values)
+        nonce = util.make_nonce()
+
+        aws_svc = aws_service.AWSService(
+            nonce,
+            retry_timeout=values.retry_timeout,
+            retry_initial_sleep_seconds=values.retry_initial_sleep_seconds
+        )
+        log.debug(
+            'Retry timeout=%.02f, initial sleep seconds=%.02f',
+            aws_svc.retry_timeout, aws_svc.retry_initial_sleep_seconds)
+
+        brkt_env = (
+            brkt_cli.brkt_env_from_values(values) or
+            brkt_cli.get_prod_brkt_env()
+        )
+
+        if values.validate:
+            # Validate the region before connecting.
+            _validate_region(aws_svc, values.region)
+
+            if values.token:
+                brkt_cli.check_jwt_auth(brkt_env, values.token)
+
+        aws_svc.connect(values.region, key_name=values.key_name)
+        encrypted_image = _validate_ami(aws_svc, values.ami)
+        pv = _use_pv_metavisor(values, encrypted_image)
+        encryptor_ami = (
+            values.encryptor_ami or
+            _get_encryptor_ami(values.region, pv=pv)
+        )
+
+        default_tags = encrypt_ami.get_default_tags(nonce, encryptor_ami)
+        default_tags.update(brkt_cli.parse_tags(values.tags))
+        aws_svc.default_tags = default_tags
+
+        if values.validate:
+            _validate_guest_encrypted_ami(
+                aws_svc, encrypted_image.id, encryptor_ami)
+            brkt_cli.validate_ntp_servers(values.ntp_servers)
+            _validate(aws_svc, values, encryptor_ami)
+            _validate_guest_encrypted_ami(
+                aws_svc, encrypted_image.id, encryptor_ami)
+        else:
+            log.info('Skipping AMI validation.')
+
+        mv_image = aws_svc.get_image(encryptor_ami)
+        if (encrypted_image.virtualization_type != mv_image.virtualization_type):
+            log.error(
+                'Virtualization type mismatch.  %s is %s, but encryptor %s is '
+                '%s.',
+                encrypted_image.id,
+                encrypted_image.virtualization_type,
+                mv_image.id,
+                mv_image.virtualization_type
+            )
+            return 1
+
+        encrypted_ami_name = values.encrypted_ami_name
+        if encrypted_ami_name:
+            # Check for name collision.
+            filters = {'name': encrypted_ami_name}
+            if aws_svc.get_images(filters=filters, owners=['self']):
+                raise ValidationError(
+                    'You already own image named %s' % encrypted_ami_name)
+        else:
+            encrypted_ami_name = _get_updated_image_name(
+                encrypted_image.name, nonce)
+            log.debug('Image name: %s', encrypted_ami_name)
+            aws_service.validate_image_name(encrypted_ami_name)
+
+        # Initial validation done
+        log.info(
+            'Updating %s with new metavisor %s',
+            encrypted_image.id, encryptor_ami
+        )
+
+        updated_ami_id = update_ami(
+            aws_svc, encrypted_image.id, encryptor_ami, encrypted_ami_name,
+            subnet_id=values.subnet_id,
+            security_group_ids=values.security_group_ids,
+            guest_instance_type=values.guest_instance_type,
+            updater_instance_type=values.updater_instance_type,
+            instance_config=instance_config_from_values(
+                values, mode=INSTANCE_UPDATER_MODE),
+            status_port=values.status_port,
+        )
+        print(updated_ami_id)
+        return 0
 
 
 def get_subcommands():
@@ -180,56 +469,6 @@ def get_subcommands():
         EncryptAMISubcommand(),
         ShareLogsSubcommand(),
         UpdateAMISubcommand()]
-
-
-def _run_subcommand(subcommand, values):
-    try:
-        if subcommand == 'diag':
-            return command_diag(values)
-        if subcommand == 'encrypt-ami':
-            return command_encrypt_ami(values)
-        if subcommand == 'share-logs':
-            return command_share_logs(values)
-        if subcommand == 'update-encrypted-ami':
-            return command_update_encrypted_ami(values)
-    except NoAuthHandlerFound:
-        msg = (
-            'Unable to connect to AWS.  Are your AWS_ACCESS_KEY_ID and '
-            'AWS_SECRET_ACCESS_KEY environment variables set?'
-        )
-        if log.isEnabledFor(logging.DEBUG):
-            log.exception(msg)
-        else:
-            log.error(msg)
-    except EC2ResponseError as e:
-        if e.error_code == 'AuthFailure':
-            msg = 'Check your AWS login credentials and permissions'
-            if log.isEnabledFor(logging.DEBUG):
-                log.exception(msg)
-            else:
-                log.error(msg + ': ' + e.error_message)
-        elif e.error_code in (
-            'InvalidKeyPair.NotFound',
-            'InvalidSubnetID.NotFound',
-            'InvalidGroup.NotFound'
-        ):
-            if log.isEnabledFor(logging.DEBUG):
-                log.exception(e.error_message)
-            else:
-                log.error(e.error_message)
-        elif e.error_code == 'UnauthorizedOperation':
-            if log.isEnabledFor(logging.DEBUG):
-                log.exception(e.error_message)
-            else:
-                log.error(e.error_message)
-            log.error(
-                'Unauthorized operation.  Check the IAM policy for your '
-                'AWS account.'
-            )
-        else:
-            raise
-
-    return 1
 
 
 def _validate_subnet_and_security_groups(aws_svc,
@@ -441,71 +680,6 @@ def _get_encryptor_ami(region_name, pv=False):
     return ami
 
 
-def command_encrypt_ami(values):
-    session_id = util.make_nonce()
-
-    aws_svc = aws_service.AWSService(
-        session_id,
-        retry_timeout=values.retry_timeout,
-        retry_initial_sleep_seconds=values.retry_initial_sleep_seconds
-    )
-    log.debug(
-        'Retry timeout=%.02f, initial sleep seconds=%.02f',
-        aws_svc.retry_timeout, aws_svc.retry_initial_sleep_seconds)
-
-    brkt_env = (
-        brkt_cli.brkt_env_from_values(values) or
-        brkt_cli.get_prod_brkt_env()
-    )
-
-    if values.validate:
-        # Validate the region before connecting.
-        _validate_region(aws_svc, values.region)
-
-        if values.token:
-            brkt_cli.check_jwt_auth(brkt_env, values.token)
-
-    aws_svc.connect(values.region, key_name=values.key_name)
-
-    if values.validate:
-        guest_image = _validate_guest_ami(aws_svc, values.ami)
-    else:
-        guest_image = aws_svc.get_image(values.ami)
-
-    pv = _use_pv_metavisor(values, guest_image)
-    encryptor_ami = (
-        values.encryptor_ami or
-        _get_encryptor_ami(values.region, pv=pv)
-    )
-
-    default_tags = encrypt_ami.get_default_tags(session_id, encryptor_ami)
-    default_tags.update(brkt_cli.parse_tags(values.tags))
-    aws_svc.default_tags = default_tags
-
-    if values.validate:
-        _validate(aws_svc, values, encryptor_ami)
-        brkt_cli.validate_ntp_servers(values.ntp_servers)
-
-    encrypted_image_id = encrypt_ami.encrypt(
-        aws_svc=aws_svc,
-        enc_svc_cls=encryptor_service.EncryptorService,
-        image_id=guest_image.id,
-        encryptor_ami=encryptor_ami,
-        encrypted_ami_name=values.encrypted_ami_name,
-        subnet_id=values.subnet_id,
-        security_group_ids=values.security_group_ids,
-        guest_instance_type=values.guest_instance_type,
-        instance_config=instance_config_from_values(
-            values, mode=INSTANCE_CREATOR_MODE),
-        status_port=values.status_port,
-        save_encryptor_logs=values.save_encryptor_logs
-    )
-    # Print the AMI ID to stdout, in case the caller wants to process
-    # the output.  Log messages go to stderr.
-    print(encrypted_image_id)
-    return 0
-
-
 def _get_updated_image_name(image_name, session_id):
     """ Generate a new name, based on the existing name of the encrypted
     image and the session id.
@@ -524,199 +698,9 @@ def _get_updated_image_name(image_name, session_id):
     return encrypted_ami_name
 
 
-def command_update_encrypted_ami(values):
-    nonce = util.make_nonce()
-
-    aws_svc = aws_service.AWSService(
-        nonce,
-        retry_timeout=values.retry_timeout,
-        retry_initial_sleep_seconds=values.retry_initial_sleep_seconds
-    )
-    log.debug(
-        'Retry timeout=%.02f, initial sleep seconds=%.02f',
-        aws_svc.retry_timeout, aws_svc.retry_initial_sleep_seconds)
-
-    brkt_env = (
-        brkt_cli.brkt_env_from_values(values) or
-        brkt_cli.get_prod_brkt_env()
-    )
-
-    if values.validate:
-        # Validate the region before connecting.
-        _validate_region(aws_svc, values.region)
-
-        if values.token:
-            brkt_cli.check_jwt_auth(brkt_env, values.token)
-
-    aws_svc.connect(values.region, key_name=values.key_name)
-    encrypted_image = _validate_ami(aws_svc, values.ami)
-    pv = _use_pv_metavisor(values, encrypted_image)
-    encryptor_ami = (
-        values.encryptor_ami or
-        _get_encryptor_ami(values.region, pv=pv)
-    )
-
-    default_tags = encrypt_ami.get_default_tags(nonce, encryptor_ami)
-    default_tags.update(brkt_cli.parse_tags(values.tags))
-    aws_svc.default_tags = default_tags
-
-    if values.validate:
-        _validate_guest_encrypted_ami(
-            aws_svc, encrypted_image.id, encryptor_ami)
-        brkt_cli.validate_ntp_servers(values.ntp_servers)
-        _validate(aws_svc, values, encryptor_ami)
-        _validate_guest_encrypted_ami(
-            aws_svc, encrypted_image.id, encryptor_ami)
-    else:
-        log.info('Skipping AMI validation.')
-
-    mv_image = aws_svc.get_image(encryptor_ami)
-    if (encrypted_image.virtualization_type !=
-            mv_image.virtualization_type):
-        log.error(
-            'Virtualization type mismatch.  %s is %s, but encryptor %s is '
-            '%s.',
-            encrypted_image.id,
-            encrypted_image.virtualization_type,
-            mv_image.id,
-            mv_image.virtualization_type
-        )
-        return 1
-
-    encrypted_ami_name = values.encrypted_ami_name
-    if encrypted_ami_name:
-        # Check for name collision.
-        filters = {'name': encrypted_ami_name}
-        if aws_svc.get_images(filters=filters, owners=['self']):
-            raise ValidationError(
-                'You already own image named %s' % encrypted_ami_name)
-    else:
-        encrypted_ami_name = _get_updated_image_name(
-            encrypted_image.name, nonce)
-    log.debug('Image name: %s', encrypted_ami_name)
-    aws_service.validate_image_name(encrypted_ami_name)
-
-    # Initial validation done
-    log.info(
-        'Updating %s with new metavisor %s',
-        encrypted_image.id, encryptor_ami
-    )
-
-    updated_ami_id = update_ami(
-        aws_svc, encrypted_image.id, encryptor_ami, encrypted_ami_name,
-        subnet_id=values.subnet_id,
-        security_group_ids=values.security_group_ids,
-        guest_instance_type=values.guest_instance_type,
-        updater_instance_type=values.updater_instance_type,
-        instance_config=instance_config_from_values(
-            values, mode=INSTANCE_UPDATER_MODE),
-        status_port=values.status_port,
-    )
-    print(updated_ami_id)
-    return 0
-
-
 def _validate_log_instance(aws_svc, instance_id):
     pass
 
 
 def _validate_log_snapshot(aws_svc, snapshot_id):
     pass
-
-
-def command_diag(values):
-    nonce = util.make_nonce()
-
-    aws_svc = aws_service.AWSService(
-        nonce,
-        retry_timeout=values.retry_timeout,
-        retry_initial_sleep_seconds=values.retry_initial_sleep_seconds
-    )
-    log.debug(
-        'Retry timeout=%.02f, initial sleep seconds=%.02f',
-        aws_svc.retry_timeout, aws_svc.retry_initial_sleep_seconds)
-
-    if values.snapshot_id and values.instance_id:
-        raise ValidationError("Only one of --instance-id or --snapshot-id "
-                              "may be specified")
-
-    if not values.snapshot_id and not values.instance_id:
-        raise ValidationError("--instance-id or --snapshot-id "
-                              "must be specified")
-
-    if values.validate:
-        # Validate the region before connecting.
-        region_names = [r.name for r in aws_svc.get_regions()]
-        if values.region not in region_names:
-            raise ValidationError(
-                'Invalid region %s.  Supported regions: %s.' %
-                (values.region, ', '.join(region_names)))
-
-    aws_svc.connect(values.region, key_name=values.key_name)
-    default_tags = {}
-    default_tags.update(brkt_cli.parse_tags(values.tags))
-    aws_svc.default_tags = default_tags
-
-    if values.validate:
-        if values.key_name:
-            aws_svc.get_key_pair(values.key_name)
-        if values.instance_id:
-            _validate_log_instance(
-                aws_svc, values.instance_id)
-        _validate_subnet_and_security_groups(
-            aws_svc, values.subnet_id, values.security_group_ids)
-    else:
-        log.info('Skipping validation.')
-
-    diag.diag(
-        aws_svc,
-        instance_id=values.instance_id,
-        snapshot_id=values.snapshot_id,
-        ssh_keypair=values.key_name
-    )
-    return 0
-
-
-def command_share_logs(values):
-    nonce = util.make_nonce()
-
-    aws_svc = aws_service.AWSService(
-        nonce,
-        retry_timeout=values.retry_timeout,
-        retry_initial_sleep_seconds=values.retry_initial_sleep_seconds
-    )
-    log.debug(
-        'Retry timeout=%.02f, initial sleep seconds=%.02f',
-        aws_svc.retry_timeout, aws_svc.retry_initial_sleep_seconds)
-
-    if values.snapshot_id and values.instance_id:
-        raise ValidationError("Only one of --instance-id or --snapshot-id "
-                              "may be specified")
-
-    if not values.snapshot_id and not values.instance_id:
-        raise ValidationError("--instance-id or --snapshot-id "
-                              "must be specified")
-
-    if values.validate:
-        # Validate the region before connecting.
-        region_names = [r.name for r in aws_svc.get_regions()]
-        if values.region not in region_names:
-            raise ValidationError(
-                'Invalid region %s.  Supported regions: %s.' %
-                (values.region, ', '.join(region_names)))
-
-    aws_svc.connect(values.region)
-
-    if values.validate:
-        _validate_log_instance(
-            aws_svc, values.instance_id)
-    else:
-        log.info('Skipping instance validation.')
-
-    share_logs.share(
-        aws_svc,
-        instance_id=values.instance_id,
-        snapshot_id=values.snapshot_id,
-        bracket_aws_account=values.bracket_aws_account
-    )
-    return 0
