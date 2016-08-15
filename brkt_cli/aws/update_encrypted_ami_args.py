@@ -64,7 +64,6 @@ def setup_update_encrypted_ami(parser):
         metavar='REGION',
         help='AWS region (e.g. us-west-2)',
         dest='region',
-        default='us-west-2',
         required=True
     )
     parser.add_argument(
