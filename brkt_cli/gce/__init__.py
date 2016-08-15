@@ -62,7 +62,44 @@ class EncryptGCEImageSubcommand(Subcommand):
         return True
 
     def run(self, values):
-        return _run_subcommand(self.name(), values)
+        session_id = util.make_nonce()
+        gce_svc = gce_service.GCEService(values.project, session_id, log)
+        check_args(values, gce_svc)
+
+        encrypted_image_name = gce_service.get_image_name(
+            values.encrypted_image_name, values.image)
+        gce_service.validate_image_name(encrypted_image_name)
+        if values.validate:
+            gce_service.validate_images(gce_svc,
+                                        encrypted_image_name,
+                                        values.encryptor_image,
+                                        values.image,
+                                        values.image_project)
+        if not values.verbose:
+            logging.getLogger('googleapiclient').setLevel(logging.ERROR)
+
+        log.info('Starting encryptor session %s', gce_svc.get_session_id())
+
+        encrypted_image_id = encrypt_gce_image.encrypt(
+            gce_svc=gce_svc,
+            enc_svc_cls=encryptor_service.EncryptorService,
+            image_id=values.image,
+            encryptor_image=values.encryptor_image,
+            encrypted_image_name=encrypted_image_name,
+            zone=values.zone,
+            instance_config=instance_config_from_values(
+                values, mode=INSTANCE_CREATOR_MODE),
+            image_project=values.image_project,
+            keep_encryptor=values.keep_encryptor,
+            image_file=values.image_file,
+            image_bucket=values.bucket,
+            network=values.network,
+            status_port=values.status_port
+        )
+        # Print the image name to stdout, in case the caller wants to process
+        # the output.  Log messages go to stderr.
+        print(encrypted_image_id)
+        return 0
 
 
 class UpdateGCEImageSubcommand(Subcommand):
@@ -79,7 +116,8 @@ class UpdateGCEImageSubcommand(Subcommand):
             help='Update an encrypted GCE image',
             formatter_class=brkt_cli.SortingHelpFormatter
         )
-        update_encrypted_gce_image_args.setup_update_gce_image_args(update_gce_image_parser)
+        update_encrypted_gce_image_args.setup_update_gce_image_args(
+            update_gce_image_parser)
         setup_instance_config_args(update_gce_image_parser,
                                    brkt_env_default=BRKT_ENV_PROD)
 
@@ -87,7 +125,41 @@ class UpdateGCEImageSubcommand(Subcommand):
         return True
 
     def run(self, values):
-        return _run_subcommand(self.name(), values)
+        session_id = util.make_nonce()
+        gce_svc = gce_service.GCEService(values.project, session_id, log)
+        check_args(values, gce_svc)
+
+        encrypted_image_name = gce_service.get_image_name(
+            values.encrypted_image_name, values.image)
+        gce_service.validate_image_name(encrypted_image_name)
+        if values.validate:
+            gce_service.validate_images(gce_svc,
+                                        encrypted_image_name,
+                                        values.encryptor_image,
+                                        values.image)
+        if not values.verbose:
+            logging.getLogger('googleapiclient').setLevel(logging.ERROR)
+
+        log.info('Starting updater session %s', gce_svc.get_session_id())
+
+        updated_image_id = update_gce_image.update_gce_image(
+            gce_svc=gce_svc,
+            enc_svc_cls=encryptor_service.EncryptorService,
+            image_id=values.image,
+            encryptor_image=values.encryptor_image,
+            encrypted_image_name=encrypted_image_name,
+            zone=values.zone,
+            instance_config=instance_config_from_values(
+                values, mode=INSTANCE_UPDATER_MODE),
+            keep_encryptor=values.keep_encryptor,
+            image_file=values.image_file,
+            image_bucket=values.bucket,
+            network=values.network,
+            status_port=values.status_port
+        )
+
+        print(updated_image_id)
+        return 0
 
 
 class LaunchGCEImageSubcommand(Subcommand):
@@ -102,134 +174,47 @@ class LaunchGCEImageSubcommand(Subcommand):
             description='Launch a GCE image',
             help='Launch a GCE image'
         )
-        launch_gce_image_args.setup_launch_gce_image_args(launch_gce_image_parser)
+        launch_gce_image_args.setup_launch_gce_image_args(
+            launch_gce_image_parser)
         setup_instance_config_args(launch_gce_image_parser,
                                    mode=INSTANCE_METAVISOR_MODE)
 
     def run(self, values):
-        return _run_subcommand(self.name(), values)
+        gce_svc = gce_service.GCEService(values.project, None, log)
+        instance_config = instance_config_from_values(
+            values, mode=INSTANCE_METAVISOR_MODE)
+        if values.startup_script:
+            extra_items = [{
+                'key': 'startup-script',
+                'value': values.startup_script
+            }]
+        else:
+            extra_items = None
+        brkt_userdata = instance_config.make_userdata()
+        metadata = gce_service.gce_metadata_from_userdata(
+            brkt_userdata, extra_items=extra_items)
+        if not values.verbose:
+            logging.getLogger('googleapiclient').setLevel(logging.ERROR)
+
+        if values.instance_name:
+            gce_service.validate_image_name(values.instance_name)
+
+        launch_gce_image.launch(log,
+                                gce_svc,
+                                values.image,
+                                values.instance_name,
+                                values.zone,
+                                values.delete_boot,
+                                values.instance_type,
+                                values.network,
+                                metadata)
+        return 0
 
 
 def get_subcommands():
     return [EncryptGCEImageSubcommand(),
             UpdateGCEImageSubcommand(),
             LaunchGCEImageSubcommand()]
-
-
-def _run_subcommand(subcommand, values):
-    if subcommand == 'encrypt-gce-image':
-        return command_encrypt_gce_image(values, log)
-    if subcommand == 'update-gce-image':
-        return command_update_encrypted_gce_image(values, log)
-    if subcommand == 'launch-gce-image':
-        return command_launch_gce_image(values, log)
-
-
-def command_launch_gce_image(values, log):
-    gce_svc = gce_service.GCEService(values.project, None, log)
-    instance_config = instance_config_from_values(
-        values, mode=INSTANCE_METAVISOR_MODE)
-    if values.startup_script:
-        extra_items = [{'key': 'startup-script', 'value': values.startup_script}]
-    else:
-        extra_items = None
-    brkt_userdata = instance_config.make_userdata()
-    metadata = gce_service.gce_metadata_from_userdata(brkt_userdata,
-                                                      extra_items=extra_items)
-    if not values.verbose:
-        logging.getLogger('googleapiclient').setLevel(logging.ERROR)
-
-    if values.instance_name:
-        gce_service.validate_image_name(values.instance_name)
-
-    launch_gce_image.launch(log,
-                            gce_svc,
-                            values.image,
-                            values.instance_name,
-                            values.zone,
-                            values.delete_boot,
-                            values.instance_type,
-                            values.network,
-                            metadata)
-    return 0
-
-
-def command_update_encrypted_gce_image(values, log):
-    session_id = util.make_nonce()
-    gce_svc = gce_service.GCEService(values.project, session_id, log)
-    check_args(values, gce_svc)
-
-    encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
-
-    gce_service.validate_image_name(encrypted_image_name)
-    if values.validate:
-        gce_service.validate_images(gce_svc,
-                                    encrypted_image_name,
-                                    values.encryptor_image,
-                                    values.image)
-    if not values.verbose:
-        logging.getLogger('googleapiclient').setLevel(logging.ERROR)
-
-    log.info('Starting updater session %s', gce_svc.get_session_id())
-
-    updated_image_id = update_gce_image.update_gce_image(
-        gce_svc=gce_svc,
-        enc_svc_cls=encryptor_service.EncryptorService,
-        image_id=values.image,
-        encryptor_image=values.encryptor_image,
-        encrypted_image_name=encrypted_image_name,
-        zone=values.zone,
-        instance_config=instance_config_from_values(
-            values, mode=INSTANCE_UPDATER_MODE),
-        keep_encryptor=values.keep_encryptor,
-        image_file=values.image_file,
-        image_bucket=values.bucket,
-        network=values.network,
-        status_port=values.status_port
-    )
-
-    print(updated_image_id)
-    return 0
-
-
-def command_encrypt_gce_image(values, log):
-    session_id = util.make_nonce()
-    gce_svc = gce_service.GCEService(values.project, session_id, log)
-    check_args(values, gce_svc)
-
-    encrypted_image_name = gce_service.get_image_name(values.encrypted_image_name, values.image)
-    gce_service.validate_image_name(encrypted_image_name)
-    if values.validate:
-        gce_service.validate_images(gce_svc,
-                                    encrypted_image_name,
-                                    values.encryptor_image,
-                                    values.image,
-                                    values.image_project)
-    if not values.verbose:
-        logging.getLogger('googleapiclient').setLevel(logging.ERROR)
-
-    log.info('Starting encryptor session %s', gce_svc.get_session_id())
-
-    encrypted_image_id = encrypt_gce_image.encrypt(
-        gce_svc=gce_svc,
-        enc_svc_cls=encryptor_service.EncryptorService,
-        image_id=values.image,
-        encryptor_image=values.encryptor_image,
-        encrypted_image_name=encrypted_image_name,
-        zone=values.zone,
-        instance_config=instance_config_from_values(
-            values, mode=INSTANCE_CREATOR_MODE),
-        image_project=values.image_project,
-        keep_encryptor=values.keep_encryptor,
-        image_file=values.image_file,
-        image_bucket=values.bucket,
-        network=values.network,
-        status_port=values.status_port
-    )
-    # Print the image name to stdout, in case the caller wants to process
-    # the output.  Log messages go to stderr.
-    print(encrypted_image_id)
-    return 0
 
 
 def check_args(values, gce_svc):
