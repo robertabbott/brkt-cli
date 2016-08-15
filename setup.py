@@ -53,7 +53,7 @@ setup(
         'cryptography>=1.3.2',
         'google-api-python-client>=1.5.0',
         'iso8601>=0.1.11',
-        'oauth2client>=2.0.0',
+        'oauth2client<3,>= 2.0.0',
         'oauthlib>=1.1.0',
         'pyasn1>=0.1.9',
         'pyjwt>=1.4.0',
