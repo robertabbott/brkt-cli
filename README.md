@@ -6,8 +6,8 @@ encrypted version of an operating system image in [Amazon Web Services]
 (GCE). The resulting encrypted image can then be launched in the same
 manner as the original.
 
-The latest release of **brkt-cli** is [1.0.2]
-(https://github.com/brkt/brkt-cli/releases/tag/brkt-cli-1.0.2).
+The latest release of **brkt-cli** is [1.0.3]
+(https://github.com/brkt/brkt-cli/releases/tag/brkt-cli-1.0.3).
 
 ## Requirements
 

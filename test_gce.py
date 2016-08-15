@@ -77,6 +77,11 @@ class DummyGCEService(gce_service.BaseGCEService):
             return True
         else:
             return False
+            
+    def project_exists(self, project=None):
+        if project == 'testproject':
+            return True
+        return False
 
     def delete_instance(self, zone, instance):
         if instance in self.instances:
