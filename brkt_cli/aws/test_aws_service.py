@@ -90,6 +90,8 @@ class DummyAWSService(aws_service.BaseAWSService):
         self.get_snapshot_callback = None
         self.delete_snapshot_callback = None
         self.stop_instance_callback = None
+        self.create_tags_callback = None
+        self.terminate_instance_callback = None
 
     def get_regions(self):
         return self.regions
@@ -161,6 +163,8 @@ class DummyAWSService(aws_service.BaseAWSService):
         return instance
 
     def create_tags(self, resource_id, name=None, description=None):
+        if self.create_tags_callback:
+            self.create_tags_callback(resource_id, name, description)
         pass
 
     def stop_instance(self, instance_id):
@@ -173,6 +177,9 @@ class DummyAWSService(aws_service.BaseAWSService):
         return instance
 
     def terminate_instance(self, instance_id):
+        if self.terminate_instance_callback:
+            self.terminate_instance_callback(instance_id)
+
         instance = self.instances[instance_id]
         if self.terminate_instance_callback:
             self.terminate_instance_callback(instance)
