@@ -262,6 +262,7 @@ class CLIConfig(object):
         """Handle migrating between different config versions"""
         if config['version'] == 1:
             config['environments'] = {}
+            config['current-environment'] = None
             config['version'] = VERSION
         return config
 
@@ -269,7 +270,7 @@ class CLIConfig(object):
         prod_env = brkt_cli.get_prod_brkt_env()
         prod_dict = _bracket_environment_to_dict(prod_env)
         self._config['environments'][BRKT_HOSTED_ENV_NAME] = prod_dict
-        if self._config['current-environment'] is None:
+        if self._config.get('current-environment') is None:
             self._config['current-environment'] = BRKT_HOSTED_ENV_NAME
 
     def read(self):
