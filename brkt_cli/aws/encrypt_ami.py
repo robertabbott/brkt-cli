@@ -519,8 +519,12 @@ def _snapshot_root_volume(aws_svc, instance, image_id):
         clean_up(aws_svc, snapshot_ids=[snapshot.id])
         raise
 
+    iops = None
+    if vol.type == 'io1':
+        iops = vol.iops
+
     ret_values = (
-        snapshot.id, root_dev, vol.size, vol.type, root_vol.iops)
+        snapshot.id, root_dev, vol.size, vol.type, iops)
     log.debug('Returning %s', str(ret_values))
     return ret_values
 
