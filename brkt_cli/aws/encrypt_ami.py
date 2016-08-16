@@ -520,7 +520,7 @@ def _snapshot_root_volume(aws_svc, instance, image_id):
         raise
 
     ret_values = (
-        snapshot.id, root_dev, vol.size, vol.type, root_vol.iops)
+        snapshot.id, root_dev, vol.size, vol.type, vol.iops)
     log.debug('Returning %s', str(ret_values))
     return ret_values
 
