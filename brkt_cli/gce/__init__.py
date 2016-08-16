@@ -35,18 +35,6 @@ class EncryptGCEImageSubcommand(Subcommand):
     def name(self):
         return 'encrypt-gce-image'
 
-    def register(self, subparsers, parsed_config):
-        encrypt_gce_image_parser = subparsers.add_parser(
-            'encrypt-gce-image',
-            description='Create an encrypted GCE image from an existing image',
-            help='Encrypt a GCE image',
-            formatter_class=brkt_cli.SortingHelpFormatter
-        )
-        encrypt_gce_image_args.setup_encrypt_gce_image_args(
-            encrypt_gce_image_parser, parsed_config)
-        setup_instance_config_args(encrypt_gce_image_parser,
-                                   brkt_env_default=BRKT_ENV_PROD)
-
     def setup_config(self, config):
         config.register_option(
             '%s.project' % (self.name(),),
@@ -58,13 +46,26 @@ class EncryptGCEImageSubcommand(Subcommand):
             '%s.zone' % (self.name(),),
             'The GCE zone metavisors will be launched into')
 
+    def register(self, subparsers, parsed_config):
+        self.config = parsed_config
+        encrypt_gce_image_parser = subparsers.add_parser(
+            'encrypt-gce-image',
+            description='Create an encrypted GCE image from an existing image',
+            help='Encrypt a GCE image',
+            formatter_class=brkt_cli.SortingHelpFormatter
+        )
+        encrypt_gce_image_args.setup_encrypt_gce_image_args(
+            encrypt_gce_image_parser, parsed_config)
+        setup_instance_config_args(encrypt_gce_image_parser,
+                                   brkt_env_default=BRKT_ENV_PROD)
+
     def debug_log_to_temp_file(self):
         return True
 
     def run(self, values):
         session_id = util.make_nonce()
         gce_svc = gce_service.GCEService(values.project, session_id, log)
-        check_args(values, gce_svc)
+        check_args(values, gce_svc, self.config)
 
         encrypted_image_name = gce_service.get_image_name(
             values.encrypted_image_name, values.image)
@@ -88,7 +89,7 @@ class EncryptGCEImageSubcommand(Subcommand):
             encrypted_image_name=encrypted_image_name,
             zone=values.zone,
             instance_config=instance_config_from_values(
-                values, mode=INSTANCE_CREATOR_MODE),
+                values, mode=INSTANCE_CREATOR_MODE, cli_config=self.config),
             image_project=values.image_project,
             keep_encryptor=values.keep_encryptor,
             image_file=values.image_file,
@@ -108,6 +109,7 @@ class UpdateGCEImageSubcommand(Subcommand):
         return 'update-gce-image'
 
     def register(self, subparsers, parsed_config):
+        self.config = parsed_config
         update_gce_image_parser = subparsers.add_parser(
             'update-gce-image',
             description=(
@@ -127,7 +129,7 @@ class UpdateGCEImageSubcommand(Subcommand):
     def run(self, values):
         session_id = util.make_nonce()
         gce_svc = gce_service.GCEService(values.project, session_id, log)
-        check_args(values, gce_svc)
+        check_args(values, gce_svc, self.config)
 
         encrypted_image_name = gce_service.get_image_name(
             values.encrypted_image_name, values.image)
@@ -150,7 +152,8 @@ class UpdateGCEImageSubcommand(Subcommand):
             encrypted_image_name=encrypted_image_name,
             zone=values.zone,
             instance_config=instance_config_from_values(
-                values, mode=INSTANCE_UPDATER_MODE),
+                values, mode=INSTANCE_UPDATER_MODE,
+                cli_config=self.config),
             keep_encryptor=values.keep_encryptor,
             image_file=values.image_file,
             image_bucket=values.bucket,
@@ -168,6 +171,7 @@ class LaunchGCEImageSubcommand(Subcommand):
         return 'launch-gce-image'
 
     def register(self, subparsers, parsed_config):
+        self.config = parsed_config
         launch_gce_image_parser = subparsers.add_parser(
             'launch-gce-image',
             formatter_class=brkt_cli.SortingHelpFormatter,
@@ -182,7 +186,7 @@ class LaunchGCEImageSubcommand(Subcommand):
     def run(self, values):
         gce_svc = gce_service.GCEService(values.project, None, log)
         instance_config = instance_config_from_values(
-            values, mode=INSTANCE_METAVISOR_MODE)
+            values, mode=INSTANCE_METAVISOR_MODE, cli_config=self.config)
         if values.startup_script:
             extra_items = [{
                 'key': 'startup-script',
@@ -217,7 +221,7 @@ def get_subcommands():
             LaunchGCEImageSubcommand()]
 
 
-def check_args(values, gce_svc):
+def check_args(values, gce_svc, cli_config):
     if values.encryptor_image:
         if values.bucket != 'prod':
             raise ValidationError("Please provided either an encryptor image or an image bucket")
@@ -230,4 +234,6 @@ def check_args(values, gce_svc):
         if not gce_svc.network_exists(values.network):
             raise ValidationError("Network provided does not exist")
         brkt_env = brkt_cli.brkt_env_from_values(values)
+        if brkt_env is None:
+            _, brkt_env = cli_config.get_current_env()
         brkt_cli.check_jwt_auth(brkt_env, values.token)

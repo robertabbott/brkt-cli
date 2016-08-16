@@ -87,7 +87,6 @@ def setup_instance_config_args(parser, mode=INSTANCE_CREATOR_MODE,
         parser.add_argument(
             '--brkt-env',
             dest='brkt_env',
-            default=brkt_env_default,
             help=argparse.SUPPRESS
         )
 
@@ -136,12 +135,14 @@ def setup_instance_config_args(parser, mode=INSTANCE_CREATOR_MODE,
     )
 
 
-def instance_config_from_values(values=None, mode=INSTANCE_CREATOR_MODE):
+def instance_config_from_values(values=None, mode=INSTANCE_CREATOR_MODE,
+                                cli_config=None):
     """ Return an InstanceConfig object, based on options specified on
     the command line and Metavisor mode.
 
     :param values an argparse.Namespace object
     :param mode the mode in which Metavisor is running
+    :param cli_config an brkt_cli.config.CLIConfig instance
     """
     brkt_config = {}
     if not values:
@@ -157,6 +158,10 @@ def instance_config_from_values(values=None, mode=INSTANCE_CREATOR_MODE):
         # If the Yeti environment was not specified, use the production
         # environment.
         brkt_env = brkt_cli.brkt_env_from_values(values)
+        if cli_config is not None and brkt_env is None:
+            name, brkt_env = cli_config.get_current_env()
+            log.info('Using %s environment', name)
+            log.debug(brkt_env)
         config_brkt_env = brkt_env or brkt_cli.get_prod_brkt_env()
         add_brkt_env_to_brkt_config(config_brkt_env, brkt_config)
 

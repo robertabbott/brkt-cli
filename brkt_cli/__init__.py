@@ -117,26 +117,23 @@ def parse_brkt_env(brkt_env_string):
     if len(endpoints) != 3:
         raise ValidationError(error_msg)
 
-    def _parse_endpoint(endpoint):
-        host_port_pattern = r'([^:]+):(\d+)$'
-        m = re.match(host_port_pattern, endpoint)
-        if not m:
-            raise ValidationError(error_msg)
-        host = m.group(1)
-        port = int(m.group(2))
-
-        if not util.validate_dns_name_ip_address(host):
-            raise ValidationError('Invalid hostname: ' + host)
-        return host, port
-
     be = BracketEnvironment()
-    (be.api_host, be.api_port) = _parse_endpoint(endpoints[0])
-    # set public api host based on the same prefix assumption
-    # service-domain makes. Hopefully we'll remove brkt-env
-    # soon and we can get rid of it
-    be.public_api_host = be.api_host.replace('yetiapi', 'api')
-    (be.hsmproxy_host, be.hsmproxy_port) = _parse_endpoint(endpoints[1])
-    (be.network_host, be.network_port) = _parse_endpoint(endpoints[2])
+    names = ('api', 'hsmproxy', 'network')
+    for name, endpoint in zip(names, endpoints):
+        try:
+            parts = util.parse_endpoint(endpoint)
+            if 'port' not in parts:
+                raise ValidationError(error_msg)
+            setattr(be, name + '_host', parts['host'])
+            setattr(be, name + '_port', parts['port'])
+            if name == 'api':
+                # set public api host based on the same prefix assumption
+                # service-domain makes. Hopefully we'll remove brkt-env
+                # soon and we can get rid of it
+                be.public_api_host = be.api_host.replace('yetiapi', 'api')
+        except ValueError:
+            raise ValidationError(error_msg)
+
     return be
 
 
@@ -162,7 +159,7 @@ def get_prod_brkt_env():
 def brkt_env_from_values(values):
     """ Return a BracketEnvironment object based on options specified
     on the command line.  If the environment was not specified with
-    --service-domain or --brkt-env, return the production environment.
+    --service-domain or --brkt-env, return None.
     """
     if values.service_domain:
         return brkt_env_from_domain(values.service_domain)
