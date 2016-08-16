@@ -82,10 +82,13 @@ def _bracket_environment_from_dict(d):
     :return a BracketEnvironment object
     """
     benv = brkt_cli.BracketEnvironment()
-    key_attr = zip(
-        ('api', 'keyserver', 'public-api', 'network'),
-        ('api', 'hsmproxy', 'public_api', 'network'))
-    for k, attr in key_attr:
+    key_attr = {
+        'api': 'api',
+        'keyserver': 'hsmproxy',
+        'public-api': 'public_api',
+        'network': 'network',
+    }
+    for k, attr in key_attr.iteritems():
         for suff in ('host', 'port'):
             fk = k + '-' + suff
             if fk in d:
@@ -366,7 +369,7 @@ class ConfigSubcommand(Subcommand):
         # Define or update an environment
         set_env_parser = config_subparsers.add_parser(
             'set-env',
-            help='update the attributes of an environment',
+            help='Update the attributes of an environment',
             description="""
 Update the attributes of an environment
 
@@ -398,37 +401,44 @@ The leading `*' indicates that the `stage' environment is currently active.
             formatter_class=argparse.RawDescriptionHelpFormatter)
         set_env_parser.add_argument(
             'env_name',
-            help='the environment name (e.g. stage)')
+            help='The environment name (e.g. stage)')
         set_env_parser.add_argument(
             '--api-server',
-            help='the api server (host[:port]) the metavisor will connect to')
+            help='The api server (host[:port]) the metavisor will connect to')
         set_env_parser.add_argument(
             '--key-server',
-            help='the key server (host[:port]) the metavisor will connect to')
+            help='The key server (host[:port]) the metavisor will connect to')
         set_env_parser.add_argument(
             '--network-server',
-            help='the network server (host[:port]) the metavisor will connect to')
+            help='The network server (host[:port]) the metavisor will connect to')
         set_env_parser.add_argument(
             '--public-api-server',
-            help='the public api (host[:port])')
+            help='The public api (host[:port])')
         set_env_parser.add_argument(
             '--service-domain',
-            help='set server values from the service domain')
+            help=('Set server values from the service domain. This option '
+                  ' assumes that each server is resolvable via a hostname'
+                  ' rooted at service-domain. Specifically, api is expected to'
+                  ' live at yetiapi.<service-domain>, key-server at '
+                  ' hsmproxy.<service-domain>, network at '
+                  ' network.<service-domain>, and public-api-server at'
+                  ' api.<service-domain>.')
+            )
 
         # Set the active environment
         use_env_parser = config_subparsers.add_parser(
             'use-env',
-            help='set the active environment',
+            help='Set the active environment',
             description='Set the active environment',
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         use_env_parser.add_argument(
             'env_name',
-            help='the environment name (e.g. stage)')
+            help='The environment name (e.g. stage)')
 
         # Display all defined environments
         config_subparsers.add_parser(
             'list-envs',
-            help='display all environments',
+            help='Display all environments',
             description=(
                 "Display all environments. The leading `*' indicates"
                 " the currently active environment."))
@@ -436,21 +446,21 @@ The leading `*' indicates that the `stage' environment is currently active.
         # Get the details of a specific environment
         get_env_parser = config_subparsers.add_parser(
             'get-env',
-            help='display the details of a specific environment',
+            help='Display the details of a specific environment',
             description='Display the details of an environment',
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         get_env_parser.add_argument(
             'env_name',
-            help='the environment name')
+            help='The environment name')
 
         # Unset a specific environment
         unset_env_parser = config_subparsers.add_parser(
             'unset-env',
-            help='delete an environment',
+            help='Delete an environment',
             description='Delete an environment')
         unset_env_parser.add_argument(
             'env_name',
-            help='the environment name')
+            help='The environment name')
 
     def _unlink_noraise(self, path):
         try:
