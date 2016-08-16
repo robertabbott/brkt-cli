@@ -405,7 +405,7 @@ def _run_encryptor_instance(
             name=NAME_ENCRYPTOR,
             description=DESCRIPTION_ENCRYPTOR % {'image_id': guest_image_id}
         )
-        log.info('Lanuching encryptor instance %s', instance.id)
+        log.info('Launching encryptor instance %s', instance.id)
         instance = wait_for_instance(aws_svc, instance.id)
 
         # Tag volumes.
@@ -520,7 +520,7 @@ def _snapshot_root_volume(aws_svc, instance, image_id):
         raise
 
     ret_values = (
-        snapshot.id, root_dev, vol.size, vol.type, vol.iops)
+        snapshot.id, root_dev, vol.size, vol.type, root_vol.iops)
     log.debug('Returning %s', str(ret_values))
     return ret_values
 
