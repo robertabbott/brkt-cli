@@ -391,6 +391,81 @@ class TestRunEncryption(unittest.TestCase):
                 aws_svc, guest_instance, guest_image.id)
         self.assertTrue(self.snapshot_was_deleted)
 
+    def test_no_terminate_encryptor_on_failure(self):
+        """ Test that when terminate_encryptor_on_failure=False, we terminate
+        the encryptor only when encryption succeeds.
+        """
+        aws_svc, encryptor_image, guest_image = build_aws_service()
+
+        self.guest_instance_id = None
+        self.guest_terminated = False
+        self.encryptor_instance_id = None
+        self.encryptor_terminated = False
+        self.security_group_deleted = False
+        self.snapshot_deleted = False
+
+        def run_instance_callback(args):
+            if args.image_id == encryptor_image.id:
+                self.encryptor_instance_id = args.instance.id
+            if args.image_id == guest_image.id:
+                self.guest_instance_id = args.instance.id
+
+        def delete_snapshot_callback(snapshot_id):
+            self.snapshot_deleted = True
+
+        def terminate_instance_callback(instance_id):
+            self.assertIsNotNone(self.encryptor_instance_id)
+            if instance_id == self.encryptor_instance_id:
+                self.encryptor_terminated = True
+            if instance_id == self.guest_instance_id:
+                self.guest_terminated = True
+
+        def delete_security_group_callback(sg_id):
+            self.security_group_deleted = True
+
+        # Encryption succeeded.  Make sure the encryptor was terminated.
+        aws_svc.run_instance_callback = run_instance_callback
+        aws_svc.delete_snapshot_callback = delete_snapshot_callback
+        aws_svc.terminate_instance_callback = terminate_instance_callback
+        aws_svc.delete_security_group_callback = \
+            delete_security_group_callback
+
+        encrypt_ami.encrypt(
+            aws_svc=aws_svc,
+            enc_svc_cls=DummyEncryptorService,
+            image_id=guest_image.id,
+            encryptor_ami=encryptor_image.id,
+            terminate_encryptor_on_failure=False
+        )
+
+        self.assertIsNotNone(self.encryptor_instance_id)
+        self.assertTrue(self.snapshot_deleted)
+        self.assertTrue(self.guest_terminated)
+        self.assertTrue(self.encryptor_terminated)
+        self.assertTrue(self.security_group_deleted)
+
+        # Encryption failed.  Make sure the encryptor was not terminated.
+        self.guest_instance_id = None
+        self.guest_terminated = False
+        self.encryptor_instance_id = None
+        self.encryptor_terminated = False
+        self.security_group_deleted = False
+        self.snapshot_deleted = False
+
+        with self.assertRaises(encryptor_service.EncryptionError):
+            encrypt_ami.encrypt(
+                aws_svc=aws_svc,
+                enc_svc_cls=FailedEncryptionService,
+                image_id=guest_image.id,
+                encryptor_ami=encryptor_image.id,
+                terminate_encryptor_on_failure=False
+            )
+        self.assertIsNotNone(self.encryptor_instance_id)
+        self.assertTrue(self.snapshot_deleted)
+        self.assertTrue(self.guest_terminated)
+        self.assertFalse(self.encryptor_terminated)
+        self.assertFalse(self.security_group_deleted)
+
 
 class TestBrktEnv(unittest.TestCase):
 

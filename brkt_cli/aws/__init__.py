@@ -333,7 +333,9 @@ class EncryptAMISubcommand(Subcommand):
             instance_config=instance_config_from_values(
                 values, mode=INSTANCE_CREATOR_MODE, cli_config=self.config),
             status_port=values.status_port,
-            save_encryptor_logs=values.save_encryptor_logs
+            save_encryptor_logs=values.save_encryptor_logs,
+            terminate_encryptor_on_failure=(
+                values.terminate_encryptor_on_failure)
         )
         # Print the AMI ID to stdout, in case the caller wants to process
         # the output.  Log messages go to stderr.

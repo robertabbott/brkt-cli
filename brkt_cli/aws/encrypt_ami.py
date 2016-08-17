@@ -974,7 +974,8 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
             encrypted_ami_name=None, subnet_id=None, security_group_ids=None,
             guest_instance_type='m3.medium', instance_config=None,
             save_encryptor_logs=True,
-            status_port=encryptor_service.ENCRYPTOR_STATUS_PORT):
+            status_port=encryptor_service.ENCRYPTOR_STATUS_PORT,
+            terminate_encryptor_on_failure=True):
     log.info('Starting encryptor session %s', aws_svc.session_id)
 
     encryptor_instance = None
@@ -1065,26 +1066,39 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
         instance_ids = []
         if guest_instance:
             instance_ids.append(guest_instance.id)
-        if encryptor_instance:
+
+        terminate_encryptor = (
+            encryptor_instance and
+            (ami or terminate_encryptor_on_failure)
+        )
+
+        if terminate_encryptor:
             instance_ids.append(encryptor_instance.id)
+        elif encryptor_instance:
+            log.info('Not terminating encryptor instance %s',
+                     encryptor_instance.id)
 
         # Delete volumes explicitly.  They should get cleaned up during
         # instance deletion, but we've gotten reports that occasionally
         # volumes can get orphaned.
+        #
+        # We can't do this if we're keeping the encryptor instance around,
+        # since its volumes will still be attached.
         volume_ids = None
-        try:
-            volumes = aws_svc.get_volumes(
-                tag_key=TAG_ENCRYPTOR_SESSION_ID,
-                tag_value=aws_svc.session_id
-            )
-            volume_ids = [v.id for v in volumes]
-        except EC2ResponseError as e:
-            log.warn('Unable to clean up orphaned volumes: %s', e)
-        except:
-            log.exception('Unable to clean up orphaned volumes')
+        if terminate_encryptor:
+            try:
+                volumes = aws_svc.get_volumes(
+                    tag_key=TAG_ENCRYPTOR_SESSION_ID,
+                    tag_value=aws_svc.session_id
+                )
+                volume_ids = [v.id for v in volumes]
+            except EC2ResponseError as e:
+                log.warn('Unable to clean up orphaned volumes: %s', e)
+            except:
+                log.exception('Unable to clean up orphaned volumes')
 
         sg_ids = []
-        if temp_sg_id:
+        if temp_sg_id and terminate_encryptor:
             sg_ids.append(temp_sg_id)
 
         snapshot_ids = []

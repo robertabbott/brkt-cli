@@ -124,10 +124,21 @@ def setup_encrypt_ami_args(parser):
         help=argparse.SUPPRESS,
         default=0.25
     )
+
     parser.add_argument(
         '--save-encryptor-logs',
         dest='save_encryptor_logs',
         action='store_true',
         help=argparse.SUPPRESS,
         default=False
+    )
+
+    # Optional argument for development: if encryption fails, keep the
+    # encryptor running so that we can debug it.
+    parser.add_argument(
+        '--no-terminate-encryptor-on-failure',
+        dest='terminate_encryptor_on_failure',
+        action='store_false',
+        default=True,
+        help=argparse.SUPPRESS
     )
