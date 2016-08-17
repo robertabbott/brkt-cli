@@ -39,8 +39,7 @@ from brkt_cli.validation import ValidationError
 log = logging.getLogger(__name__)
 
 
-def setup_instance_config_args(parser, mode=INSTANCE_CREATOR_MODE,
-                               brkt_env_default=None):
+def setup_instance_config_args(parser, mode=INSTANCE_CREATOR_MODE):
     parser.add_argument(
         '--ntp-server',
         metavar='DNS Name',
