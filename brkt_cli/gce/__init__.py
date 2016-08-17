@@ -27,9 +27,6 @@ from brkt_cli.validation import ValidationError
 log = logging.getLogger(__name__)
 
 
-BRKT_ENV_PROD = 'yetiapi.mgmt.brkt.com:443,hsmproxy.mgmt.brkt.com:443'
-
-
 class EncryptGCEImageSubcommand(Subcommand):
 
     def name(self):
@@ -56,8 +53,7 @@ class EncryptGCEImageSubcommand(Subcommand):
         )
         encrypt_gce_image_args.setup_encrypt_gce_image_args(
             encrypt_gce_image_parser, parsed_config)
-        setup_instance_config_args(encrypt_gce_image_parser,
-                                   brkt_env_default=BRKT_ENV_PROD)
+        setup_instance_config_args(encrypt_gce_image_parser)
 
     def debug_log_to_temp_file(self):
         return True
@@ -120,8 +116,7 @@ class UpdateGCEImageSubcommand(Subcommand):
         )
         update_encrypted_gce_image_args.setup_update_gce_image_args(
             update_gce_image_parser)
-        setup_instance_config_args(update_gce_image_parser,
-                                   brkt_env_default=BRKT_ENV_PROD)
+        setup_instance_config_args(update_gce_image_parser)
 
     def debug_log_to_temp_file(self):
         return True
