@@ -92,6 +92,7 @@ class DummyAWSService(aws_service.BaseAWSService):
         self.stop_instance_callback = None
         self.create_tags_callback = None
         self.terminate_instance_callback = None
+        self.delete_security_group_callback = None
 
     def get_regions(self):
         return self.regions
@@ -330,6 +331,8 @@ class DummyAWSService(aws_service.BaseAWSService):
         pass
 
     def delete_security_group(self, sg_id):
+        if self.delete_security_group_callback:
+            self.delete_security_group_callback(sg_id)
         pass
 
     def get_key_pair(self, keyname):
