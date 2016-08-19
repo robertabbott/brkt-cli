@@ -34,7 +34,7 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
                      encrypted_image_name, zone, instance_config,
                      keep_encryptor=False, image_file=None,
                      image_bucket=None, network=None,
-                     status_port=ENCRYPTOR_STATUS_PORT):
+                     subnetwork=None, status_port=ENCRYPTOR_STATUS_PORT):
     snap_created = None
     instance_name = 'brkt-updater-' + gce_svc.get_session_id()
     updater = instance_name + '-metavisor'
@@ -67,6 +67,7 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
                              updater,
                              encryptor_image,
                              network=network,
+                             subnet=subnetwork,
                              disks=[],
                              metadata=user_data)
         ip = gce_svc.get_instance_ip(updater, zone)
