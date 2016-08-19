@@ -49,6 +49,7 @@ def do_encryption(gce_svc,
                   instance_config,
                   encrypted_image_disk,
                   network,
+                  subnetwork,
                   status_port=ENCRYPTOR_STATUS_PORT):
     metadata = gce_metadata_from_userdata(instance_config.make_userdata())
     log.info('Launching encryptor instance')
@@ -56,6 +57,7 @@ def do_encryption(gce_svc,
                          name=encryptor,
                          image=encryptor_image,
                          network=network,
+                         subnet=subnetwork,
                          disks=[gce_svc.get_disk(zone, instance_name),
                                 gce_svc.get_disk(zone, encrypted_image_disk)],
                          metadata=metadata)
@@ -101,7 +103,7 @@ def create_image(gce_svc, zone, encrypted_image_disk, encrypted_image_name, encr
 def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
             encrypted_image_name, zone, instance_config, image_project=None,
             keep_encryptor=False, image_file=None, image_bucket=None,
-            network=None, status_port=ENCRYPTOR_STATUS_PORT):
+            network=None, subnetwork=None, status_port=ENCRYPTOR_STATUS_PORT):
     try:
         # create metavisor image from file in GCS bucket
         log.info('Retrieving encryptor image from GCS bucket')
@@ -129,14 +131,15 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         # customer image and blank disk
         do_encryption(gce_svc, enc_svc_cls, zone, encryptor, encryptor_image,
                       instance_name, instance_config, encrypted_image_disk,
-                      network, status_port=status_port)
+                      network, subnetwork, status_port=status_port)
 
         # create image
         create_image(gce_svc, zone, encrypted_image_disk, encrypted_image_name, encryptor)
 
         return encrypted_image_name
     except errors.HttpError as e:
-        log.exception('GCE API request failed: ', e)
+        #log.exception('GCE API request failed: ', exc_info=True)
+        log.exception('GCE API request failed: {}'.format(e.message))
     finally:
         log.info("Cleaning up")
         gce_svc.cleanup(zone, encryptor_image, keep_encryptor)

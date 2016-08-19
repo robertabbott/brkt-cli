@@ -52,6 +52,12 @@ def setup_update_gce_image_args(parser):
         default='default',
         required=False
     )
+    parser.add_argument(
+        '--subnetwork',
+        dest='subnetwork',
+        default=None,
+        required=False
+    )
     # Optional arg <image name>.image.tar.gz for specifying metavisor
     # image file if you don't want to use the latest image
     parser.add_argument(

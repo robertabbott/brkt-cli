@@ -166,6 +166,7 @@ class DummyGCEService(gce_service.BaseGCEService):
                      name,
                      image,
                      network=None,
+                     subnet=None,
                      disks=[],
                      metadata={},
                      delete_boot=False,

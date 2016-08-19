@@ -184,7 +184,8 @@ class BaseGCEService(object):
                      delete_boot,
                      block_project_ssh_keys,
                      instance_type,
-                     image_project):
+                     image_project,
+                     subnet=None):
         pass
 
     @abc.abstractmethod
@@ -524,7 +525,8 @@ class GCEService(BaseGCEService):
                      delete_boot=False,
                      block_project_ssh_keys=False,
                      instance_type='n1-standard-4',
-                     image_project=None):
+                     image_project=None,
+                     subnet=None):
 
         if block_project_ssh_keys:
             if 'items' not in metadata:
@@ -579,6 +581,11 @@ class GCEService(BaseGCEService):
             # pass configuration from deployment scripts to instances.
             'metadata': metadata
         }
+
+        if subnet:
+            subnetwork = "projects/%s/regions/%s/subnetworks/%s" % (
+                self.project, zone[:-2], subnet)
+            config['networkInterfaces'][0]['subnetwork'] = subnetwork
 
         instance_req = self.compute.instances().insert(
             project=self.project,
