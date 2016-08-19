@@ -40,6 +40,9 @@ class EncryptGCEImageSubcommand(Subcommand):
             '%s.network' % (self.name(),),
             'The GCE network metavisors will be launched into')
         config.register_option(
+            '%s.subnetwork' % (self.name(),),
+            'The GCE subnetwork metavisors will be launched into')
+        config.register_option(
             '%s.zone' % (self.name(),),
             'The GCE zone metavisors will be launched into')
 
