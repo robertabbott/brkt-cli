@@ -72,7 +72,7 @@ def setup_encrypt_gce_image_args(parser, parsed_config):
     parser.add_argument(
         '--subnetwork',
         dest='subnetwork',
-        default=None,
+        default=parsed_config.get_option('encrypt-gce-image.subnetwork', None),
         required=False
     )
     # Optional Image Name that's used to launch the encryptor instance. This
