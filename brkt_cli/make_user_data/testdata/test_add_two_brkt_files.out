@@ -1,0 +1,31 @@
+From nobody Tue Dec  3 19:00:57 2013
+Content-Type: multipart/mixed; boundary="--===============HI-20131203==--"
+MIME-Version: 1.0
+
+----===============HI-20131203==--
+Content-Type: text/brkt-config; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+
+{"brkt": {}}
+----===============HI-20131203==--
+Content-Type: text/brkt-files; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+
+/var/brkt/instance_config/colors.json: {contents: "{\n    \"colorsArray\":[{\n   \
+    \         \"colorName\":\"red\",\n            \"hexValue\":\"#f00\"\n        },\n\
+    \        {\n            \"colorName\":\"green\",\n            \"hexValue\":\"\
+    #0f0\"\n        },\n        {\n            \"colorName\":\"blue\",\n         \
+    \   \"hexValue\":\"#00f\"\n        },\n        {\n            \"colorName\":\"\
+    cyan\",\n            \"hexValue\":\"#0ff\"\n        },\n        {\n          \
+    \  \"colorName\":\"magenta\",\n            \"hexValue\":\"#f0f\"\n        },\n\
+    \        {\n            \"colorName\":\"yellow\",\n            \"hexValue\":\"\
+    #ff0\"\n        },\n        {\n            \"colorName\":\"black\",\n        \
+    \    \"hexValue\":\"#000\"\n        }\n    ]\n}\n"}
+/var/brkt/instance_config/logging.yaml: {contents: 'syslog-server-address: [ 172.31.4.105
+    ]
+
+    '}
+
+----===============HI-20131203==----

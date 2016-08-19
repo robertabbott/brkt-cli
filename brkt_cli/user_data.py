@@ -127,6 +127,8 @@ class UserDataContainer(object):
     def __init__(self):
         self.parts = []
         self.files_config = {}
+
+    def add_part_handler(self):
         self.add_part('text/part-handler', file_writer_handler)
 
     def add_part(self, mimetype, content):
