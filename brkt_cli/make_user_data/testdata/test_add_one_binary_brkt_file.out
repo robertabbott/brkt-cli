@@ -1,0 +1,24 @@
+From nobody Tue Dec  3 19:00:57 2013
+Content-Type: multipart/mixed; boundary="--===============HI-20131203==--"
+MIME-Version: 1.0
+
+----===============HI-20131203==--
+Content-Type: text/brkt-config; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+
+{"brkt": {}}
+----===============HI-20131203==--
+Content-Type: text/brkt-files; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+
+/var/brkt/instance_config/rand_bytes.bin:
+  contents: !!binary |
+    kdKjNFMOcy/KAqtlkLTEMDlnSp9bncuRobKJOSX1/cexFLichY8wNoTZoBEJWSNDaQ35VxdH+CEF
+    0xY+4KVEtdgjdnJafT/7ytdH7WTlu35W/pvVBP1IR30nDdjvckyVFFBpLRTSZxfTom1ANV3eXsL4
+    bvjYxoJ4eZ2YYkGxmZBrrXAiNc5SA84g9I1VZaiq7RLSnJORb+sCr7WMvYsgwkXo7CXDyn4XUpg9
+    CSu5HOXh2p3+jcm9FgLkglyqY78LwqHNXE9L+2EaT6kg0sbu3f+SNwLlACi5qsVhEE91piJNNlE6
+    UwHAuGpvxEwjXKdokYTMs9rDYbBHwfYi8Q4QBQ==
+
+----===============HI-20131203==----

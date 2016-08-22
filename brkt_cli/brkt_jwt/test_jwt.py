@@ -38,7 +38,7 @@ class TestTimestamp(unittest.TestCase):
         self.assertEqual(now, brkt_jwt._datetime_to_timestamp(dt))
 
     def test_parse_timestamp(self):
-        ts = int(time.time())
+        ts = int(time.time()) + 10     # JWT timestamps must be in the future
         dt = datetime.fromtimestamp(ts, tz=iso8601.UTC)
 
         self.assertEqual(dt, brkt_jwt.parse_timestamp(str(ts)))
