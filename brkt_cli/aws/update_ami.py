@@ -254,6 +254,8 @@ def update_ami(aws_svc, encrypted_ami, updater_ami, encrypted_ami_name,
         guest_root_vol_id = guest_bdm[guest_root].volume_id
         guest_root_vol = aws_svc.get_volume(guest_root_vol_id)
         guest_bdm[guest_root].volume_type = guest_root_vol.type
+        if guest_root_vol.type == 'io1':
+            guest_bdm[guest_root].iops = guest_root_vol.iops
 
         # Step 7. Create new AMI. Preserve billing/license info
         log.info("Creating new AMI")
