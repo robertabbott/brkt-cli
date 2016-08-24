@@ -133,6 +133,7 @@ class TestEncryptionService(unittest.TestCase):
             encryptor_service.FAILURE_CODE_INVALID_USERDATA_INPUT,
             encryptor_service.FAILURE_CODE_NET_ROUTE_TIMEOUT,
             encryptor_service.FAILURE_CODE_NOT_AUTHORIZED_YETI,
+            encryptor_service.FAILURE_CODE_FORBIDDEN_YETI,
             encryptor_service.FAILURE_CODE_TERMINAL_YETI_ERROR,
             'Some random unexpected thing',
             None

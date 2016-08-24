@@ -41,6 +41,7 @@ FAILURE_CODE_INVALID_SSH_KEY = 'invalid-ssh-public-key'
 FAILURE_CODE_INVALID_USERDATA_INPUT = 'invalid_userdata_input'
 FAILURE_CODE_NET_ROUTE_TIMEOUT = 'failed_network_route'
 FAILURE_CODE_NOT_AUTHORIZED_YETI = 'not_authorized_yeti'
+FAILURE_CODE_FORBIDDEN_YETI = 'forbidden_yeti'
 FAILURE_CODE_TERMINAL_YETI_ERROR = 'terminal_yeti_error_'
 FAILURE_CODE_UNSUPPORTED_GUEST = 'unsupported_guest'
 
@@ -178,6 +179,9 @@ def _handle_failure_code(failure_code):
     if failure_code == FAILURE_CODE_NOT_AUTHORIZED_YETI:
         raise EncryptionError(
             'Authentication with the Bracket service failed')
+    if failure_code == FAILURE_CODE_FORBIDDEN_YETI:
+        raise EncryptionError(
+            'Instance launch forbidden by the Bracket service')
     if (failure_code and
             failure_code.startswith(FAILURE_CODE_TERMINAL_YETI_ERROR)):
         # During auth
