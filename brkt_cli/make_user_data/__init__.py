@@ -69,6 +69,15 @@ class MakeUserDataSubcommand(Subcommand):
             action='append',
             help=argparse.SUPPRESS
         )
+        # Certain customers need to set the FQDN of the guest instance, which
+        # is used by Metavisor as the CN field of the Subject DN in the cert
+        # requests it submits to an EST server (for North-South VPN tunneling).
+        parser.add_argument(
+            '--guest-fqdn',
+            metavar='FQDN',
+            dest='make_user_data_guest_fqdn',
+            help=argparse.SUPPRESS
+        )
 
     def verbose(self, values):
         return values.make_user_data_verbose
@@ -80,6 +89,11 @@ class MakeUserDataSubcommand(Subcommand):
         if values.make_user_data_brkt_files:
             _add_files_to_instance_config(instance_cfg,
                                           values.make_user_data_brkt_files)
+
+        if values.make_user_data_guest_fqdn:
+            instance_cfg.brkt_config['vpn_config'] = {
+                'guest_fqdn': values.make_user_data_guest_fqdn
+            }
 
         out.write(instance_cfg.make_userdata())
         return 0
