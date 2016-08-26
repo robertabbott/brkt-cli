@@ -40,41 +40,56 @@ class TestMakeUserData(unittest.TestCase):
 
         knowngood_file = os.path.join(self.testdata_dir,
                                       self.test_name + ".out")
+        if not os.path.exists(knowngood_file):
+            print 'knowngood file does not exist: %s' % (knowngood_file)
+            print 'test_output = \n------\n%s\n------\n' % (output)
+            raise
+
         with open(knowngood_file, 'r') as f:
             knowngood = f.read()
 
         self.assertMultiLineEqual(output, knowngood)
 
-    def test_token_and_one_brkt_file(self):
+    def _init_values(self):
         values = instance_config_args_to_values('')
+        values.make_user_data_brkt_files = None
+        values.make_user_data_guest_fqdn = None
+        return values
+
+    def test_token_and_one_brkt_file(self):
+        values = self._init_values()
         values.token = 'THIS_IS_NOT_A_JWT'
         infile = os.path.join(self.testdata_dir, 'logging.yaml')
         values.make_user_data_brkt_files = [ infile ]
         self.run_cmd(values)
 
     def test_add_one_brkt_file(self):
-        values = instance_config_args_to_values('')
+        values = self._init_values()
         infile = os.path.join(self.testdata_dir, 'logging.yaml')
         values.make_user_data_brkt_files = [ infile ]
         self.run_cmd(values)
 
     def test_add_one_binary_brkt_file(self):
-        values = instance_config_args_to_values('')
+        values = self._init_values()
         infile = os.path.join(self.testdata_dir, 'rand_bytes.bin')
         values.make_user_data_brkt_files = [ infile ]
         self.run_cmd(values)
 
     def test_proxy_and_one_brkt_file(self):
-        values = instance_config_args_to_values('')
+        values = self._init_values()
         values.proxies = [ '10.2.3.4:3128' ]
         infile = os.path.join(self.testdata_dir, 'colors.json')
         values.make_user_data_brkt_files = [ infile ]
-        #values.make_user_data_brkt_files = None
         self.run_cmd(values)
 
     def test_add_two_brkt_files(self):
-        values = instance_config_args_to_values('')
+        values = self._init_values()
         infile1 = os.path.join(self.testdata_dir, 'logging.yaml')
         infile2 = os.path.join(self.testdata_dir, 'colors.json')
         values.make_user_data_brkt_files = [ infile1, infile2 ]
+        self.run_cmd(values)
+
+    def test_guest_fqdn(self):
+        values = self._init_values()
+        values.make_user_data_guest_fqdn = 'instance.foo.bar.com'
         self.run_cmd(values)
