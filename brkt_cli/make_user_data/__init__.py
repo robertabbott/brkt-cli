@@ -91,9 +91,8 @@ class MakeUserDataSubcommand(Subcommand):
                                           values.make_user_data_brkt_files)
 
         if values.make_user_data_guest_fqdn:
-            instance_cfg.brkt_config['vpn_config'] = {
-                'guest_fqdn': values.make_user_data_guest_fqdn
-            }
+            vpn_config = 'fqdn: %s\n' % (values.make_user_data_guest_fqdn,)
+            instance_cfg.add_brkt_file('vpn.yaml', vpn_config)
 
         out.write(instance_cfg.make_userdata())
         return 0
