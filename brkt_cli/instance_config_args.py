@@ -113,7 +113,7 @@ def setup_instance_config_args(parser, mode=INSTANCE_CREATOR_MODE):
     # Optional CA cert file for Brkt MCP. When an on-prem MCP is used
     # (and thus, the MCP endpoints are provided in the --brkt-env arg), the
     # CA cert for the MCP root CA must be 'baked into' the encrypted AMI.
-    if mode is INSTANCE_CREATOR_MODE:
+    if mode in (INSTANCE_CREATOR_MODE, INSTANCE_UPDATER_MODE):
         parser.add_argument(
             '--ca-cert',
             metavar='CERT_FILE',
@@ -186,10 +186,6 @@ def instance_config_from_values(values=None, mode=INSTANCE_CREATOR_MODE,
         ic.add_brkt_file('proxy.yaml', proxy_config)
 
     if 'ca_cert' in values and values.ca_cert:
-        if mode != INSTANCE_CREATOR_MODE:
-            raise ValidationError(
-                'Can only specify ca-cert for instance in Creator mode'
-            )
         if not brkt_env:
             raise ValidationError(
                 'Must specify --service-domain or --brkt-env when specifying '
