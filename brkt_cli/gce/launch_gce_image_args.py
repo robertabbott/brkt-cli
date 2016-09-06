@@ -45,6 +45,11 @@ def setup_launch_gce_image_args(parser):
         default='default',
         required=False
     )
+    parser.add_argument(
+        '--subnetwork',
+        dest='subnetwork',
+        required=False
+    )
 
     # Optional startup script. Hidden because it is only used for development
     # and testing. It should be passed as a string containing a multi-line
