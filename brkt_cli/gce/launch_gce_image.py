@@ -7,7 +7,7 @@ from brkt_cli.util import (
 
 log = logging.getLogger(__name__)
 
-def launch(log, gce_svc, image_id, instance_name, zone, delete_boot, instance_type, network, metadata={}):
+def launch(log, gce_svc, image_id, instance_name, zone, delete_boot, instance_type, network, subnetwork, metadata={}):
     if not instance_name:
         instance_name = 'brkt' + '-' + str(uuid.uuid4().hex)
 
@@ -25,6 +25,7 @@ def launch(log, gce_svc, image_id, instance_name, zone, delete_boot, instance_ty
                          metadata=metadata,
                          delete_boot=delete_boot,
                          network=network,
+                         subnet=subnetwork,
                          instance_type=instance_type)
     gce_svc.wait_instance(instance_name, zone)
     log.info("Instance %s (%s) launched successfully" % (instance_name,

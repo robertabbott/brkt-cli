@@ -211,6 +211,7 @@ class LaunchGCEImageSubcommand(Subcommand):
                                 values.delete_boot,
                                 values.instance_type,
                                 values.network,
+                                values.subnetwork,
                                 metadata)
         return 0
 
