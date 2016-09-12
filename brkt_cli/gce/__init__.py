@@ -203,7 +203,7 @@ class LaunchGCEImageSubcommand(Subcommand):
         if values.instance_name:
             gce_service.validate_image_name(values.instance_name)
 
-        launch_gce_image.launch(log,
+        encrypted_instance_id = launch_gce_image.launch(log,
                                 gce_svc,
                                 values.image,
                                 values.instance_name,
@@ -213,6 +213,7 @@ class LaunchGCEImageSubcommand(Subcommand):
                                 values.network,
                                 values.subnetwork,
                                 metadata)
+        print(encrypted_instance_id)
         return 0
 
 
