@@ -190,7 +190,7 @@ def _handle_failure_code(failure_code):
             failure_code)
     if failure_code == FAILURE_CODE_UNSUPPORTED_GUEST:
         raise UnsupportedGuestError(
-            'Guest AMI uses an unsupported operating system')
+            'Guest image uses an unsupported operating system')
 
     msg = 'Encryption failed'
     if failure_code:
