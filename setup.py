@@ -43,6 +43,7 @@ setup(
         'brkt_cli.brkt_jwt',
         'brkt_cli.config',
         'brkt_cli.crypto',
+        'brkt_cli.esx',
         'brkt_cli.gce',
         'brkt_cli.get_public_key',
         'brkt_cli.make_key',
@@ -57,7 +58,9 @@ setup(
         'oauthlib>=1.1.0',
         'pyasn1>=0.1.9',
         'pyjwt>=1.4.0',
+        'pyvmomi>=5.5.50',
         'PyYaml>=3.11'
+        'requests>=2.7.0',
     ],
     zip_safe=False,
     entry_points={
