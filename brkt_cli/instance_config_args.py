@@ -42,7 +42,7 @@ log = logging.getLogger(__name__)
 def setup_instance_config_args(parser, mode=INSTANCE_CREATOR_MODE):
     parser.add_argument(
         '--ntp-server',
-        metavar='DNS Name',
+        metavar='DNS_NAME',
         dest='ntp_servers',
         action='append',
         help=(

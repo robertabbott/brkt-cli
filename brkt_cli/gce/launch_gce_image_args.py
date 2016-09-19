@@ -42,16 +42,7 @@ def setup_launch_gce_image_args(parser):
     parser.add_argument(
         '--network',
         dest='network',
-        metavar='NAME',
-        help='Launch instance in this network',
         default='default',
-        required=False
-    )
-    parser.add_argument(
-        '--subnetwork',
-        metavar='NAME',
-        help='Launch instance in this subnetwork',
-        dest='subnetwork',
         required=False
     )
 

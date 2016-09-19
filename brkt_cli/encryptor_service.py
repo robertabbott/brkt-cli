@@ -20,9 +20,9 @@ import urllib2
 
 from brkt_cli import validation
 from brkt_cli.util import (
-        BracketError,
-        Deadline,
-        sleep
+    BracketError,
+    Deadline,
+    sleep
 )
 
 ENCRYPT_INITIALIZING = 'initial'
