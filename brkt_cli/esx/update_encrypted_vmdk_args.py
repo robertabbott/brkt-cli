@@ -57,8 +57,8 @@ def setup_update_vmdk_args(parser):
     parser.add_argument(
         "--memory",
         help="Memory to assign to Encryptor VM",
-        metavar='N',
-        dest="GB",
+        metavar='GB',
+        dest="memory_gb",
         default="1",
         required=False)
     parser.add_argument(

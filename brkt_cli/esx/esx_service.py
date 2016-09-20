@@ -471,10 +471,14 @@ class VCenterService(BaseVCenterService):
     def add_disk(self, vm, disk_size=12*1024*1024,
                  filename=None, unit_number=0):
         spec = vim.vm.ConfigSpec()
+        controller = None
         for dev in vm.config.hardware.device:
             if isinstance(dev, vim.vm.device.VirtualSCSIController):
                 controller = dev
                 break
+        if controller is None:
+            raise Exception("Did not find SCSI controller in the "
+                            "Encryptor VM %s" % (vm.config.name,))
         dev_changes = []
         disk_spec = vim.vm.device.VirtualDeviceSpec()
         disk_spec.operation = vim.vm.device.VirtualDeviceSpec.Operation.add
@@ -822,10 +826,10 @@ class VCenterService(BaseVCenterService):
 
 def initialize_vcenter(host, user, password, port,
                        datacenter_name, datastore_name, esx_host,
-                       cluster_name, no_of_cpus, memoryGB, session_id):
+                       cluster_name, no_of_cpus, memory_gb, session_id):
     vc_swc = VCenterService(host, user, password, port,
                             datacenter_name, datastore_name, esx_host,
-                            cluster_name, no_of_cpus, memoryGB, session_id)
+                            cluster_name, no_of_cpus, memory_gb, session_id)
     vc_swc.connect()
     return vc_swc
 
