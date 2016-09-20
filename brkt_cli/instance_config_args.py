@@ -206,7 +206,7 @@ def instance_config_from_values(values=None, mode=INSTANCE_CREATOR_MODE,
         ca_cert_filename = 'ca_cert.pem.' + domain
         ic.add_brkt_file(ca_cert_filename, ca_cert_data)
 
-    if values.guest_fqdn:
+    if 'guest_fqdn' in values and values.guest_fqdn:
         ic.add_brkt_file('vpn.yaml', 'fqdn: ' + values.guest_fqdn)
 
     return ic
