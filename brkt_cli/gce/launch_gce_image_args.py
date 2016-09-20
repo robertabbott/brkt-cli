@@ -62,3 +62,9 @@ def setup_launch_gce_image_args(parser):
         dest='subnetwork',
         required=False
     )
+    parser.add_argument(
+        '--guest-fqdn',
+        metavar='FQDN',
+        dest='guest_fqdn',
+        help=argparse.SUPPRESS
+    )
