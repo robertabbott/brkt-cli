@@ -45,6 +45,12 @@ from brkt_cli.validation import ValidationError
 log = logging.getLogger(__name__)
 
 
+def _check_env_vars_set(*var_names):
+    for n in var_names:
+        if not os.getenv(n):
+            raise ValidationError("Environment variable %s is not set" % (n,))
+
+
 class EncryptVMDKSubcommand(Subcommand):
 
     def name(self):
@@ -156,6 +162,7 @@ def command_update_encrypted_vmdk(values, parsed_config, log):
             raise ValidationError("Encrypted image not provided")
     if (values.source_image_path is not None and values.image_name is None):
         raise ValidationError("Specify the Metavisor OVF file.")
+    _check_env_vars_set('VCENTER_USER_NAME', 'VCENTER_PASSWORD')
     brkt_cli.validate_ntp_servers(values.ntp_servers)
     brkt_env = brkt_cli.brkt_env_from_values(values)
     if brkt_env is None:
@@ -189,7 +196,7 @@ def command_update_encrypted_vmdk(values, parsed_config, log):
             esx_host=values.esx_host,
             cluster_name=values.vcenter_cluster,
             no_of_cpus=values.no_of_cpus,
-            memoryGB=values.memoryGB,
+            memory_gb=values.memory_gb,
             session_id=session_id,
         )
     except Exception as e:
@@ -276,6 +283,7 @@ def command_encrypt_vmdk(values, parsed_config, log):
                                   "template VM")
     if (values.source_image_path is not None and values.image_name is None):
         raise ValidationError("Specify the Metavisor OVF file.")
+    _check_env_vars_set('VCENTER_USER_NAME', 'VCENTER_PASSWORD')
     brkt_cli.validate_ntp_servers(values.ntp_servers)
     brkt_env = brkt_cli.brkt_env_from_values(values)
     if brkt_env is None:
@@ -308,7 +316,7 @@ def command_encrypt_vmdk(values, parsed_config, log):
             esx_host=values.esx_host,
             cluster_name=values.vcenter_cluster,
             no_of_cpus=values.no_of_cpus,
-            memoryGB=values.memoryGB,
+            memory_gb=values.memory_gb,
             session_id=session_id,
         )
     except Exception as e:
@@ -399,10 +407,7 @@ def command_rescue_metavisor(values, parsed_config, log):
     if values.protocol != 'http':
         raise ValidationError("Unsupported rescue protocol %s",
                               values.protocol)
-    if os.getenv('VCENTER_USER_NAME') is None:
-        raise ValidationError("VCENTER_USER_NAME environment variable is not set")
-    if os.getenv('VCENTER_PASSWORD') is None:
-        raise ValidationError("VCENTER_PASSWORD environment variable is not set")
+    _check_env_vars_set('VCENTER_USER_NAME', 'VCENTER_PASSWORD')
     # Connect to vCenter
     try:
         vc_swc = esx_service.initialize_vcenter(
@@ -415,7 +420,7 @@ def command_rescue_metavisor(values, parsed_config, log):
             esx_host=False,
             cluster_name=values.vcenter_cluster,
             no_of_cpus=None,
-            memoryGB=None,
+            memory_gb=None,
             session_id=session_id,
         )
     except Exception as e:
