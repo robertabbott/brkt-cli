@@ -55,3 +55,10 @@ def setup_launch_gce_image_args(parser):
         dest='startup_script',
         metavar='SCRIPT'
     )
+    parser.add_argument(
+        '--subnetwork',
+        metavar='NAME',
+        help='Launch instance in this subnetwork',
+        dest='subnetwork',
+        required=False
+    )
