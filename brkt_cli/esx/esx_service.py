@@ -21,6 +21,8 @@ import atexit
 import os
 import signal
 import errno
+import hashlib
+import boto.s3
 
 from functools import wraps
 from threading import Thread
@@ -32,7 +34,7 @@ from brkt_cli.util import (
     RetryExceptionChecker
 )
 from brkt_cli import add_brkt_env_to_brkt_config
-import boto.s3
+from brkt_cli.validation import ValidationError
 from boto.s3.key import Key
 
 
@@ -59,6 +61,14 @@ def timeout(seconds=30, error_message=os.strerror(errno.ETIME)):
         return wraps(func)(wrapper)
 
     return decorator
+
+
+def compute_sha1_of_file(filename):
+    hash_sha1 = hashlib.sha1()
+    with open(filename, 'rb') as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_sha1.update(chunk)
+    return hash_sha1.hexdigest()
 
 
 class BaseVCenterService(object):
@@ -744,8 +754,20 @@ class VCenterService(BaseVCenterService):
         vm = None
         content = self.si.RetrieveContent()
         manager = self.si.content.ovfManager
-        spec_params = vim.OvfManager.CreateImportSpecParams()
+        # Load checksums for each file
+        mf_checksum = None
+        mf_file_name = ovf_name[:ovf_name.find(".ovf")] + ".mf"
+        mf_path = os.path.join(target_path, mf_file_name)
+        with open(mf_path, 'r') as mf_file:
+            mf_checksum = json.load(mf_file)
+        # Validate ovf file
         ovf_path = os.path.join(target_path, ovf_name)
+        ovf_checksum = mf_checksum[(os.path.split(ovf_path))[1]]
+        if ovf_checksum != compute_sha1_of_file(ovf_path):
+            raise ValidationError("OVF file checksum does not match. "
+                                  "Validate the Metavisor OVF image.")
+        # Load the OVF file
+        spec_params = vim.OvfManager.CreateImportSpecParams()
         ovfd = self.get_ovf_descriptor(ovf_path)
         datacenter = self.__get_obj(content, [vim.Datacenter],
                                     self.datacenter_name)
@@ -782,6 +804,7 @@ class VCenterService(BaseVCenterService):
         try:
             count = 0
             for device_url in lease.info.deviceUrl:
+                d_file_name = (os.path.split(import_spec.fileItem[count].path))[1]
                 file_path = os.path.join(target_path,
                                          import_spec.fileItem[count].path)
                 if os.path.exists(file_path) is False:
@@ -795,6 +818,12 @@ class VCenterService(BaseVCenterService):
                         lease.HttpNfcLeaseComplete()
                         self.destroy_vm(vm)
                     raise Exception("Failed to find VMDKs for the Metavisor OVF")
+                # Validate the checksum of the file
+                file_checksum = mf_checksum[d_file_name]
+                if file_checksum != compute_sha1_of_file(file_path):
+                    raise ValidationError("Disk file %s checksum does not match. "
+                                          "Validate the Metavisor OVF image."
+                                          % d_file_name)
                 count = count + 1
                 dev_url = device_url.url
                 if self.esx_host:
