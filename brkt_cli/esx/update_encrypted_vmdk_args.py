@@ -110,7 +110,7 @@ def setup_update_vmdk_args(parser):
         metavar='NAME',
         dest='bucket_name',
         help='Name of the bucket containing the Metavisor OVF',
-        default="solo-brkt-164337164081-ovf-image",
+        default="solo-brkt-prod-ovf-image",
         required=False
     )
     parser.add_argument(

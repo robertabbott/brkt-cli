@@ -119,13 +119,12 @@ def setup_encrypt_vmdk_args(parser):
         default="ovftool",
         required=False
     )
-    # TBD Change the name of the default bucket to prod
     parser.add_argument(
         '--bucket-name',
         metavar='NAME',
         dest='bucket_name',
         help='Name of the bucket containing the Metavisor OVF',
-        default="solo-brkt-164337164081-ovf-image",
+        default="solo-brkt-prod-ovf-image",
         required=False
     )
     parser.add_argument(
