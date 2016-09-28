@@ -1,4 +1,3 @@
-import json
 import logging
 import unittest
 import datetime
@@ -12,6 +11,7 @@ from brkt_cli.test_encryptor_service import (
     DummyEncryptorService,
     FailedEncryptionService
 )
+from brkt_cli.instance_config import INSTANCE_UPDATER_MODE
 
 TOKEN = 'token'
 
@@ -150,22 +150,27 @@ class DummyVCenterService(esx_service.BaseVCenterService):
         self.vms[vm_name] = clone_vm
         return clone_vm
 
-    def create_userdata_str(self, brkt_env, ntp_servers, token=None,
-                            ssh_key_file=None, update=False):
-        user_data = {'brkt': {}}
+    def create_userdata_str(self, instance_config, update=False,
+                            ssh_key_file=None,
+                            rescue_proto=None, rescue_url=None):
+        brkt_config = {}
+        if instance_config:
+            brkt_config = instance_config.get_brkt_config()
         if update is True:
-            user_data['brkt']['solo_mode'] = 'updater'
-        #add_brkt_env_to_user_data(brkt_env, user_data)
-        if token:
-            user_data['brkt']['identity_token'] = token
-        if ntp_servers:
-            user_data['ntp-servers'] = ntp_servers
+            brkt_config['solo_mode'] = 'updater'
+            instance_config.set_mode(INSTANCE_UPDATER_MODE)
         if ssh_key_file:
             with open(ssh_key_file, 'r') as f:
                 key_value = (f.read()).strip()
-            user_data['brkt']['ssh-public-key'] = key_value
-        user_data_str = json.dumps(user_data)
-        return user_data_str
+            brkt_config['ssh-public-key'] = key_value
+        if rescue_proto:
+            brkt_config = dict()
+            brkt_config['rescue'] = dict()
+            brkt_config['rescue']['protocol'] = rescue_proto
+            brkt_config['rescue']['url'] = rescue_url
+        instance_config.set_brkt_config(brkt_config)
+        user_data = instance_config.make_userdata()
+        return user_data
 
     def send_userdata(self, vm, user_data_str):
         vm.userdata = user_data_str

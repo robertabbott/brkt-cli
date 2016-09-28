@@ -33,7 +33,7 @@ from brkt_cli.util import (
     retry,
     RetryExceptionChecker
 )
-from brkt_cli import add_brkt_env_to_brkt_config
+from brkt_cli.instance_config import INSTANCE_UPDATER_MODE
 from brkt_cli.validation import ValidationError
 from boto.s3.key import Key
 
@@ -172,8 +172,9 @@ class BaseVCenterService(object):
         pass
 
     @abc.abstractmethod
-    def create_userdata_str(self, brkt_env, ntp_servers, token=None,
-                            ssh_key_file=None, update=False):
+    def create_userdata_str(self, instance_config, update=False,
+                            ssh_key_file=None,
+                            rescue_proto=None, rescue_url=None):
         pass
 
     @abc.abstractmethod
@@ -612,34 +613,29 @@ class VCenterService(BaseVCenterService):
         vm = self.__get_obj(content, [vim.VirtualMachine], vm_name)
         return vm
 
-    def create_userdata_str(self, brkt_env, ntp_servers, instance_config,
-                            token=None,
-                            ssh_key_file=None, update=False,
+    def create_userdata_str(self, instance_config, update=False,
+                            ssh_key_file=None,
                             rescue_proto=None, rescue_url=None):
         try:
-            if instance_config is None:
-                user_data = dict()
-            else:
-                user_data = json.loads(instance_config.make_brkt_config_json())
+            brkt_config = {}
+            if instance_config:
+                brkt_config = instance_config.get_brkt_config()
             if update is True:
-                user_data['brkt']['solo_mode'] = 'updater'
-            if brkt_env is not None:
-                add_brkt_env_to_brkt_config(brkt_env, user_data['brkt'])
-            if token:
-                user_data['brkt']['identity_token'] = token
-            if ntp_servers:
-                user_data['ntp-servers'] = ntp_servers
+                brkt_config['solo_mode'] = 'updater'
+                instance_config.set_mode(INSTANCE_UPDATER_MODE)
             if ssh_key_file:
                 with open(ssh_key_file, 'r') as f:
                     key_value = (f.read()).strip()
-                user_data['brkt']['ssh-public-key'] = key_value
+                brkt_config['ssh-public-key'] = key_value
             if rescue_proto:
-                user_data['brkt'] = dict()
-                user_data['brkt']['rescue'] = dict()
-                user_data['brkt']['rescue']['protocol'] = rescue_proto
-                user_data['brkt']['rescue']['url'] = rescue_url
-            user_data_str = json.dumps(user_data)
-            return user_data_str
+                brkt_config = dict()
+                brkt_config['rescue'] = dict()
+                brkt_config['rescue']['protocol'] = rescue_proto
+                brkt_config['rescue']['url'] = rescue_url
+            if instance_config:
+                instance_config.set_brkt_config(brkt_config)
+                return instance_config.make_userdata()
+            return json.dumps({'brkt': brkt_config})
         except Exception as e:
             log.exception("Failed to create user-data %s" % e)
             raise
