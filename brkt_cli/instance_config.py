@@ -57,11 +57,7 @@ class InstanceConfig(object):
 
         self.brkt_config = brkt_config
         self._brkt_files = []
-        self._mode = mode
-        if mode is INSTANCE_METAVISOR_MODE:
-            self._brkt_files_dest_dir = BRKT_FILE_INSTANCE_CONFIG
-        else:
-            self._brkt_files_dest_dir = BRKT_FILE_AMI_CONFIG
+        self.set_mode(mode)
 
     def brkt_files_dest_dir(self):
         return self._brkt_files_dest_dir
@@ -71,6 +67,19 @@ class InstanceConfig(object):
         dest_path = posixpath.join(self._brkt_files_dest_dir, dest_filename)
         brkt_file = BrktFile(dest_path, file_contents)
         self._brkt_files.append(brkt_file)
+
+    def set_mode(self, mode=INSTANCE_CREATOR_MODE):
+        self._mode = mode
+        if mode is INSTANCE_METAVISOR_MODE:
+            self._brkt_files_dest_dir = BRKT_FILE_INSTANCE_CONFIG
+        else:
+            self._brkt_files_dest_dir = BRKT_FILE_AMI_CONFIG
+
+    def get_brkt_config(self):
+        return self.brkt_config
+
+    def set_brkt_config(self, brkt_config):
+        self.brkt_config = brkt_config
 
     def make_brkt_config_json(self):
         brkt_config_dict = {'brkt': self.brkt_config}
