@@ -343,7 +343,6 @@ def command_encrypt_vmdk(values, parsed_config, log):
             values, mode=INSTANCE_CREATOR_MODE, cli_config=parsed_config)
         user_data_str = vc_swc.create_userdata_str(instance_config,
             update=False, ssh_key_file=values.ssh_public_key_file)
-        import ipdb;ipdb.set_trace()
         if (values.encryptor_vmdk is not None):
             # Create from MV VMDK
             encrypt_vmdk.encrypt_from_vmdk(
