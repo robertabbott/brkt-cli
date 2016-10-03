@@ -72,7 +72,8 @@ def setup_update_vmdk_args(parser):
         '--encrypted-image-directory',
         metavar='NAME',
         dest='target_path',
-        help='Directory to fetch the encrypted OVF/OVA image',
+        #help='Directory to fetch the encrypted OVF/OVA image',
+        help=argparse.SUPPRESS,
         default=None,
         required=False
     )
@@ -80,7 +81,8 @@ def setup_update_vmdk_args(parser):
         '--ovftool-path',
         metavar='PATH',
         dest='ovftool_path',
-        help='ovftool executable path',
+        #help='ovftool executable path',
+        help=argparse.SUPPRESS,
         default="ovftool",
         required=False
     )
@@ -88,14 +90,16 @@ def setup_update_vmdk_args(parser):
         '--encrypted-ovf-image-name',
         metavar='NAME',
         dest='encrypted_ovf_name',
-        help='Specify the name of the encrypted OVF image to update',
+        #help='Specify the name of the encrypted OVF image to update',
+        help=argparse.SUPPRESS,
         required=False
     )
     parser.add_argument(
         '--encrypted-ova-image-name',
         metavar='NAME',
         dest='encrypted_ova_name',
-        help='Specify the name of the encrypted OVA image to update',
+        #help='Specify the name of the encrypted OVA image to update',
+        help=argparse.SUPPRESS,
         required=False
     )
     parser.add_argument(
