@@ -77,7 +77,6 @@ def update_ovf_image_mv_vm(vc_swc, enc_svc_cls, guest_vm, mv_vm,
                 os.system(rm_cmd)
             # import the new OVF
             ovf = vc_swc.export_to_ovf(guest_vm, target_path, ovf_name=ovf_name)
-            log.info("OVF is at %s" % ovf)
             if ova_name:
                 if ovftool_path is not None:
                     # delete the old ova
@@ -85,7 +84,9 @@ def update_ovf_image_mv_vm(vc_swc, enc_svc_cls, guest_vm, mv_vm,
                                                         ova_name + ".ova"))
                     os.system(rm_cmd)
                     ova = vc_swc.convert_ovf_to_ova(ovftool_path, ovf)
-                    log.info("OVA is at %s" % ova)
+                    print(ova)
+            else:
+                print(ovf)
         else:
             # delete the old vm template
             log.info("Deleting the old template")
@@ -96,7 +97,7 @@ def update_ovf_image_mv_vm(vc_swc, enc_svc_cls, guest_vm, mv_vm,
             log.info("Creating the template VM")
             template_vm = vc_swc.clone_vm(guest_vm, vm_name=template_vm_name,
                                           template=True)
-            log.info("template vm is %s", vc_swc.get_vm_name(template_vm))
+            print(vc_swc.get_vm_name(template_vm))
     except Exception as e:
         log.exception("Failed to update the image with error %s", e)
         raise
