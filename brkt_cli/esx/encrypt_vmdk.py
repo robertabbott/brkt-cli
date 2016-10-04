@@ -94,17 +94,18 @@ def create_ovf_image_from_mv_vm(vc_swc, enc_svc_cls, vm, guest_vmdk,
             if target_path is None:
                 raise Exception("Cannot create ova/ovf as target path is None")
             ovf = vc_swc.export_to_ovf(vm, target_path, ovf_name=image_name)
-            log.info("OVF is at %s" % ovf)
             if create_ova is True:
                 if ovftool_path is not None:
                     ova = vc_swc.convert_ovf_to_ova(ovftool_path, ovf)
-                    log.info("OVA is at %s" % ova)
+                    print(ova)
+            else:
+                print(ovf)
         else:
             # clone the vm to create template
             if vc_swc.is_esx_host() is False:
                 log.info("Creating the template VM")
                 template_vm = vc_swc.clone_vm(vm, vm_name=vm_name, template=True)
-                log.info("template vm is %s", vc_swc.get_vm_name(template_vm))
+                print(vc_swc.get_vm_name(template_vm))
     except EncryptionError as e:
         log.exception("Failed to encrypt the image with error %s", e)
         try:
