@@ -110,14 +110,6 @@ def setup_update_vmdk_args(parser):
         help="Don't validate VMDKs and vCenter credentials"
     )
     parser.add_argument(
-        '--bucket-name',
-        metavar='NAME',
-        dest='bucket_name',
-        help='Name of the bucket containing the Metavisor OVF',
-        default="solo-brkt-prod-ovf-image",
-        required=False
-    )
-    parser.add_argument(
         '--ovf-source-directory',
         metavar='PATH',
         dest='source_image_path',
@@ -156,4 +148,13 @@ def setup_update_vmdk_args(parser):
         metavar='PATH',
         dest='ssh_public_key_file',
         help=argparse.SUPPRESS
+    )
+    # Optional bucket-name in case dev/qa need to use
+    # other internal buckets to fetch the MV image from
+    parser.add_argument(
+        '--bucket-name',
+        metavar='NAME',
+        dest='bucket_name',
+        help=argparse.SUPPRESS,
+        default="solo-brkt-prod-ovf-image"
     )
