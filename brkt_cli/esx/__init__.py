@@ -323,6 +323,8 @@ def command_encrypt_vmdk(values, parsed_config, log):
             raise ValidationError("VM with the same name as requested "
                                   "template VM name %s already exists" %
                                   values.template_vm_name)
+    # Set tear-down
+    vc_swc.set_teardown(values.no_teardown)
     # Set the disk-type
     if values.disk_type == "thin":
         vc_swc.set_thin_disk(True)
