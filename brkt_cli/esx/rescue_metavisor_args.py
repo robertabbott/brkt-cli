@@ -31,11 +31,9 @@ def setup_rescue_metavisor_args(parser):
         metavar='NAME',
         required=True)
     parser.add_argument(
-        '--vm-name',
-        metavar='NAME',
-        dest='vm_name',
-        help='Specify the name of the metavisor VM',
-        required=True
+        'vm_name',
+        metavar='VM-NAME',
+        help='Specify the name of the metavisor VM'
     )
     parser.add_argument(
         '--rescue-upload-protocol',
