@@ -58,7 +58,7 @@ setup(
         'oauthlib>=1.1.0',
         'pyasn1>=0.1.9',
         'pyjwt>=1.4.0',
-        'pyvmomi>=5.5.50',
+        'pyvmomi>=5.5.50,<=6.0.0',
         'PyYaml>=3.11'
         'requests>=2.7.0',
     ],
