@@ -30,3 +30,5 @@ def launch(log, gce_svc, image_id, instance_name, zone, delete_boot, instance_ty
     gce_svc.wait_instance(instance_name, zone)
     log.info("Instance %s (%s) launched successfully" % (instance_name,
              gce_svc.get_instance_ip(instance_name, zone)))
+
+    return instance_name
