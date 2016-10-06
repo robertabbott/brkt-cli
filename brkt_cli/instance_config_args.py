@@ -24,7 +24,7 @@ from brkt_cli import (
     encryptor_service,
     get_proxy_config
 )
-
+from brkt_cli.config import CLIConfig
 from brkt_cli.instance_config import (
     InstanceConfig,
     INSTANCE_CREATOR_MODE,
@@ -39,7 +39,8 @@ from brkt_cli.validation import ValidationError
 log = logging.getLogger(__name__)
 
 
-def setup_instance_config_args(parser, mode=INSTANCE_CREATOR_MODE):
+def setup_instance_config_args(parser, parsed_config,
+                               mode=INSTANCE_CREATOR_MODE):
     parser.add_argument(
         '--ntp-server',
         metavar='DNS_NAME',
@@ -130,6 +131,7 @@ def setup_instance_config_args(parser, mode=INSTANCE_CREATOR_MODE):
         ),
         metavar='TOKEN',
         dest='token',
+        default=parsed_config.get_option('token'),
         required=False
     )
 
@@ -219,6 +221,11 @@ def instance_config_args_to_values(cli_args, mode=INSTANCE_CREATOR_MODE):
     :return the values object as returned from argparser.parse_args()
     """
     parser = argparse.ArgumentParser()
-    setup_instance_config_args(parser, mode)
+    config = CLIConfig()
+    config.register_option(
+        'token',
+        'The default token to use when encrypting, updating, or launching'
+        ' images')
+    setup_instance_config_args(parser, config, mode)
     argv = cli_args.split()
     return parser.parse_args(argv)

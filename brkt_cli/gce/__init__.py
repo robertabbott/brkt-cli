@@ -56,7 +56,7 @@ class EncryptGCEImageSubcommand(Subcommand):
         )
         encrypt_gce_image_args.setup_encrypt_gce_image_args(
             encrypt_gce_image_parser, parsed_config)
-        setup_instance_config_args(encrypt_gce_image_parser)
+        setup_instance_config_args(encrypt_gce_image_parser, parsed_config)
 
     def debug_log_to_temp_file(self):
         return True
@@ -120,7 +120,7 @@ class UpdateGCEImageSubcommand(Subcommand):
         )
         update_encrypted_gce_image_args.setup_update_gce_image_args(
             update_gce_image_parser)
-        setup_instance_config_args(update_gce_image_parser)
+        setup_instance_config_args(update_gce_image_parser, parsed_config)
 
     def debug_log_to_temp_file(self):
         return True
@@ -180,7 +180,7 @@ class LaunchGCEImageSubcommand(Subcommand):
         )
         launch_gce_image_args.setup_launch_gce_image_args(
             launch_gce_image_parser)
-        setup_instance_config_args(launch_gce_image_parser,
+        setup_instance_config_args(launch_gce_image_parser, parsed_config,
                                    mode=INSTANCE_METAVISOR_MODE)
 
     def run(self, values):

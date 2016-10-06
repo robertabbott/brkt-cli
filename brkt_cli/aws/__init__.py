@@ -269,7 +269,7 @@ class EncryptAMISubcommand(Subcommand):
             formatter_class=brkt_cli.SortingHelpFormatter
         )
         encrypt_ami_args.setup_encrypt_ami_args(encrypt_ami_parser)
-        setup_instance_config_args(encrypt_ami_parser,
+        setup_instance_config_args(encrypt_ami_parser, parsed_config,
                                    mode=INSTANCE_CREATOR_MODE)
 
     def debug_log_to_temp_file(self):
@@ -370,6 +370,7 @@ class UpdateAMISubcommand(Subcommand):
         update_encrypted_ami_args.setup_update_encrypted_ami(
             update_encrypted_ami_parser)
         setup_instance_config_args(update_encrypted_ami_parser,
+                                   parsed_config,
                                    mode=INSTANCE_UPDATER_MODE)
 
     def debug_log_to_temp_file(self):
