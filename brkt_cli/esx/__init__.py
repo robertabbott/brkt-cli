@@ -66,7 +66,7 @@ class EncryptVMDKSubcommand(Subcommand):
         )
         encrypt_vmdk_args.setup_encrypt_vmdk_args(
             encrypt_vmdk_parser)
-        setup_instance_config_args(encrypt_vmdk_parser)
+        setup_instance_config_args(encrypt_vmdk_parser, parsed_config)
 
     def run(self, values):
         return _run_subcommand(self.name(), values, self.config)
@@ -87,7 +87,7 @@ class UpdateVMDKSubcommand(Subcommand):
         )
         update_encrypted_vmdk_args.setup_update_vmdk_args(
             update_encrypted_vmdk_parser)
-        setup_instance_config_args(update_encrypted_vmdk_parser)
+        setup_instance_config_args(update_encrypted_vmdk_parser, parsed_config)
 
     def run(self, values):
         return _run_subcommand(self.name(), values, self.config)

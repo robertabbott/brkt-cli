@@ -444,6 +444,12 @@ def main():
 
     config = CLIConfig()
 
+    # Add config options that span multiple commands
+    config.register_option(
+        'token',
+        'The default token to use when encrypting, updating, or launching'
+        ' images')
+
     # Dynamically load subcommands from modules.
     subcommands = []
     for module_path in SUBCOMMAND_MODULE_PATHS:

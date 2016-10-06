@@ -53,7 +53,7 @@ class MakeUserDataSubcommand(Subcommand):
             formatter_class=brkt_cli.SortingHelpFormatter
         )
 
-        setup_instance_config_args(parser)
+        setup_instance_config_args(parser, parsed_config)
 
         parser.add_argument(
             '-v',
