@@ -113,7 +113,7 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
                     image_bucket, image_file=image_file)
             except errors.HttpError as e:
                 encryptor_image = None
-                log.exception('GCE API call to create image from file failed: ', e)
+                log.exception('GCE API call to create image from file failed')
                 return
         else:
             # Keep user provided encryptor image
@@ -138,7 +138,6 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
 
         return encrypted_image_name
     except errors.HttpError as e:
-        #log.exception('GCE API request failed: ', exc_info=True)
         log.exception('GCE API request failed: {}'.format(e.message))
     finally:
         log.info("Cleaning up")
