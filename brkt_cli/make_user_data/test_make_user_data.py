@@ -54,6 +54,7 @@ class TestMakeUserData(unittest.TestCase):
         values = instance_config_args_to_values('')
         values.make_user_data_brkt_files = None
         values.make_user_data_guest_fqdn = None
+        values.make_user_data_guest_files = None
         return values
 
     def test_token_and_one_brkt_file(self):
@@ -92,4 +93,21 @@ class TestMakeUserData(unittest.TestCase):
     def test_guest_fqdn(self):
         values = self._init_values()
         values.make_user_data_guest_fqdn = 'instance.foo.bar.com'
+        self.run_cmd(values)
+
+    def test_guest_userdata(self):
+        values = self._init_values()
+        infile = os.path.join(self.testdata_dir, 'user-script')
+        values.make_user_data_guest_files = [ infile + ':x-shellscript' ]
+        self.run_cmd(values)
+        
+    def test_brkt_files_with_guest_userdata(self):
+        values = self._init_values()
+        values.token = 'THIS_IS_NOT_A_JWT'
+        infile = os.path.join(self.testdata_dir, 'logging.yaml')
+        values.make_user_data_brkt_files = [ infile ]
+        infile1 = os.path.join(self.testdata_dir, 'user-script')
+        infile2 = os.path.join(self.testdata_dir, 'cloud-config')
+        values.make_user_data_guest_files = [
+            infile1 + ':x-shellscript', infile2 + ':cloud-config' ]
         self.run_cmd(values)

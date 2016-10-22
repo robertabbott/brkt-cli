@@ -59,14 +59,14 @@ def setup_encrypt_vmdk_args(parser):
         help="Number of CPUs to assign to Encryptor VM",
         metavar='N',
         dest="no_of_cpus",
-        default="1",
+        default="8",
         required=False)
     parser.add_argument(
         "--memory",
         help="Memory to assign to Encryptor VM",
         metavar='GB',
         dest="memory_gb",
-        default="1",
+        default="32",
         required=False)
     parser.add_argument(
         '--encrypted-image-name',

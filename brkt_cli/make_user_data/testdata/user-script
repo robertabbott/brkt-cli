@@ -1,0 +1,3 @@
+#!/bin/bash
+touch cloudinit.ran
+echo "cloudinit ran" >> cloudinit.ran
