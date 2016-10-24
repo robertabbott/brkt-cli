@@ -32,7 +32,7 @@ from brkt_cli.proxy import Proxy, generate_proxy_config, validate_proxy_config
 from brkt_cli.util import validate_dns_name_ip_address
 from brkt_cli.validation import ValidationError
 
-VERSION = '1.0.5pre1'
+VERSION = '1.0.6pre1'
 
 # The list of modules that may be loaded.  Modules contain subcommands of
 # the brkt command and CSP-specific code.
