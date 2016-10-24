@@ -95,7 +95,8 @@ class EncryptGCEImageSubcommand(Subcommand):
             image_bucket=values.bucket,
             network=values.network,
             subnetwork=values.subnetwork,
-            status_port=values.status_port
+            status_port=values.status_port,
+            cleanup=values.cleanup
         )
         # Print the image name to stdout, in case the caller wants to process
         # the output.  Log messages go to stderr.
@@ -158,7 +159,8 @@ class UpdateGCEImageSubcommand(Subcommand):
             image_bucket=values.bucket,
             network=values.network,
             subnetwork=values.subnetwork,
-            status_port=values.status_port
+            status_port=values.status_port,
+            cleanup=values.cleanup
         )
 
         print(updated_image_id)

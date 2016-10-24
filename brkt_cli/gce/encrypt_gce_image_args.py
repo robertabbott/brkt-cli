@@ -84,6 +84,14 @@ def setup_encrypt_gce_image_args(parser, parsed_config):
         help=argparse.SUPPRESS
     )
     parser.add_argument(
+        '--no-cleanup',
+        dest='cleanup',
+        required=False,
+        default=True,
+        action='store_false',
+        help=argparse.SUPPRESS
+    )
+    parser.add_argument(
         '--keep-encryptor',
         dest='keep_encryptor',
         action='store_true',

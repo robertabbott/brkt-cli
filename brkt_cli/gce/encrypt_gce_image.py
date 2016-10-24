@@ -103,7 +103,8 @@ def create_image(gce_svc, zone, encrypted_image_disk, encrypted_image_name, encr
 def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
             encrypted_image_name, zone, instance_config, image_project=None,
             keep_encryptor=False, image_file=None, image_bucket=None,
-            network=None, subnetwork=None, status_port=ENCRYPTOR_STATUS_PORT):
+            network=None, subnetwork=None, status_port=ENCRYPTOR_STATUS_PORT,
+            cleanup=True):
     try:
         # create metavisor image from file in GCS bucket
         log.info('Retrieving encryptor image from GCS bucket')
@@ -140,5 +141,8 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
     except errors.HttpError as e:
         log.exception('GCE API request failed: {}'.format(e.message))
     finally:
+        if not cleanup:
+            log.info("Not cleaning up")
+            return
         log.info("Cleaning up")
         gce_svc.cleanup(zone, encryptor_image, keep_encryptor)
