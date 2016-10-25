@@ -1,0 +1,9 @@
+#cloud-config
+package_update: true
+packages:
+ - xfsprogs
+ - xfsdump
+ - sysstat
+ - httpd
+ - php5
+final_message: "The system is finally up, after $UPTIME seconds"

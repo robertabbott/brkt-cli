@@ -15,10 +15,13 @@ import argparse
 import logging
 import os
 import sys
+import re
 
 import brkt_cli
 from brkt_cli.subcommand import Subcommand
 from brkt_cli.instance_config import INSTANCE_METAVISOR_MODE
+from brkt_cli.instance_config import GuestFile
+from brkt_cli.validation import ValidationError
 from brkt_cli.instance_config_args import (
     instance_config_from_values,
     setup_instance_config_args
@@ -27,6 +30,7 @@ log = logging.getLogger(__name__)
 
 
 def _add_files_to_instance_config(instance_cfg, files_list):
+    
     for fname in files_list:
         try:
             with open(fname, 'r') as f:
@@ -36,7 +40,18 @@ def _add_files_to_instance_config(instance_cfg, files_list):
             raise Exception('Unable to read file: %s' % (fname,))
         instance_cfg.add_brkt_file(os.path.basename(fname), file_contents)
 
-
+        
+def _add_guest_files_to_instance_config(instance_cfg, guest_files):
+    
+    for guest_file in guest_files:
+        try:
+            with open(guest_file.dest_file, 'r') as f:
+                guest_file.file_contents = f.read()
+        except IOError:
+            raise ValidationError('Unable to read file: %s' % guest_file.dest_file)
+        instance_cfg.add_guest_file(guest_file)
+        
+        
 class MakeUserDataSubcommand(Subcommand):
 
     def name(self):
@@ -69,6 +84,14 @@ class MakeUserDataSubcommand(Subcommand):
             action='append',
             help=argparse.SUPPRESS
         )
+        parser.add_argument(
+            '--guest-user-data-file',
+            metavar='FILENAME:TYPE',
+            dest='make_user_data_guest_files',
+            action='append',
+            help=('User-data file and MIME contents type to be passed to the '
+                  'guest instance. Can be specified multiple times.')
+        )
         # Certain customers need to set the FQDN of the guest instance, which
         # is used by Metavisor as the CN field of the Subject DN in the cert
         # requests it submits to an EST server (for North-South VPN tunneling).
@@ -89,6 +112,17 @@ class MakeUserDataSubcommand(Subcommand):
         if values.make_user_data_brkt_files:
             _add_files_to_instance_config(instance_cfg,
                                           values.make_user_data_brkt_files)
+
+        if values.make_user_data_guest_files:
+            guest_files = []
+            for fname in values.make_user_data_guest_files:
+                match = re.match('(.+):(.+)', fname)
+                if match:
+                    guest_file = GuestFile(match.group(1), match.group(2), None)
+                    guest_files.append(guest_file)
+                else:
+                    raise ValidationError('Unable to parse guest file and type: %s' % fname)
+            _add_guest_files_to_instance_config(instance_cfg, guest_files)
 
         if values.make_user_data_guest_fqdn:
             vpn_config = 'fqdn: %s\n' % (values.make_user_data_guest_fqdn,)

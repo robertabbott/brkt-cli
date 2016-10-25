@@ -47,7 +47,13 @@ class BrktFile(object):
         self.dest_filename = dest_filename
         self.file_contents = file_contents
 
+class GuestFile(object):
+    def __init__(self, dest_file, content_type, file_contents):
+        self.dest_file = dest_file
+        self.content_type = content_type
+        self.file_contents = file_contents
 
+        
 class InstanceConfig(object):
     """ Class containing common settings for Brkt instances """
 
@@ -57,6 +63,7 @@ class InstanceConfig(object):
 
         self.brkt_config = brkt_config
         self._brkt_files = []
+        self._guest_files = []
         self.set_mode(mode)
 
     def brkt_files_dest_dir(self):
@@ -67,6 +74,9 @@ class InstanceConfig(object):
         dest_path = posixpath.join(self._brkt_files_dest_dir, dest_filename)
         brkt_file = BrktFile(dest_path, file_contents)
         self._brkt_files.append(brkt_file)
+
+    def add_guest_file(self, guest_file):
+        self._guest_files.append(guest_file)
 
     def set_mode(self, mode=INSTANCE_CREATOR_MODE):
         self._mode = mode
@@ -93,4 +103,6 @@ class InstanceConfig(object):
         for brkt_file in self._brkt_files:
             udc.add_file(brkt_file.dest_filename, brkt_file.file_contents,
                          BRKT_FILES_CONTENT_TYPE)
+        for guest_file in self._guest_files:
+            udc.add_part(guest_file.content_type, guest_file.file_contents)
         return udc.to_mime_text()
