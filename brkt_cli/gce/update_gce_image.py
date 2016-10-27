@@ -34,7 +34,8 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
                      encrypted_image_name, zone, instance_config,
                      keep_encryptor=False, image_file=None,
                      image_bucket=None, network=None,
-                     subnetwork=None, status_port=ENCRYPTOR_STATUS_PORT):
+                     subnetwork=None, status_port=ENCRYPTOR_STATUS_PORT,
+                     cleanup=True):
     snap_created = None
     instance_name = 'brkt-updater-' + gce_svc.get_session_id()
     updater = instance_name + '-metavisor'
@@ -106,8 +107,12 @@ def update_gce_image(gce_svc, enc_svc_cls, image_id, encryptor_image,
         log.info("Update failed. Cleaning up")
         if snap_created:
             gce_svc.delete_snapshot(encrypted_image_name)
+        if not cleanup:
+            return
         gce_svc.cleanup(zone, encryptor_image, keep_encryptor)
         raise
     finally:
+        if not cleanup:
+            return
         gce_svc.cleanup(zone, encryptor_image, keep_encryptor)
     return encrypted_image_name
