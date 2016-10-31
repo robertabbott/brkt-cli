@@ -32,8 +32,7 @@ def setup_update_vmdk_args(parser):
         "--vcenter-datacenter",
         help="vCenter Datacenter to use",
         dest="vcenter_datacenter",
-        metavar='NAME',
-        required=True)
+        metavar='NAME')
     parser.add_argument(
         "--vcenter-datastore",
         help="vCenter datastore to use",
@@ -46,7 +45,8 @@ def setup_update_vmdk_args(parser):
         help="vCenter cluster to use",
         dest="vcenter_cluster",
         metavar='NAME',
-        required=True)
+        required=False,
+        default=None)
     parser.add_argument(
         "--cpu-count",
         help="Number of CPUs to assign to Encryptor VM",
@@ -72,8 +72,7 @@ def setup_update_vmdk_args(parser):
         '--encrypted-image-directory',
         metavar='NAME',
         dest='target_path',
-        #help='Directory to fetch the encrypted OVF/OVA image',
-        help=argparse.SUPPRESS,
+        help='Directory to fetch the encrypted OVF/OVA image',
         default=None,
         required=False
     )
@@ -81,26 +80,30 @@ def setup_update_vmdk_args(parser):
         '--ovftool-path',
         metavar='PATH',
         dest='ovftool_path',
-        #help='ovftool executable path',
-        help=argparse.SUPPRESS,
+        help='ovftool executable path',
         default="ovftool",
         required=False
     )
     parser.add_argument(
-        '--encrypted-ovf-image-name',
+        '--encrypted-image-name',
         metavar='NAME',
         dest='encrypted_ovf_name',
-        #help='Specify the name of the encrypted OVF image to update',
-        help=argparse.SUPPRESS,
+        help='Specify the name of the encrypted OVF/OVA image to update',
         required=False
     )
     parser.add_argument(
-        '--encrypted-ova-image-name',
-        metavar='NAME',
-        dest='encrypted_ova_name',
-        #help='Specify the name of the encrypted OVA image to update',
-        help=argparse.SUPPRESS,
-        required=False
+        '--update-ovf',
+        dest='create_ovf',
+        action='store_true',
+        default=False,
+        help="Update OVF package"
+    )
+    parser.add_argument(
+        '--update-ova',
+        dest='create_ova',
+        action='store_true',
+        default=False,
+        help="Update OVA package"
     )
     parser.add_argument(
         '--no-validate',

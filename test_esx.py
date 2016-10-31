@@ -191,7 +191,7 @@ class DummyVCenterService(esx_service.BaseVCenterService):
     def get_ovf_descriptor(self, ovf_path):
         return ovf_path
 
-    def upload_ovf_to_vcenter(self, target_path, ovf_name):
+    def upload_ovf_to_vcenter(self, target_path, ovf_name, vm_name=None):
         ovf = target_path
         if target_path == "./":
             ovf = self.ovfs[0]

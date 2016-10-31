@@ -72,8 +72,7 @@ def setup_encrypt_vmdk_args(parser):
         '--encrypted-image-name',
         metavar='NAME',
         dest='encrypted_ovf_name',
-        #help='Specify the name of the generated OVF',
-        help=argparse.SUPPRESS,
+        help='Specify the name of the generated OVF/OVA',
         required=False
     )
     parser.add_argument(
@@ -95,23 +94,20 @@ def setup_encrypt_vmdk_args(parser):
         dest='create_ovf',
         action='store_true',
         default=False,
-        #help="Create OVF package"
-        help=argparse.SUPPRESS
+        help="Create OVF package"
     )
     parser.add_argument(
         '--create-ova',
         dest='create_ova',
         action='store_true',
         default=False,
-        #help="Create OVA package"
-        help=argparse.SUPPRESS
+        help="Create OVA package"
     )
     parser.add_argument(
-        '--encrypted-image-target-directory',
+        '--encrypted-image-directory',
         metavar='NAME',
         dest='target_path',
-        #help='Directory to store the generated OVF/OVA image',
-        help=argparse.SUPPRESS,
+        help='Directory to store the generated OVF/OVA image',
         default=None,
         required=False
     )
@@ -119,8 +115,7 @@ def setup_encrypt_vmdk_args(parser):
         '--ovftool-path',
         metavar='PATH',
         dest='ovftool_path',
-	help=argparse.SUPPRESS,
-        #help='ovftool executable path',
+        help='ovftool executable path',
         default="ovftool",
         required=False
     )
