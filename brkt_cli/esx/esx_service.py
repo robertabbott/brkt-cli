@@ -21,6 +21,7 @@ import atexit
 import os
 import signal
 import hashlib
+import requests
 import boto.s3
 
 from functools import wraps
@@ -735,11 +736,13 @@ class VCenterService(BaseVCenterService):
                 keepalive_thread = Thread(target=self.keep_lease_alive,
                                           args=(lease,))
                 keepalive_thread.start()
-                curl_cmd = (
-                    "curl -Ss -X GET %s --insecure -H 'Content-Type: \
-                    application/x-vnd.vmware-streamVmdk' -o %s" %
-                    (devurl, target_file))
-                os.system(curl_cmd)
+                # Disable verification as VMDK download happens directly
+                # from the ESX host.
+                r = requests.get(devurl, stream=True, verify=False)
+                with open(target_file, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=1024):
+                        if chunk:
+                            f.write(chunk)
                 size = os.path.getsize(target_file)
                 ovf_file = vim.OvfManager.OvfFile()
                 ovf_file.deviceId = devid
@@ -867,11 +870,12 @@ class VCenterService(BaseVCenterService):
                 if self.esx_host:
                     host_name = "https://" + self.host
                     dev_url = device_url.url.replace("https://*", host_name)
-                curl_cmd = (
-                    "curl -Ss -X POST --insecure -T %s -H 'Content-Type: \
-                    application/x-vnd.vmware-streamVmdk' %s" %
-                    (file_path, dev_url))
-                os.system(curl_cmd)
+                headers = {"Content-Type" : "application/x-vnd.vmware-streamVmdk",
+                           "Connection" : "Keep-Alive"}
+                with open(file_path, 'rb') as f:
+                    # Disable verification as VMDK upload happens directly
+                    # to the ESX host.
+                    requests.post(dev_url, data=f, verify=False, headers=headers)
             vm = self.__get_obj(content, [vim.VirtualMachine], vm_name)
         except Exception as e:
             log.error("Exception while uploading OVF %s" % e)
