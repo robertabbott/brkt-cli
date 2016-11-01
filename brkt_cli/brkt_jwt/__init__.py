@@ -62,6 +62,8 @@ class MakeTokenSubcommand(Subcommand):
         if values.claims:
             for name_value in values.claims:
                 name, value = util.parse_name_value(name_value)
+                if name in claims:
+                    raise ValidationError('Claim %s specified multiple times' % name)
                 claims[name] = value
 
         jwt_string = make_jwt(
