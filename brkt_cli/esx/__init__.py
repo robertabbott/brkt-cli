@@ -15,6 +15,7 @@ import brkt_cli
 import logging
 import os
 import subprocess
+import getpass
 
 from brkt_cli.subcommand import Subcommand
 
@@ -50,6 +51,12 @@ def _check_env_vars_set(*var_names):
         if not os.getenv(n):
             raise ValidationError("Environment variable %s is not set" % (n,))
 
+
+def _get_vcenter_password():
+    vcenter_password = os.getenv('VCENTER_PASSWORD')
+    if not vcenter_password:
+        vcenter_password = getpass.getpass('Enter vCenter password:')
+    return vcenter_password
 
 class EncryptVMDKSubcommand(Subcommand):
 
@@ -169,7 +176,8 @@ def command_update_encrypted_vmdk(values, parsed_config, log):
             raise ValidationError("Encrypted image not provided")
     if (values.source_image_path is not None and values.image_name is None):
         raise ValidationError("Specify the Metavisor OVF file.")
-    _check_env_vars_set('VCENTER_USER_NAME', 'VCENTER_PASSWORD')
+    _check_env_vars_set('VCENTER_USER_NAME')
+    vcenter_password = _get_vcenter_password()
     brkt_cli.validate_ntp_servers(values.ntp_servers)
     brkt_env = brkt_cli.brkt_env_from_values(values)
     if brkt_env is None:
@@ -195,7 +203,7 @@ def command_update_encrypted_vmdk(values, parsed_config, log):
         vc_swc = esx_service.initialize_vcenter(
             host=values.vcenter_host,
             user=os.getenv('VCENTER_USER_NAME'),
-            password=os.getenv('VCENTER_PASSWORD'),
+            password=vcenter_password,
             port=values.vcenter_port,
             datacenter_name=values.vcenter_datacenter,
             datastore_name=values.vcenter_datastore,
@@ -287,7 +295,8 @@ def command_encrypt_vmdk(values, parsed_config, log):
                                   "template VM")
     if (values.source_image_path is not None and values.image_name is None):
         raise ValidationError("Specify the Metavisor OVF file.")
-    _check_env_vars_set('VCENTER_USER_NAME', 'VCENTER_PASSWORD')
+    _check_env_vars_set('VCENTER_USER_NAME')
+    vcenter_password = _get_vcenter_password()
     brkt_cli.validate_ntp_servers(values.ntp_servers)
     brkt_env = brkt_cli.brkt_env_from_values(values)
     if brkt_env is None:
@@ -312,7 +321,7 @@ def command_encrypt_vmdk(values, parsed_config, log):
         vc_swc = esx_service.initialize_vcenter(
             host=values.vcenter_host,
             user=os.getenv('VCENTER_USER_NAME'),
-            password=os.getenv('VCENTER_PASSWORD'),
+            password=vcenter_password,
             port=values.vcenter_port,
             datacenter_name=values.vcenter_datacenter,
             datastore_name=values.vcenter_datastore,
@@ -410,13 +419,14 @@ def command_rescue_metavisor(values, parsed_config, log):
     if values.protocol != 'http':
         raise ValidationError("Unsupported rescue protocol %s",
                               values.protocol)
-    _check_env_vars_set('VCENTER_USER_NAME', 'VCENTER_PASSWORD')
+    _check_env_vars_set('VCENTER_USER_NAME')
+    vcenter_password = _get_vcenter_password()
     # Connect to vCenter
     try:
         vc_swc = esx_service.initialize_vcenter(
             host=values.vcenter_host,
             user=os.getenv('VCENTER_USER_NAME'),
-            password=os.getenv('VCENTER_PASSWORD'),
+            password=vcenter_password,
             port=values.vcenter_port,
             datacenter_name=values.vcenter_datacenter,
             datastore_name=values.vcenter_datastore,
