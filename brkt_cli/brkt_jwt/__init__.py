@@ -62,6 +62,7 @@ class MakeTokenSubcommand(Subcommand):
         if values.claims:
             for name_value in values.claims:
                 name, value = util.parse_name_value(name_value)
+                validate_name_value(name, value)
                 if name in claims:
                     raise ValidationError('Claim %s specified multiple times' % name)
                 claims[name] = value
@@ -187,6 +188,20 @@ def get_payload(jwt_string):
         if log.isEnabledFor(logging.DEBUG):
             log.exception('')
         raise ValidationError('Unable to decode token: %s' % e)
+
+
+def validate_name_value(name, value):
+    """ Validate the format of a NAME=VALUE pair.
+
+    : return: True if valid
+    : raise: ValidationError if the format is invalid
+    """
+    if not re.match(r'[A-Za-z0-9_\-]+$', name) or \
+        not re.match(r'[A-Za-z0-9_\-]+$', value):
+        raise ValidationError(
+            'NAME=VALUE claim must only contain letters, numbers, "-" and "_"')
+    else:
+        return True
 
 
 def setup_make_jwt_args(subparsers):
