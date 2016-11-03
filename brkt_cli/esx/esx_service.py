@@ -906,6 +906,7 @@ def initialize_vcenter(host, user, password, port,
 
 
 def download_ovf_from_s3(bucket_name, image_name=None):
+    logging.getLogger('boto').setLevel(logging.FATAL)
     log.info("Fetching Metavisor OVF from S3")
     if bucket_name is None:
         log.error("Bucket-name is unknown, cannot get metavisor OVF")
