@@ -960,3 +960,11 @@ def launch_mv_vm_from_s3(vc_swc, ovf_name, download_file_list, vm_name=None):
     for file_name in download_file_list:
         os.remove(file_name)
     return vm
+
+
+def validate_local_mv_ovf(source_image_path, ovf_image_name):
+    if not os.path.exists(os.path.join(source_image_path, ovf_image_name)):
+        if ".ovf.ovf" in ovf_image_name:
+            log.info("Metavisor ovf image name should not "
+                     "include .ovf extension")
+        raise ValidationError("Metavisor OVF image file not found")
