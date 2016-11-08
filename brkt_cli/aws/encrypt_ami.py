@@ -1020,7 +1020,8 @@ def encrypt(aws_svc, enc_svc_cls, image_id, encryptor_ami,
             aws_svc, guest_instance, image_id
         )
 
-        if guest_image.virtualization_type == 'hvm':
+        if (guest_image.virtualization_type == 'hvm' and
+            'brkt-avatar-freebsd' not in mv_image.name):
             net_sriov_attr = aws_svc.get_instance_attribute(guest_instance.id,
                                                             "sriovNetSupport")
             if net_sriov_attr.get("sriovNetSupport") == "simple":
