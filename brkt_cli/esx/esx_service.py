@@ -20,8 +20,8 @@ import ssl
 import atexit
 import os
 import signal
-import errno
 import hashlib
+import requests
 import boto.s3
 
 from functools import wraps
@@ -44,7 +44,7 @@ log = logging.getLogger(__name__)
 class TimeoutError(Exception):
     pass
 
-def timeout(seconds=30, error_message=os.strerror(errno.ETIME)):
+def timeout(seconds=30, error_message="Timer expired"):
     def decorator(func):
         def _handle_timeout(signum, frame):
             raise TimeoutError(error_message)
@@ -202,7 +202,7 @@ class BaseVCenterService(object):
         pass
 
     @abc.abstractmethod
-    def upload_ovf_to_vcenter(self, target_path, ovf_name):
+    def upload_ovf_to_vcenter(self, target_path, ovf_name, vm_name=None):
         pass
 
     @abc.abstractmethod
@@ -257,6 +257,29 @@ class VCenterService(BaseVCenterService):
     def _s_connect(self):
         context = None
         try:
+            # Check if python version has SSLContext
+            context = ssl.SSLContext
+        except:
+            context = None
+        if context:
+            # Change ssl context due to bug in pyvmomi
+            context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+            context.verify_mode = ssl.CERT_NONE
+            self.si = connect.SmartConnect(host=self.host,
+                                           user=self.user,
+                                           pwd=self.password,
+                                           port=self.port,
+                                           sslContext=context)
+        else:
+            self.si = connect.SmartConnect(host=self.host,
+                                           user=self.user,
+                                           pwd=self.password,
+                                           port=self.port)
+        atexit.register(connect.Disconnect, self.si)
+
+    def __connect(self):
+        context = None
+        try:
             context = ssl.SSLContext
         except:
             context = None
@@ -277,8 +300,16 @@ class VCenterService(BaseVCenterService):
         atexit.register(connect.Disconnect, self.si)
 
     def connect(self):
+        func = None
         try:
-            retry(self._s_connect,
+            if signal.SIGALRM:
+                func = self._s_connect
+            else:
+                func = self.__connect
+        except:
+            func = self.__connect
+        try:
+            retry(func,
                   exception_checker=VmodlExceptionChecker(None),
                   timeout=1000,
                   initial_sleep_seconds=15)()
@@ -552,8 +583,16 @@ class VCenterService(BaseVCenterService):
             dest_disk_name = source[0] + "/" + dest[1]
         virtualDiskManager = self.si.content.virtualDiskManager
         if self.esx_host:
-            source_disk_url = "https://" + self.host + "/folder/" + source_disk_name + "?dsName=" + self.datastore_name
-            dest_disk_url = "https://" + self.host + "/folder/" + dest_disk_name + "?dsName=" + self.datastore_name
+            s_name = source_disk_name
+            d_name = dest_disk_name
+            if self.datastore_path in source_disk_name:
+                start = source_disk_name.find(self.datastore_path)
+                s_name = source_disk_name[(start + len(self.datastore_path)):]
+            if self.datastore_path in dest_disk_name:
+                start = dest_disk_name.find(self.datastore_path)
+                d_name = dest_disk_name[(start + len(self.datastore_path)):]
+            source_disk_url = "https://" + self.host + "/folder/" + s_name + "?dsName=" + self.datastore_name
+            dest_disk_url = "https://" + self.host + "/folder/" + d_name + "?dsName=" + self.datastore_name
             task = virtualDiskManager.CopyVirtualDisk(
                 source_disk_url, None,
                 dest_disk_url, None)
@@ -697,11 +736,13 @@ class VCenterService(BaseVCenterService):
                 keepalive_thread = Thread(target=self.keep_lease_alive,
                                           args=(lease,))
                 keepalive_thread.start()
-                curl_cmd = (
-                    "curl -Ss -X GET %s --insecure -H 'Content-Type: \
-                    application/x-vnd.vmware-streamVmdk' -o %s" %
-                    (devurl, target_file))
-                os.system(curl_cmd)
+                # Disable verification as VMDK download happens directly
+                # from the ESX host.
+                r = requests.get(devurl, stream=True, verify=False)
+                with open(target_file, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=1024):
+                        if chunk:
+                            f.write(chunk)
                 size = os.path.getsize(target_file)
                 ovf_file = vim.OvfManager.OvfFile()
                 ovf_file.deviceId = devid
@@ -746,22 +787,24 @@ class VCenterService(BaseVCenterService):
                 return ovfd
         return None
 
-    def upload_ovf_to_vcenter(self, target_path, ovf_name):
+    def upload_ovf_to_vcenter(self, target_path, ovf_name,
+                              vm_name=None, validate_mf=True):
         vm = None
         content = self.si.RetrieveContent()
         manager = self.si.content.ovfManager
-        # Load checksums for each file
-        mf_checksum = None
-        mf_file_name = ovf_name[:ovf_name.find(".ovf")] + ".mf"
-        mf_path = os.path.join(target_path, mf_file_name)
-        with open(mf_path, 'r') as mf_file:
-            mf_checksum = json.load(mf_file)
-        # Validate ovf file
         ovf_path = os.path.join(target_path, ovf_name)
-        ovf_checksum = mf_checksum[(os.path.split(ovf_path))[1]]
-        if ovf_checksum != compute_sha1_of_file(ovf_path):
-            raise ValidationError("OVF file checksum does not match. "
-                                  "Validate the Metavisor OVF image.")
+        if validate_mf:
+            # Load checksums for each file
+            mf_checksum = None
+            mf_file_name = ovf_name[:ovf_name.find(".ovf")] + ".mf"
+            mf_path = os.path.join(target_path, mf_file_name)
+            with open(mf_path, 'r') as mf_file:
+                mf_checksum = json.load(mf_file)
+            # Validate ovf file
+            ovf_checksum = mf_checksum[(os.path.split(ovf_path))[1]]
+            if ovf_checksum != compute_sha1_of_file(ovf_path):
+                raise ValidationError("OVF file checksum does not match. "
+                                      "Validate the Metavisor OVF image.")
         # Load the OVF file
         spec_params = vim.OvfManager.CreateImportSpecParams()
         ovfd = self.get_ovf_descriptor(ovf_path)
@@ -781,7 +824,8 @@ class VCenterService(BaseVCenterService):
                                                datastore,
                                                spec_params)
         timestamp = datetime.datetime.utcnow().isoformat() + 'Z'
-        vm_name = "Encryptor-VM-" + timestamp
+        if vm_name is None:
+            vm_name = "Encryptor-VM-" + timestamp
         import_spec.importSpec.configSpec.name = vm_name
         lease = resource_pool.ImportVApp(import_spec.importSpec, destfolder)
         while (True):
@@ -814,22 +858,24 @@ class VCenterService(BaseVCenterService):
                         lease.HttpNfcLeaseComplete()
                         self.destroy_vm(vm)
                     raise Exception("Failed to find VMDKs for the Metavisor OVF")
-                # Validate the checksum of the file
-                file_checksum = mf_checksum[d_file_name]
-                if file_checksum != compute_sha1_of_file(file_path):
-                    raise ValidationError("Disk file %s checksum does not match. "
-                                          "Validate the Metavisor OVF image."
-                                          % d_file_name)
+                if validate_mf:
+                    # Validate the checksum of the file
+                    file_checksum = mf_checksum[d_file_name]
+                    if file_checksum != compute_sha1_of_file(file_path):
+                        raise ValidationError("Disk file %s checksum does not match. "
+                                              "Validate the Metavisor OVF image."
+                                              % d_file_name)
                 count = count + 1
                 dev_url = device_url.url
                 if self.esx_host:
                     host_name = "https://" + self.host
                     dev_url = device_url.url.replace("https://*", host_name)
-                curl_cmd = (
-                    "curl -Ss -X POST --insecure -T %s -H 'Content-Type: \
-                    application/x-vnd.vmware-streamVmdk' %s" %
-                    (file_path, dev_url))
-                os.system(curl_cmd)
+                headers = {"Content-Type" : "application/x-vnd.vmware-streamVmdk",
+                           "Connection" : "Keep-Alive"}
+                with open(file_path, 'rb') as f:
+                    # Disable verification as VMDK upload happens directly
+                    # to the ESX host.
+                    requests.post(dev_url, data=f, verify=False, headers=headers)
             vm = self.__get_obj(content, [vim.VirtualMachine], vm_name)
         except Exception as e:
             log.error("Exception while uploading OVF %s" % e)
@@ -860,6 +906,7 @@ def initialize_vcenter(host, user, password, port,
 
 
 def download_ovf_from_s3(bucket_name, image_name=None):
+    logging.getLogger('boto').setLevel(logging.FATAL)
     log.info("Fetching Metavisor OVF from S3")
     if bucket_name is None:
         log.error("Bucket-name is unknown, cannot get metavisor OVF")
@@ -906,12 +953,19 @@ def download_ovf_from_s3(bucket_name, image_name=None):
         raise
 
 
-def launch_mv_vm_from_s3(vc_swc, ovf_name, download_file_list):
+def launch_mv_vm_from_s3(vc_swc, ovf_name, download_file_list, vm_name=None):
     # Launch OVF
     log.info("Launching VM from OVF %s", ovf_name)
-    vm = vc_swc.upload_ovf_to_vcenter("./", ovf_name)
+    vm = vc_swc.upload_ovf_to_vcenter("./", ovf_name, vm_name)
     # Clean up the downloaded files
     for file_name in download_file_list:
-        rm_cmd = "rm -f %s" % (file_name)
-        os.system(rm_cmd)
+        os.remove(file_name)
     return vm
+
+
+def validate_local_mv_ovf(source_image_path, ovf_image_name):
+    if not os.path.exists(os.path.join(source_image_path, ovf_image_name)):
+        if ".ovf.ovf" in ovf_image_name:
+            log.info("Metavisor ovf image name should not "
+                     "include .ovf extension")
+        raise ValidationError("Metavisor OVF image file not found")

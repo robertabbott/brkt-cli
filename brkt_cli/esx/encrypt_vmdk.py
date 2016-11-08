@@ -34,7 +34,10 @@ from brkt_cli.encryptor_service import (
     ENCRYPTOR_STATUS_PORT
 )
 from brkt_cli.util import Deadline
-from brkt_cli.esx.esx_service import launch_mv_vm_from_s3
+from brkt_cli.esx.esx_service import (
+    launch_mv_vm_from_s3,
+    validate_local_mv_ovf
+)
 
 
 log = logging.getLogger(__name__)
@@ -158,7 +161,11 @@ def encrypt_from_s3(vc_swc, enc_svc_cls, guest_vmdk, vm_name=None,
         if (ovf_name is None or download_file_list is None):
             log.error("Cannot get metavisor OVF from S3")
             raise Exception("Invalid MV OVF")
-        vm = launch_mv_vm_from_s3(vc_swc, ovf_name, download_file_list)
+        mv_vm_name = None
+        if vc_swc.is_esx_host() is True:
+            mv_vm_name = vm_name
+        vm = launch_mv_vm_from_s3(vc_swc, ovf_name,
+                                  download_file_list, mv_vm_name)
     except Exception as e:
         log.exception("Failed to launch metavisor OVF from S3 (%s)", e)
         if (vm is not None):
@@ -185,6 +192,8 @@ def encrypt_from_local_ovf(vc_swc, enc_svc_cls, guest_vmdk, vm_name=None,
             return
         # Launch OVF
         log.info("Launching VM from local OVF")
+        ovf_image_name = ovf_image_name + ".ovf"
+        validate_local_mv_ovf(source_image_path, ovf_image_name)
         vm = vc_swc.upload_ovf_to_vcenter(source_image_path, ovf_image_name)
     except Exception as e:
         log.exception("Failed to launch from metavisor OVF (%s)", e)

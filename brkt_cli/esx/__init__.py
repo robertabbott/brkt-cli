@@ -15,6 +15,7 @@ import brkt_cli
 import logging
 import os
 import subprocess
+import getpass
 
 from brkt_cli.subcommand import Subcommand
 
@@ -50,6 +51,12 @@ def _check_env_vars_set(*var_names):
         if not os.getenv(n):
             raise ValidationError("Environment variable %s is not set" % (n,))
 
+
+def _get_vcenter_password():
+    vcenter_password = os.getenv('VCENTER_PASSWORD')
+    if not vcenter_password:
+        vcenter_password = getpass.getpass('Enter vCenter password:')
+    return vcenter_password
 
 class EncryptVMDKSubcommand(Subcommand):
 
@@ -130,20 +137,27 @@ def _run_subcommand(subcommand, values, parsed_config):
 
 def command_update_encrypted_vmdk(values, parsed_config, log):
     session_id = util.make_nonce()
-    if (values.encrypted_ovf_name or values.encrypted_ova_name):
+    encrypted_ovf_name = None
+    encrypted_ova_name = None
+    if values.create_ovf or values.create_ova:
         # verify we have a valid input directory
-        if (values.target_path is None):
+        if values.target_path is None:
             raise ValidationError("Missing directory path to fetch "
                                   "encrypted OVF/OVA images from")
-        if (values.encrypted_ovf_name):
+        if not os.path.exists(values.target_path):
+            raise ValidationError("Target path %s not present",
+                                  values.target_path)
+        if values.create_ovf:
             name = os.path.join(values.target_path,
                                 values.encrypted_ovf_name + ".ovf")
             if (os.path.exists(name) is False):
                 raise ValidationError("Encrypted OVF image not found at "
                                       "%s", name)
+            encrypted_ovf_name = values.encrypted_ovf_name
         else:
+            encrypted_ova_name = values.encrypted_ovf_name
             name = os.path.join(values.target_path,
-                                values.encrypted_ova_name + ".ova")
+                                values.encrypted_ovf_name + ".ova")
             if (os.path.exists(name) is False):
                 raise ValidationError("Encrypted OVA image not found at "
                                       "%s", name)
@@ -162,7 +176,8 @@ def command_update_encrypted_vmdk(values, parsed_config, log):
             raise ValidationError("Encrypted image not provided")
     if (values.source_image_path is not None and values.image_name is None):
         raise ValidationError("Specify the Metavisor OVF file.")
-    _check_env_vars_set('VCENTER_USER_NAME', 'VCENTER_PASSWORD')
+    _check_env_vars_set('VCENTER_USER_NAME')
+    vcenter_password = _get_vcenter_password()
     brkt_cli.validate_ntp_servers(values.ntp_servers)
     brkt_env = brkt_cli.brkt_env_from_values(values)
     if brkt_env is None:
@@ -188,7 +203,7 @@ def command_update_encrypted_vmdk(values, parsed_config, log):
         vc_swc = esx_service.initialize_vcenter(
             host=values.vcenter_host,
             user=os.getenv('VCENTER_USER_NAME'),
-            password=os.getenv('VCENTER_PASSWORD'),
+            password=vcenter_password,
             port=values.vcenter_port,
             datacenter_name=values.vcenter_datacenter,
             datastore_name=values.vcenter_datastore,
@@ -215,8 +230,8 @@ def command_update_encrypted_vmdk(values, parsed_config, log):
                 vc_swc, encryptor_service.EncryptorService,
                 template_vm_name=values.template_vm_name,
                 target_path=values.target_path,
-                ovf_name=values.encrypted_ovf_name,
-                ova_name=values.encrypted_ova_name,
+                ovf_name=encrypted_ovf_name,
+                ova_name=encrypted_ova_name,
                 ovftool_path=values.ovftool_path,
                 metavisor_vmdk=values.encryptor_vmdk,
                 user_data_str=user_data_str,
@@ -228,8 +243,8 @@ def command_update_encrypted_vmdk(values, parsed_config, log):
                 vc_swc, encryptor_service.EncryptorService,
                 template_vm_name=values.template_vm_name,
                 target_path=values.target_path,
-                ovf_name=values.encrypted_ovf_name,
-                ova_name=values.encrypted_ova_name,
+                ovf_name=encrypted_ovf_name,
+                ova_name=encrypted_ova_name,
                 ovftool_path=values.ovftool_path,
                 source_image_path=values.source_image_path,
                 ovf_image_name=values.image_name,
@@ -242,8 +257,8 @@ def command_update_encrypted_vmdk(values, parsed_config, log):
                 vc_swc, encryptor_service.EncryptorService,
                 template_vm_name=values.template_vm_name,
                 target_path=values.target_path,
-                ovf_name=values.encrypted_ovf_name,
-                ova_name=values.encrypted_ova_name,
+                ovf_name=encrypted_ovf_name,
+                ova_name=encrypted_ova_name,
                 ovftool_path=values.ovftool_path,
                 mv_ovf_name=ovf_name,
                 download_file_list=download_file_list,
@@ -258,15 +273,15 @@ def command_update_encrypted_vmdk(values, parsed_config, log):
 
 def command_encrypt_vmdk(values, parsed_config, log):
     session_id = util.make_nonce()
-    if ((values.create_ovf is True) or (values.create_ova is True)):
+    if values.create_ovf or values.create_ova:
         # verify we have a valid output directory
-        if (values.target_path is None):
+        if values.target_path is None:
             raise ValidationError("Missing directory path to store "
                                   "final OVF/OVA images")
-        if (os.path.exists(values.target_path) is False):
+        if not os.path.exists(values.target_path):
             raise ValidationError("Target path %s not present",
                                   values.target_path)
-        if (values.create_ova is True):
+        if values.create_ova:
             # verify ovftool is present
             try:
                 cmd = [values.ovftool_path, '-v']
@@ -280,7 +295,8 @@ def command_encrypt_vmdk(values, parsed_config, log):
                                   "template VM")
     if (values.source_image_path is not None and values.image_name is None):
         raise ValidationError("Specify the Metavisor OVF file.")
-    _check_env_vars_set('VCENTER_USER_NAME', 'VCENTER_PASSWORD')
+    _check_env_vars_set('VCENTER_USER_NAME')
+    vcenter_password = _get_vcenter_password()
     brkt_cli.validate_ntp_servers(values.ntp_servers)
     brkt_env = brkt_cli.brkt_env_from_values(values)
     if brkt_env is None:
@@ -305,7 +321,7 @@ def command_encrypt_vmdk(values, parsed_config, log):
         vc_swc = esx_service.initialize_vcenter(
             host=values.vcenter_host,
             user=os.getenv('VCENTER_USER_NAME'),
-            password=os.getenv('VCENTER_PASSWORD'),
+            password=vcenter_password,
             port=values.vcenter_port,
             datacenter_name=values.vcenter_datacenter,
             datastore_name=values.vcenter_datastore,
@@ -403,13 +419,14 @@ def command_rescue_metavisor(values, parsed_config, log):
     if values.protocol != 'http':
         raise ValidationError("Unsupported rescue protocol %s",
                               values.protocol)
-    _check_env_vars_set('VCENTER_USER_NAME', 'VCENTER_PASSWORD')
+    _check_env_vars_set('VCENTER_USER_NAME')
+    vcenter_password = _get_vcenter_password()
     # Connect to vCenter
     try:
         vc_swc = esx_service.initialize_vcenter(
             host=values.vcenter_host,
             user=os.getenv('VCENTER_USER_NAME'),
-            password=os.getenv('VCENTER_PASSWORD'),
+            password=vcenter_password,
             port=values.vcenter_port,
             datacenter_name=values.vcenter_datacenter,
             datastore_name=values.vcenter_datastore,

@@ -19,7 +19,10 @@ from brkt_cli.encryptor_service import (
     ENCRYPTOR_STATUS_PORT
 )
 from brkt_cli.util import Deadline
-from brkt_cli.esx.esx_service import launch_mv_vm_from_s3
+from brkt_cli.esx.esx_service import (
+    launch_mv_vm_from_s3,
+    validate_local_mv_ovf
+)
 
 
 log = logging.getLogger(__name__)
@@ -72,17 +75,13 @@ def update_ovf_image_mv_vm(vc_swc, enc_svc_cls, guest_vm, mv_vm,
                 raise Exception("Cannot create ova/ovf as target path is None")
             if (ova_name):
                 # delete the old mf file
-                rm_cmd = "rm -f %s" % (os.path.join(target_path,
-                                                    ova_name + ".mf"))
-                os.system(rm_cmd)
+                os.remove(os.path.join(target_path, ova_name + ".mf"))
             # import the new OVF
             ovf = vc_swc.export_to_ovf(guest_vm, target_path, ovf_name=ovf_name)
             if ova_name:
                 if ovftool_path is not None:
                     # delete the old ova
-                    rm_cmd = "rm -f %s" % (os.path.join(target_path,
-                                                        ova_name + ".ova"))
-                    os.system(rm_cmd)
+                    os.remove(os.path.join(target_path, ova_name + ".ova"))
                     ova = vc_swc.convert_ovf_to_ova(ovftool_path, ovf)
                     print(ova)
             else:
@@ -117,9 +116,11 @@ def launch_guest_vm(vc_swc, template_vm_name, target_path, ovf_name,
         ova = os.path.join(target_path, ova_name + ".ova")
         vc_swc.convert_ova_to_ovf(ovftool_path, ova)
         ovf_name = ova_name + ".ovf"
-        vm = vc_swc.upload_ovf_to_vcenter(target_path, ovf_name)
+        vm = vc_swc.upload_ovf_to_vcenter(target_path, ovf_name,
+                                          validate_mf=False)
     elif ovf_name:
-        vm = vc_swc.upload_ovf_to_vcenter(target_path, ovf_name + ".ovf")
+        vm = vc_swc.upload_ovf_to_vcenter(target_path, ovf_name + ".ovf",
+                                          validate_mf=False)
     else:
         log.error("Cannot launch guest VM without template VM/OVF/OVA")
         vm = None
@@ -179,6 +180,8 @@ def update_from_local_ovf(vc_swc, enc_svc_cls, template_vm_name=None,
         raise
     try:
         log.info("Launching MV VM from local OVF")
+        ovf_image_name = ovf_image_name + ".ovf"
+        validate_local_mv_ovf(source_image_path, ovf_image_name)
         mv_vm = vc_swc.upload_ovf_to_vcenter(source_image_path,
                                              ovf_image_name)
     except Exception as e:
