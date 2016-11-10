@@ -120,7 +120,7 @@ class UpdateGCEImageSubcommand(Subcommand):
             formatter_class=brkt_cli.SortingHelpFormatter
         )
         update_encrypted_gce_image_args.setup_update_gce_image_args(
-            update_gce_image_parser)
+            update_gce_image_parser, parsed_config)
         setup_instance_config_args(update_gce_image_parser, parsed_config)
 
     def debug_log_to_temp_file(self):

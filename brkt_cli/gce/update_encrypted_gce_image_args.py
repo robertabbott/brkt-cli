@@ -1,7 +1,7 @@
 import argparse
 
 
-def setup_update_gce_image_args(parser):
+def setup_update_gce_image_args(parser, parsed_config):
     parser.add_argument(
         'image',
         metavar='ID',
@@ -14,12 +14,13 @@ def setup_update_gce_image_args(parser):
         help='Specify the name of the generated encrypted image',
         required=False
     )
+    required_zone = parsed_config.get_option('encrypt-gce-image.zone', None)
     parser.add_argument(
         '--zone',
         help='GCE zone to operate in',
         dest='zone',
-        default='us-central1-a',
-        required=True
+        default=required_zone,
+        required=not bool(required_zone)
     )
     parser.add_argument(
         '--encryptor-image-bucket',
@@ -28,11 +29,13 @@ def setup_update_gce_image_args(parser):
         default='prod',
         required=False
     )
+    required_project = parsed_config.get_option('encrypt-gce-image.project', None)
     parser.add_argument(
         '--project',
         help='GCE project name',
         dest='project',
-        required=True
+        default=required_project,
+        required=not bool(required_project)
     )
     parser.add_argument(
         '--no-validate',
@@ -49,13 +52,13 @@ def setup_update_gce_image_args(parser):
     parser.add_argument(
         '--network',
         dest='network',
-        default='default',
+        default=parsed_config.get_option('encrypt-gce-image.network', 'default'),
         required=False
     )
     parser.add_argument(
         '--subnetwork',
         dest='subnetwork',
-        default=None,
+        default=parsed_config.get_option('encrypt-gce-image.subnetwork', None),
         required=False
     )
     # Optional arg <image name>.image.tar.gz for specifying metavisor
