@@ -657,12 +657,12 @@ def validate_image_name(name):
     """
     if not (name and len(name) <= 64):
         raise ValidationError(
-            'Image name may be at most 64 characters')
+            'Image or instance name may be at most 64 characters')
 
     m = re.match(r'[a-z0-9\-]*[a-z0-9]$', name)
     if not m:
         raise ValidationError(
-            "GCE image must be lower case letters, numbers and hyphens "
-            "and must end with a lower case letter or a number"
+            "Image or instance name must be lower case letters, numbers "
+            "and hyphens and must end with a lower case letter or a number"
         )
     return name
