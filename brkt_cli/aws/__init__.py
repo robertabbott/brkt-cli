@@ -162,9 +162,6 @@ class DiagSubcommand(Subcommand):
         if values.validate:
             if values.key_name:
                 aws_svc.get_key_pair(values.key_name)
-            if values.instance_id:
-                _validate_log_instance(
-                    aws_svc, values.instance_id)
             _validate_subnet_and_security_groups(
                 aws_svc, values.subnet_id, values.security_group_ids)
         else:
@@ -231,12 +228,6 @@ class ShareLogsSubcommand(Subcommand):
                     (values.region, ', '.join(region_names)))
 
         aws_svc.connect(values.region)
-
-        if values.validate:
-            _validate_log_instance(
-                aws_svc, values.instance_id)
-        else:
-            log.info('Skipping instance validation.')
 
         share_logs.share(
             aws_svc,
@@ -701,11 +692,3 @@ def _get_updated_image_name(image_name, session_id):
         encrypted_ami_name = util.append_suffix(
             image_name, suffix, max_length=128)
     return encrypted_ami_name
-
-
-def _validate_log_instance(aws_svc, instance_id):
-    pass
-
-
-def _validate_log_snapshot(aws_svc, snapshot_id):
-    pass
