@@ -291,6 +291,23 @@ class CLIConfig(object):
         yaml.dump(self._config, f)
 
 
+    def save_config(self):
+        """Save the current config to disk.
+        """
+        f = tempfile.NamedTemporaryFile(delete=False, prefix='brkt_cli')
+        try:
+            yaml.dump(self._config, f)
+            f.close()
+        except:
+            self._unlink_noraise(f.name)
+            raise
+        try:
+            os.rename(f.name, CONFIG_PATH)
+        except:
+            self._unlink_noraise(f.name)
+            raise
+
+
 class ConfigSubcommand(Subcommand):
     def __init__(self, stdout=sys.stdout):
         self.stdout = stdout
