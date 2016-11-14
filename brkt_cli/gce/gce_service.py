@@ -2,6 +2,7 @@
 
 import abc
 import datetime
+import json
 import re
 import socket
 import tempfile
@@ -276,8 +277,11 @@ class GCEService(BaseGCEService):
     def project_exists(self, project=None):
         try:
             self.get_project(project)
-        except:
-            return False
+        except errors.HttpError as e:
+            code = json.loads(e.content)['error']['code']
+            if code == 400 or code == 403 or code == 404:
+                return False
+            raise
         return True
 
     def delete_instance(self, zone, instance):
