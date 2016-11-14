@@ -210,7 +210,7 @@ class GCESubcommand(Subcommand):
         setup_instance_config_args(launch_gce_image_parser, parsed_config,
                                    mode=INSTANCE_METAVISOR_MODE)
 
-    def debug_log_to_temp_file(self):
+    def debug_log_to_temp_file(self, values):
         return True
 
     def run(self, values):
