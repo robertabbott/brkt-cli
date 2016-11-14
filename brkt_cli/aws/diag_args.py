@@ -79,7 +79,7 @@ def setup_diag_args(parser):
     parser.add_argument(
         '-v',
         '--verbose',
-        dest='diag_verbose',
+        dest='aws_verbose',
         action='store_true',
         help='Print status information to the console'
     )

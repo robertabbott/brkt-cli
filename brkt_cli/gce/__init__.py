@@ -276,7 +276,7 @@ class EncryptGCEImageSubcommand(Subcommand):
             encrypt_gce_image_parser, parsed_config)
         setup_instance_config_args(encrypt_gce_image_parser, parsed_config)
 
-    def debug_log_to_temp_file(self):
+    def debug_log_to_temp_file(self, values):
         return True
 
     def exposed(self):
@@ -308,7 +308,7 @@ class UpdateGCEImageSubcommand(Subcommand):
             update_gce_image_parser, parsed_config)
         setup_instance_config_args(update_gce_image_parser, parsed_config)
 
-    def debug_log_to_temp_file(self):
+    def debug_log_to_temp_file(self, values):
         return True
 
     def exposed(self):

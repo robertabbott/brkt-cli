@@ -543,7 +543,7 @@ def main():
     # the user can get more details.
     debug_handler = None
     debug_log_file = None
-    if subcommand.debug_log_to_temp_file() and log_level != logging.DEBUG:
+    if subcommand.debug_log_to_temp_file(values) and log_level != logging.DEBUG:
         debug_log_file = tempfile.NamedTemporaryFile(
             delete=False, prefix='brkt_cli')
         debug_handler = logging.FileHandler(debug_log_file.name)

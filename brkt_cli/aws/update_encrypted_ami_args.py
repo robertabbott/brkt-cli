@@ -104,7 +104,7 @@ def setup_update_encrypted_ami(parser):
     parser.add_argument(
         '-v',
         '--verbose',
-        dest='update_encrypted_ami_verbose',
+        dest='aws_verbose',
         action='store_true',
         help='Print status information to the console'
     )
