@@ -110,6 +110,18 @@ def _validate_environment(benv):
         raise InvalidEnvironmentError(missing)
 
 
+def _unlink_noraise(path):
+    try:
+        os.unlink(path)
+    except OSError as e:
+        if e.errorno == errno.ENOENT:
+            pass
+        else:
+            log.exception("Failed unlinking %s", path)
+    except:
+        log.exception("Failed unlinking %s", path)
+
+
 class CLIConfig(object):
     """CLIConfig exposes an interface that subcommands can use to retrive
     persistent configuration options.
@@ -295,16 +307,12 @@ class CLIConfig(object):
         """Save the current config to disk.
         """
         f = tempfile.NamedTemporaryFile(delete=False, prefix='brkt_cli')
-        try:
-            yaml.dump(self._config, f)
-            f.close()
-        except:
-            self._unlink_noraise(f.name)
-            raise
+        yaml.dump(self._config, f)
+        f.close()
         try:
             os.rename(f.name, CONFIG_PATH)
         except:
-            self._unlink_noraise(f.name)
+            _unlink_noraise(f.name)
             raise
 
 
@@ -480,17 +488,6 @@ The leading `*' indicates that the `stage' environment is currently active.
             'env_name',
             help='The environment name')
 
-    def _unlink_noraise(self, path):
-        try:
-            os.unlink(path)
-        except OSError as e:
-            if e.errno == errno.ENOENT:
-                pass
-            else:
-                log.exception("Failed unlinking %s", path)
-        except:
-            log.exception("Failed unlinking %s", path)
-
     def _write_config(self):
         """Create ~/.brkt if it doesn't exist and safely write out a
         new config.
@@ -505,12 +502,12 @@ The leading `*' indicates that the `stage' environment is currently active.
             self.parsed_config.write(f)
             f.close()
         except:
-            self._unlink_noraise(f.name)
+            _unlink_noraise(f.name)
             raise
         try:
             os.rename(f.name, CONFIG_PATH)
         except:
-            self._unlink_noraise(f.name)
+            _unlink_noraise(f.name)
             raise
 
     def _list_options(self):
