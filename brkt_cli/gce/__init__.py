@@ -270,7 +270,8 @@ class EncryptGCEImageSubcommand(Subcommand):
         if zone:
             parsed_config.set_option('gce.zone', zone)
             parsed_config.unset_option('%s.zone' % (self.name(),))
-        parsed_config.save_config()
+        if project or network or subnetwork or zone:
+            parsed_config.save_config()
 
         encrypt_gce_image_args.setup_encrypt_gce_image_args(
             encrypt_gce_image_parser, parsed_config)
