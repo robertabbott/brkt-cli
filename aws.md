@@ -1,6 +1,27 @@
+# AWS Operations
+
+The `aws` subcommand provides all AWS related operations for encrypting and updating images.
+
+```
+$ brkt aws --help
+usage: brkt aws [-h] {diag,encrypt,share-logs,update} ...
+
+AWS operations
+
+positional arguments:
+  {diag,encrypt,share-logs,update}
+    diag                Diagnose an encrypted instance
+    encrypt             Encrypt an AWS image
+    share-logs          Share logs
+    update              Update an encrypted AWS image
+
+optional arguments:
+  -h, --help            show this help message and exit
+```
+
 # Encrypting images in AWS
 
-The `encrypt-ami` subcommand performs the following steps to create an
+The `aws encrypt` subcommand performs the following steps to create an
 encrypted image:
 
 1. Launch an instance based on an unencrypted AMI.  We call this
@@ -14,11 +35,11 @@ required by the Metavisor at runtime.
 
 ## Usage
 ```
-$ brkt encrypt-ami --help
-usage: brkt encrypt-ami [-h] [--encrypted-ami-name NAME]
+$ brkt aws encrypt --help
+usage: brkt aws encrypt [-h] [--encrypted-ami-name NAME]
                         [--guest-instance-type TYPE] [--pv] [--no-validate]
                         --region NAME [--security-group ID] [--subnet ID]
-                        [--tag KEY=VALUE] [-v] [--ntp-server DNS Name]
+                        [--tag KEY=VALUE] [-v] [--ntp-server DNS_NAME]
                         [--proxy HOST:PORT | --proxy-config-file PATH]
                         [--status-port PORT] [--token TOKEN]
                         ID
@@ -64,21 +85,19 @@ optional arguments:
                         False)
 ```
 
-The `update-encrypted-ami` subcommand updates an encrypted AMI with the latest
+The `aws update` subcommand updates an encrypted AMI with the latest
 version of the Metavisor code.
 
 ```
-$ brkt update-encrypted-ami --help
-usage: brkt update-encrypted-ami [-h] [--encrypted-ami-name NAME]
-                                 [--guest-instance-type TYPE]
-                                 [--updater-instance-type TYPE] [--pv]
-                                 [--no-validate] --region REGION
-                                 [--security-group ID] [--subnet ID]
-                                 [--tag KEY=VALUE] [-v]
-                                 [--ntp-server DNS Name]
-                                 [--proxy HOST:PORT | --proxy-config-file PATH]
-                                 [--status-port PORT] [--token TOKEN]
-                                 ID
+$ brkt aws update --help
+usage: brkt aws update [-h] [--encrypted-ami-name NAME]
+                       [--guest-instance-type TYPE]
+                       [--updater-instance-type TYPE] [--pv] [--no-validate]
+                       --region REGION [--security-group ID] [--subnet ID]
+                       [--tag KEY=VALUE] [-v] [--ntp-server DNS_NAME]
+                       [--proxy HOST:PORT | --proxy-config-file PATH]
+                       [--status-port PORT] [--token TOKEN]
+                       ID
 
 Update an encrypted AMI with the latest Metavisor release.
 
@@ -147,11 +166,11 @@ or more existing security groups.
 
 ## Encrypting an AMI
 
-Run **brkt encrypt-ami** to create a new encrypted AMI based on an existing
+Run **brkt aws encrypt** to create a new encrypted AMI based on an existing
 image:
 
 ```
-$ brkt encrypt-ami --region us-east-1 --token <token> ami-76e27e1e
+$ brkt aws encrypt --region us-east-1 --token <token> ami-76e27e1e
 15:28:37 Starting encryptor session caabe51a
 15:28:38 Launching instance i-703f4c99 to snapshot root disk for ami-76e27e1e
 ...
@@ -167,11 +186,11 @@ messages are written to stderr.
 
 ## Updating an encrypted AMI
 
-Run **brkt update-encrypted-ami** to update an encrypted AMI based on an existing
+Run **brkt aws update** to update an encrypted AMI based on an existing
 encrypted image:
 
 ```
-$ brkt update-encrypted-ami --region us-east-1 --token <token> ami-72094e18
+$ brkt aws update --region us-east-1 --token <token> ami-72094e18
 13:38:14 Using zone us-east-1a
 13:38:15 Updating ami-72094e18
 13:38:15 Creating guest volume snapshot
