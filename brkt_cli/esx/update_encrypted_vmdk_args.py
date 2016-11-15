@@ -128,12 +128,14 @@ def setup_update_vmdk_args(parser):
         default=None,
         required=False
     )
+    # Hide this argument as this is no longer required with the new command
+    # syntax. Leaving it around for backwards compatibility.
     parser.add_argument(
         '--use-esx-host',
         dest='esx_host',
         action='store_true',
         default=False,
-        help="Use single ESX host for encrytion instead of vCenter"
+        help=argparse.SUPPRESS
     )
     # Optional MV VMDK that's used to launch the updator instance.  This
     # argument is hidden because it's only used for development.
