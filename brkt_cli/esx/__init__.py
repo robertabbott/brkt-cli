@@ -357,7 +357,7 @@ def run_rescue_metavisor(values, parsed_config, log):
         raise ValidationError("Unsupported rescue protocol %s",
                               values.protocol)
     _check_env_vars_set('VCENTER_USER_NAME')
-    vcenter_password = _get_vcenter_password()
+    vcenter_password = _get_vcenter_password(False)
     # Connect to vCenter
     try:
         vc_swc = esx_service.initialize_vcenter(
