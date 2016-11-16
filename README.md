@@ -121,8 +121,8 @@ eyJhbGciOiJFUzM4NCIsInR5cCI6IkpXVCIsImtpZC...
 
 ## Encrypting an image
 
-See the [AWS](aws.md) or [GCE](gce.md) pages for platform-specific
-documentation on encrypting and updating an image.
+See the [AWS](aws.md), [GCE](gce.md) or [VMWare](esx.md) pages for 
+platform-specific documentation on encrypting and updating an image.
 
 ## <a name="docker"/>Running in a Docker container
 
