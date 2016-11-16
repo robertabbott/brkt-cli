@@ -458,7 +458,7 @@ class VMWareSubcommand(Subcommand):
             description=(
                 'Upload a Metavisor VM cores and diagnostics to a URL'
             ),
-            help='Upload Metavisor VM and cores to URL',
+            help='Upload Metavisor VM cores to URL',
             formatter_class=brkt_cli.SortingHelpFormatter
         )
         rescue_metavisor_args.setup_rescue_metavisor_args(
