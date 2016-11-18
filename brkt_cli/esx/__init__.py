@@ -41,6 +41,7 @@ from brkt_cli.esx import (
     update_vmdk,
     update_encrypted_vmdk_args,
     encrypt_with_esx_host_args,
+    update_with_esx_host_args,
 )
 from brkt_cli.validation import ValidationError
 
@@ -449,7 +450,7 @@ class VMWareSubcommand(Subcommand):
             help='Update an encrypted VMDK on an ESX host',
             formatter_class=brkt_cli.SortingHelpFormatter
         )
-        encrypt_with_esx_host_args.setup_encrypt_with_esx_host_args(
+        update_with_esx_host_args.setup_update_with_esx_host_args(
             update_with_esx_parser)
         setup_instance_config_args(update_with_esx_parser, parsed_config)
 
