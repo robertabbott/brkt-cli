@@ -64,13 +64,6 @@ def setup_update_with_esx_host_args(parser):
         required=False
     )
     parser.add_argument(
-        '--no-validate',
-        dest='validate',
-        action='store_false',
-        default=True,
-        help="Don't validate VMDKs and vCenter credentials"
-    )
-    parser.add_argument(
         '--update-ovf',
         dest='create_ovf',
         action='store_true',

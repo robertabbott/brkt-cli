@@ -83,11 +83,11 @@ def setup_encrypt_vmdk_args(parser):
         required=False
     )
     parser.add_argument(
-        '--no-validate',
+        '--no-verify-cert',
         dest='validate',
         action='store_false',
         default=True,
-        help="Don't validate VMDKs and vCenter credentials"
+        help="Don't validate vCenter certificate"
     )
     parser.add_argument(
         '--create-ovf',
