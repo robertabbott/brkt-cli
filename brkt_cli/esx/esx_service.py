@@ -772,6 +772,12 @@ class VCenterService(BaseVCenterService):
         ova_path = "".join(ova_list)
         ovftool_cmd = ovftool_path + " " + ovf_path + " " + ova_path
         os.system(ovftool_cmd)
+        try:
+            os.remove(ovf_path)
+        except Exception as e:
+            log.warn("Cannot delete OVF file %s (error %s). "
+                     "Please delete it manually."
+                     % (ovf_path, e))
         return ova_path
 
     def convert_ova_to_ovf(self, ovftool_path, ova_path):
