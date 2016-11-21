@@ -10,7 +10,7 @@ from brkt_cli.encryptor_service import (
     wait_for_encryptor_up
 )
 from brkt_cli.gce.gce_service import gce_metadata_from_userdata
-from brkt_cli.util import Deadline, retry
+from brkt_cli.util import Deadline, retry, append_suffix
 from googleapiclient import errors
 
 
@@ -32,9 +32,18 @@ def setup_encryption(gce_svc,
         guest_size = gce_svc.get_disk_size(zone, instance_name)
         # create blank disk. the encrypted image will be
         # dd'd to this disk. Blank disk should be 2x the size
-        # of the unencrypted guest root
+        # of the unencrypted guest root (GCM)
         log.info('Creating disk for encrypted image')
         gce_svc.create_disk(zone, encrypted_image_disk, guest_size * 2 + 1)
+        #
+        # Amazing but true - just attach a big drive to get more IOPS
+        # to be shared by all volumes attached to this VM. We don't
+        # use the dummy-iops drive but get to use it's IOPS for other
+        # drives.
+        #
+        log.info('Creating dummy IOPS disk')
+        dummy_name = append_suffix(encrypted_image_disk, "-dummy-iops", 64)
+        gce_svc.create_disk(zone, dummy_name, 500)
     except:
         log.info('Encryption setup failed')
         raise
@@ -53,13 +62,15 @@ def do_encryption(gce_svc,
                   status_port=ENCRYPTOR_STATUS_PORT):
     metadata = gce_metadata_from_userdata(instance_config.make_userdata())
     log.info('Launching encryptor instance')
+    dummy_name = append_suffix(encrypted_image_disk, "-dummy-iops", 64)
     gce_svc.run_instance(zone=zone,
                          name=encryptor,
                          image=encryptor_image,
                          network=network,
                          subnet=subnetwork,
                          disks=[gce_svc.get_disk(zone, instance_name),
-                                gce_svc.get_disk(zone, encrypted_image_disk)],
+                                gce_svc.get_disk(zone, encrypted_image_disk),
+                                gce_svc.get_disk(zone, dummy_name)],
                          metadata=metadata)
 
     try:
