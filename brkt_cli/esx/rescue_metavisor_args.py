@@ -31,6 +31,13 @@ def setup_rescue_metavisor_args(parser):
         metavar='NAME',
         required=True)
     parser.add_argument(
+        '--no-verify-cert',
+        dest='validate',
+        action='store_false',
+        default=True,
+        help="Don't validate vCenter certificate"
+    )
+    parser.add_argument(
         'vm_name',
         metavar='VM-NAME',
         help='Specify the name of the metavisor VM'

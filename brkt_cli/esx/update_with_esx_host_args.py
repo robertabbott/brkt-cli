@@ -14,43 +14,24 @@
 import argparse
 
 
-def setup_encrypt_vmdk_args(parser):
+def setup_update_with_esx_host_args(parser):
     parser.add_argument(
-        'vmdk',
-        metavar='VMDK-NAME',
-        help='The Guest VMDK that will be encrypted'
-    )
-    parser.add_argument(
-        "--vcenter-host",
-        help="IP address/DNS Name of the vCenter host",
+        "--esx-host",
+        help="IP address/DNS Name of the ESX host",
         dest="vcenter_host",
         metavar='DNS_NAME',
         required=True)
     parser.add_argument(
-        "--vcenter-port",
-        help="Port Number of the vCenter Server",
+        "--esx-port",
+        help="Port Number of the ESX Server",
         metavar='N',
         dest="vcenter_port",
         default="443",
         required=False)
     parser.add_argument(
-        "--vcenter-datacenter",
-        help="vCenter Datacenter to use",
-        dest="vcenter_datacenter",
-        metavar='NAME',
-        default=None,
-        required=False)
-    parser.add_argument(
-        "--vcenter-datastore",
-        help="vCenter datastore to use",
+        "--esx-datastore",
+        help="ESX datastore to use",
         dest="vcenter_datastore",
-        metavar='NAME',
-        default=None,
-        required=False)
-    parser.add_argument(
-        "--vcenter-cluster",
-        help="vCenter cluster to use",
-        dest="vcenter_cluster",
         metavar='NAME',
         default=None,
         required=False)
@@ -83,25 +64,18 @@ def setup_encrypt_vmdk_args(parser):
         required=False
     )
     parser.add_argument(
-        '--no-verify-cert',
-        dest='validate',
-        action='store_false',
-        default=True,
-        help="Don't validate vCenter certificate"
-    )
-    parser.add_argument(
-        '--create-ovf',
+        '--update-ovf',
         dest='create_ovf',
         action='store_true',
         default=False,
-        help="Create OVF package"
+        help="Update OVF package"
     )
     parser.add_argument(
-        '--create-ova',
+        '--update-ova',
         dest='create_ova',
         action='store_true',
         default=False,
-        help="Create OVA package"
+        help="Update OVA package"
     )
     parser.add_argument(
         '--encrypted-image-directory',
@@ -153,15 +127,6 @@ def setup_encrypt_vmdk_args(parser):
         required=False
     )
 
-    # Hide this argument as this is no longer required with the new command
-    # syntax. Leaving it around for backwards compatibility.
-    parser.add_argument(
-        '--use-esx-host',
-        dest='esx_host',
-        action='store_true',
-        default=False,
-        help=argparse.SUPPRESS
-    )
     # Optional VMDK that's used to launch the encryptor instance.  This
     # argument is hidden because it's only used for development.
     parser.add_argument(

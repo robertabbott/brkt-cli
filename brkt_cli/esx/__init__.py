@@ -41,6 +41,7 @@ from brkt_cli.esx import (
     update_vmdk,
     update_encrypted_vmdk_args,
     encrypt_with_esx_host_args,
+    update_with_esx_host_args,
 )
 from brkt_cli.validation import ValidationError
 
@@ -128,6 +129,7 @@ def run_encrypt(values, parsed_config, log, use_esx=False):
             no_of_cpus=values.no_of_cpus,
             memory_gb=values.memory_gb,
             session_id=session_id,
+            verify=False if use_esx else values.validate,
         )
     except Exception as e:
         raise ValidationError("Failed to connect to vCenter: ", e)
@@ -292,6 +294,7 @@ def run_update(values, parsed_config, log, use_esx=False):
             no_of_cpus=values.no_of_cpus,
             memory_gb=values.memory_gb,
             session_id=session_id,
+            verify=False if use_esx else values.validate,
         )
     except Exception as e:
         raise ValidationError("Failed to connect to vCenter: ", e)
@@ -372,6 +375,7 @@ def run_rescue_metavisor(values, parsed_config, log):
             no_of_cpus=None,
             memory_gb=None,
             session_id=session_id,
+            verify=values.validate,
         )
     except Exception as e:
         raise ValidationError("Failed to connect to vCenter ", e)
@@ -449,7 +453,7 @@ class VMWareSubcommand(Subcommand):
             help='Update an encrypted VMDK on an ESX host',
             formatter_class=brkt_cli.SortingHelpFormatter
         )
-        encrypt_with_esx_host_args.setup_encrypt_with_esx_host_args(
+        update_with_esx_host_args.setup_update_with_esx_host_args(
             update_with_esx_parser)
         setup_instance_config_args(update_with_esx_parser, parsed_config)
 
