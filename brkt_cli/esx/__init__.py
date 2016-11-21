@@ -129,6 +129,7 @@ def run_encrypt(values, parsed_config, log, use_esx=False):
             no_of_cpus=values.no_of_cpus,
             memory_gb=values.memory_gb,
             session_id=session_id,
+            verify=False if use_esx else values.validate,
         )
     except Exception as e:
         raise ValidationError("Failed to connect to vCenter: ", e)
@@ -293,6 +294,7 @@ def run_update(values, parsed_config, log, use_esx=False):
             no_of_cpus=values.no_of_cpus,
             memory_gb=values.memory_gb,
             session_id=session_id,
+            verify=False if use_esx else values.validate,
         )
     except Exception as e:
         raise ValidationError("Failed to connect to vCenter: ", e)
@@ -373,6 +375,7 @@ def run_rescue_metavisor(values, parsed_config, log):
             no_of_cpus=None,
             memory_gb=None,
             session_id=session_id,
+            verify=values.validate,
         )
     except Exception as e:
         raise ValidationError("Failed to connect to vCenter ", e)
