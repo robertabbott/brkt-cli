@@ -14,7 +14,7 @@ def setup_update_gce_image_args(parser, parsed_config):
         help='Specify the name of the generated encrypted image',
         required=False
     )
-    required_zone = parsed_config.get_option('encrypt-gce-image.zone', None)
+    required_zone = parsed_config.get_option('gce.zone', None)
     parser.add_argument(
         '--zone',
         help='GCE zone to operate in',
@@ -29,7 +29,7 @@ def setup_update_gce_image_args(parser, parsed_config):
         default='prod',
         required=False
     )
-    required_project = parsed_config.get_option('encrypt-gce-image.project', None)
+    required_project = parsed_config.get_option('gce.project', None)
     parser.add_argument(
         '--project',
         help='GCE project name',
@@ -52,13 +52,13 @@ def setup_update_gce_image_args(parser, parsed_config):
     parser.add_argument(
         '--network',
         dest='network',
-        default=parsed_config.get_option('encrypt-gce-image.network', 'default'),
+        default=parsed_config.get_option('gce.network', 'default'),
         required=False
     )
     parser.add_argument(
         '--subnetwork',
         dest='subnetwork',
-        default=parsed_config.get_option('encrypt-gce-image.subnetwork', None),
+        default=parsed_config.get_option('gce.subnetwork', None),
         required=False
     )
     # Optional arg <image name>.image.tar.gz for specifying metavisor

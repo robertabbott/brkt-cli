@@ -17,7 +17,7 @@ def setup_encrypt_gce_image_args(parser, parsed_config):
     zone_kwargs = {
         'help': 'GCE zone to operate in',
         'dest': 'zone',
-        'default': parsed_config.get_option('encrypt-gce-image.zone'),
+        'default': parsed_config.get_option('gce.zone'),
         'required': False,
     }
     if zone_kwargs['default'] is None:
@@ -43,7 +43,7 @@ def setup_encrypt_gce_image_args(parser, parsed_config):
     proj_kwargs = {
         'help': 'GCE project name',
         'dest': 'project',
-        'default': parsed_config.get_option('encrypt-gce-image.project'),
+        'default': parsed_config.get_option('gce.project'),
         'required': False,
     }
     if proj_kwargs['default'] is None:
@@ -66,13 +66,13 @@ def setup_encrypt_gce_image_args(parser, parsed_config):
     parser.add_argument(
         '--network',
         dest='network',
-        default=parsed_config.get_option('encrypt-gce-image.network', 'default'),
+        default=parsed_config.get_option('gce.network', 'default'),
         required=False
     )
     parser.add_argument(
         '--subnetwork',
         dest='subnetwork',
-        default=parsed_config.get_option('encrypt-gce-image.subnetwork', None),
+        default=parsed_config.get_option('gce.subnetwork', None),
         required=False
     )
     # Optional Image Name that's used to launch the encryptor instance. This

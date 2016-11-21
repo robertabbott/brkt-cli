@@ -364,7 +364,10 @@ def check_jwt_auth(brkt_env, jwt):
         log.debug('Server returned %d', response.getcode())
     except urllib2.HTTPError as e:
         if e.code == 401:
-            raise ValidationError('Unauthorized token.')
+            raise ValidationError(
+                'Token is not authorized to access %s' %
+                brkt_env.public_api_host
+            )
         elif e.code == 400:
             payload = e.read()
             if payload:
