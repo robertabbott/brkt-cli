@@ -250,7 +250,7 @@ class VmodlExceptionChecker(RetryExceptionChecker):
 class VCenterService(BaseVCenterService):
     def __init__(self, host, user, password, port,
                  datacenter_name, datastore_name, esx_host,
-                 cluster_name, no_of_cpus, memoryGB, session_id):
+                 cluster_name, no_of_cpus, memoryGB, session_id, verify):
         super(VCenterService, self).__init__(
             host, user, password, port, datacenter_name, datastore_name,
             esx_host, cluster_name, no_of_cpus, memoryGB, session_id)
