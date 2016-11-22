@@ -59,6 +59,7 @@ def do_encryption(gce_svc,
                   encrypted_image_disk,
                   network,
                   subnetwork,
+                  cleanup,
                   status_port=ENCRYPTOR_STATUS_PORT):
     metadata = gce_metadata_from_userdata(instance_config.make_userdata())
     log.info('Launching encryptor instance')
@@ -87,8 +88,9 @@ def do_encryption(gce_svc,
         if f:
             log.info('Encryption failed. Writing console to %s' % f)
         raise
-    retry(function=gce_svc.delete_instance,
-            on=[httplib.BadStatusLine, socket.error, errors.HttpError])(zone, encryptor)
+    if cleanup:
+        retry(function=gce_svc.delete_instance,
+                on=[httplib.BadStatusLine, socket.error, errors.HttpError])(zone, encryptor)
 
 
 def create_image(gce_svc, zone, encrypted_image_disk, encrypted_image_name, encryptor):
@@ -143,7 +145,7 @@ def encrypt(gce_svc, enc_svc_cls, image_id, encryptor_image,
         # customer image and blank disk
         do_encryption(gce_svc, enc_svc_cls, zone, encryptor, encryptor_image,
                       instance_name, instance_config, encrypted_image_disk,
-                      network, subnetwork, status_port=status_port)
+                      network, subnetwork, cleanup, status_port=status_port)
 
         # create image
         create_image(gce_svc, zone, encrypted_image_disk, encrypted_image_name, encryptor)
