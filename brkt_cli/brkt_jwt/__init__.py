@@ -193,15 +193,19 @@ def get_payload(jwt_string):
 def validate_name_value(name, value):
     """ Validate the format of a NAME=VALUE pair.
 
-    : return: True if valid
-    : raise: ValidationError if the format is invalid
+    :raise ValidationError if the format is invalid
     """
     if not re.match(r'[A-Za-z0-9_\-]+$', name) or \
-        not re.match(r'[A-Za-z0-9_\-]+$', value):
+            not re.match(r'[A-Za-z0-9_\-]+$', value):
         raise ValidationError(
-            'NAME=VALUE claim must only contain letters, numbers, "-" and "_"')
-    else:
-        return True
+            'Claim name and value must only contain letters, numbers, "-" '
+            'and "_"'
+        )
+    # Don't allow "any", since we treat it as a reserved word.
+    if name.lower() == 'any' or value.lower() == 'any':
+        raise ValidationError(
+            '"any" is not allowed for claim name or value'
+        )
 
 
 def setup_make_jwt_args(subparsers):
