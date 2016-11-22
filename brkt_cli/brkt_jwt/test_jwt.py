@@ -107,6 +107,17 @@ class TestGenerateJWT(unittest.TestCase):
         with self.assertRaises(ValidationError):
             brkt_cli.validate_jwt(jwt)
 
+    def test_validate_name_value(self):
+        brkt_jwt.validate_name_value('abc123_-', 'abc123_-')
+        with self.assertRaises(ValidationError):
+            brkt_jwt.validate_name_value('valid', 'invalid!')
+        with self.assertRaises(ValidationError):
+            brkt_jwt.validate_name_value('invalid!', 'valid')
+        with self.assertRaises(ValidationError):
+            brkt_jwt.validate_name_value('any', 'valid')
+        with self.assertRaises(ValidationError):
+            brkt_jwt.validate_name_value('valid', 'any')
+
 
 class TestJWK(unittest.TestCase):
 

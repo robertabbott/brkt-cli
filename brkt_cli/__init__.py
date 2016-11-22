@@ -566,6 +566,7 @@ def main():
     result = 1
 
     # Run the subcommand.
+    allow_debug_log = True
     try:
         result = subcommand.run(values)
         if not isinstance(result, (int, long)):
@@ -573,6 +574,7 @@ def main():
                 '%s did not return an integer result' % subcommand.name())
         log.debug('%s returned %d', subcommand.name(), result)
     except ValidationError as e:
+        allow_debug_log = False
         print(e, file=sys.stderr)
     except util.BracketError as e:
         if values.verbose:
@@ -580,18 +582,19 @@ def main():
         else:
             log.error(e.message)
     except KeyboardInterrupt:
+        allow_debug_log = False
         if values.verbose:
             log.exception('Interrupted by user')
         else:
             log.error('Interrupted by user')
     finally:
         if debug_handler:
-            if result == 0:
-                os.remove(debug_log_file.name)
-            else:
+            if result != 0 and allow_debug_log:
                 debug_handler.close()
                 logging.root.removeHandler(debug_handler)
                 log.info('Debug log is available at %s', debug_log_file.name)
+            else:
+                os.remove(debug_log_file.name)
     return result
 
 
